@@ -25,15 +25,15 @@ let PhaseValueMapping: [Phase: [PhaseItem: Double]] = [
     // 空
     Phase.Idle: [PhaseItem.Scroll: 0.0, PhaseItem.Momentum: 0.0],
     // 手指触碰
-    Phase.Contact: [PhaseItem.Scroll: 128.0, PhaseItem.Momentum: 0.0],
+    Phase.Contact: [PhaseItem.Scroll: 0.0, PhaseItem.Momentum: 0.0],
     // 跟随滚动
-    Phase.Tracing: [PhaseItem.Scroll: 2.0, PhaseItem.Momentum: 0.0],
+    Phase.Tracing: [PhaseItem.Scroll: 0.0, PhaseItem.Momentum: 0.0],
     // 缓动
     Phase.Momentum: [PhaseItem.Scroll: 0.0, PhaseItem.Momentum: 2.0],
     // 缓动停止 (自动, 如缓动到达临界值)
     Phase.PauseAuto: [PhaseItem.Scroll: 0.0, PhaseItem.Momentum: 3.0],
     // 缓动停止 (手动)
-    Phase.PauseManual: [PhaseItem.Scroll: 4.0, PhaseItem.Momentum: 0.0],
+    Phase.PauseManual: [PhaseItem.Scroll: 0.0, PhaseItem.Momentum: 0.0],
 ]
 
 class ScrollPhase {
