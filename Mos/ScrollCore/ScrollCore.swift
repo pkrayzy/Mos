@@ -8,7 +8,6 @@
 
 import Cocoa
 
-
 class ScrollCore {
     
     // 单例
@@ -50,8 +49,8 @@ class ScrollCore {
         //     ScrollPoster.shared.pauseAuto()
         //     return nil
         // }
-        // 滚动阶段
-        ScrollPhase.shared.syncPhase()
+        // 滚动阶段介入
+        ScrollPhase.shared.kickIn()
         // 是否返回原始事件 (不启用平滑时)
         var returnOriginalEvent = true
         // 当鼠标输入, 根据需要执行翻转方向/平滑滚动
@@ -210,19 +209,19 @@ class ScrollCore {
         ScrollCore.shared.toggleScroll = false
         ScrollCore.shared.blockSmooth = false
     }
-    func tryToggleEnableAllFlag(for targetAppliaction:ExceptionalApplication?, with keyCode:CGKeyCode, using keyPair:[CGKeyCode], on down:Bool) {
+    func tryToggleEnableAllFlag(for targetApplication:ExceptionalApplication?, with keyCode:CGKeyCode, using keyPair:[CGKeyCode], on down:Bool) {
         // 读取快捷键
-        let dashKey = ScrollUtils.shared.optionsDashOn(application: targetAppliaction)
-        let toggleKey = ScrollUtils.shared.optionsToggleOn(application: targetAppliaction)
-        let blockKey = ScrollUtils.shared.optionsBlockOn(application: targetAppliaction)
+        let dashKey = ScrollUtils.shared.optionsDashOn(application: targetApplication)
+        let toggleKey = ScrollUtils.shared.optionsToggleOn(application: targetApplication)
+        let blockKey = ScrollUtils.shared.optionsBlockOn(application: targetApplication)
         if down {
             // 如果按下, 则按需激活
             ScrollCore.shared.tryEnableDashFlag(with: dashKey, andKeyPair: keyPair)
             ScrollCore.shared.tryEnableToggleFlag(with: toggleKey, andKeyPair: keyPair)
             ScrollCore.shared.tryEnableBlockFlag(with: blockKey, andKeyPair: keyPair)
             // 并更新记录器
-            ScrollCore.shared.currentExceptionalApplication = targetAppliaction
-        } else if ScrollCore.shared.currentExceptionalApplication == targetAppliaction {
+            ScrollCore.shared.currentExceptionalApplication = targetApplication
+        } else if ScrollCore.shared.currentExceptionalApplication == targetApplication {
             // 如果弹起, 且与先前的目标应用相同, 则按需关闭
             ScrollCore.shared.tryDisableDashFlag(with: dashKey, andKeyPair: keyPair)
             ScrollCore.shared.tryDisableToggleFlag(with: toggleKey, andKeyPair: keyPair)

@@ -200,7 +200,7 @@ extension PreferencesExceptionViewController: NSMenuDelegate {
         // openPanel.allowedFileTypes = ["app", "App", "APP"]
         // 打开文件选择窗口并读取文件添加到 ExceptionalApplications 列表中
         openPanel.beginSheetModal(for: view.window!, completionHandler: { result in
-            if result.rawValue == NSFileHandlingPanelOKButton && result == NSApplication.ModalResponse.OK {
+            if result.rawValue == NSApplication.ModalResponse.OK.rawValue && result == NSApplication.ModalResponse.OK {
                 // 根据路径获取 application 信息并保存到 ExceptionalApplications 列表中
                 if let bundlePath = openPanel.url?.path {
                     self.appendApplicationWith(path: bundlePath)
@@ -217,7 +217,7 @@ extension PreferencesExceptionViewController: NSMenuDelegate {
         for runningApplication in NSWorkspace.shared.runningApplications {
             guard runningApplication.activationPolicy == .regular else { continue }
             let icon = Utils.getApplicationIcon(fromPath: runningApplication.bundleURL?.path)
-            let name = Utils.getAppliactionName(fromPath: runningApplication.executableURL?.path)
+            let name = Utils.getApplicationName(fromPath: runningApplication.executableURL?.path)
             let isExist = ScrollUtils.shared.getExceptionalApplication(from: runningApplication) !== nil
             Utils.addMenuItem(
                 to: runningAndInstalledMenuChildrenContainer,

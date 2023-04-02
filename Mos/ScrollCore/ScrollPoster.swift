@@ -90,15 +90,19 @@ extension ScrollPoster {
     func create() {
         // 新建一个 CVDisplayLinkSetOutputCallback 来执行循环
         CVDisplayLinkCreateWithActiveCGDisplays(&poster)
-        CVDisplayLinkSetOutputCallback(poster!, { (displayLink, inNow, inOutputTime, flagsIn, flagsOut, displayLinkContext) -> CVReturn in
-            ScrollPoster.shared.processing()
-            return kCVReturnSuccess
-        }, nil)
+        if let validPoster = poster {
+            CVDisplayLinkSetOutputCallback(validPoster, { (displayLink, inNow, inOutputTime, flagsIn, flagsOut, displayLinkContext) -> CVReturn in
+                ScrollPoster.shared.processing()
+                return kCVReturnSuccess
+            }, nil)
+        }
     }
     // 启动事件发送器
     func tryStart() {
-        if !CVDisplayLinkIsRunning(poster!) {
-            CVDisplayLinkStart(poster!)
+        if let validPoster = poster {
+            if !CVDisplayLinkIsRunning(validPoster) {
+                CVDisplayLinkStart(validPoster)
+            }
         }
     }
     // 停止事件发送器
@@ -107,13 +111,16 @@ extension ScrollPoster {
         if let validPoster = poster {
             CVDisplayLinkStop(validPoster)
         }
-        // 更新阶段
-        ScrollPhase.shared.phase = phase
+        // 先设置阶段为停止
+        ScrollPhase.shared.stop(phase)
         // 对于 Phase.PauseAuto, 我们在结束前额外发送一个事件来重置 Chrome 的滚动缓冲区
-        if phase == Phase.PauseAuto {
+        if let validEvent = ref.event, ScrollUtils.shared.isEventTargetingChrome(validEvent) {
+            // 需要附加特定的阶段数据, 只有 Phase.PauseManual 对应的 [4.0, 0.0] 可以正确使 Chrome 恢复
+            validEvent.setDoubleValueField(.scrollWheelEventScrollPhase, value: PhaseValueMapping[Phase.PauseManual]![PhaseItem.Scroll]!)
+            validEvent.setDoubleValueField(.scrollWheelEventMomentumPhase, value: PhaseValueMapping[Phase.PauseManual]![PhaseItem.Momentum]!)
             post(ref, (y: 0.0, x: 0.0))
         }
-        // 最后重置参数
+        // 重置参数
         reset()
     }
 }
@@ -149,7 +156,7 @@ private extension ScrollPoster {
     func post(_ r: (event: CGEvent?, proxy: CGEventTapProxy?), _ v: (y: Double, x: Double)) {
         if let proxy = r.proxy, let eventClone = r.event?.copy() {
             // 设置阶段数据
-            ScrollPhase.shared.attachExtraData(to: eventClone)
+            ScrollPhase.shared.transfrom()
             // 设置滚动数据
             eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: v.y)
             eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: v.x)
