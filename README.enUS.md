@@ -1,6 +1,6 @@
 <p align="center">
   <a href="http://mos.caldis.me/">
-    <img width="320" src="https://github.com/Caldis/Mos/blob/master/docs/resources/image/intro.png?raw=true">
+    <img width="320" src="https://github.com/Caldis/Mos/blob/master/dmg/dmg-icon.png?raw=true">
   </a>
 </p>
 
@@ -12,7 +12,8 @@
 
 A free & simple app to allow your mouse wheel to scroll smoothly on macOS.
 
-[中文](https://github.com/Caldis/Mos/blob/master/README.md) | [English](https://github.com/Caldis/Mos/blob/master/README.enUS.md)
+[中文](https://github.com/Caldis/Mos/blob/master/README.md) | [English](https://github.com/Caldis/Mos/blob/master/README.enUS.md) |
+[Русский](https://github.com/Caldis/Mos/blob/master/README.ru.md)
 
 
 ## Homepage
@@ -30,22 +31,6 @@ http://mos.caldis.me/
 - Coded with Swift.
 
 
-## Screenshot
-
-<p align="center">
-  <img width="600" src="https://github.com/Caldis/Mos/blob/master/docs/resources/image/en/Mointor.png?raw=true">
-</p>
-<p align="center">
-  <img width="600" src="https://github.com/Caldis/Mos/blob/master/docs/resources/image/en/PreferencesGeneral.png?raw=true">
-</p>
-<p align="center">
-  <img width="600" src="https://github.com/Caldis/Mos/blob/master/docs/resources/image/en/PreferencesAdvanced.png?raw=true">
-</p>
-<p align="center">
-  <img width="600" src="https://github.com/Caldis/Mos/blob/master/docs/resources/image/en/PreferencesExceptionFull.png?raw=true">
-</p>
-
-
 ## Download & Install
 
 ### Homebrew
@@ -53,7 +38,7 @@ http://mos.caldis.me/
 If you wish to install the application from [Homebrew](https://brew.sh):
 
 ```bash
-$ brew install mos
+$ brew install --cask mos
 ```
 
 The application will live at `/Applications/Mos.app`.
@@ -74,7 +59,7 @@ Quit then relaunch the app.
 
 ## Guide
 
-- [GithubWiki](https://github.com/Caldis/Mos/wiki)
+- [Wiki](https://github.com/Caldis/Mos/wiki)
 
 
 ## Thanks
