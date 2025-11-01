@@ -10,3 +10,4 @@ website/node_modules
 xcuserdata
 *.xcuserstate
 *.xcuserdated
+/Build
