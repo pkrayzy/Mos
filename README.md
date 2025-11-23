@@ -13,7 +13,8 @@
 一个用于在MacOS上平滑你的鼠标滚动效果的小工具, 让你的滚轮爽如触控板。
 
 [中文](https://github.com/Caldis/Mos/blob/master/README.md) | [English](https://github.com/Caldis/Mos/blob/master/README.enUS.md) |
-[Русский](https://github.com/Caldis/Mos/blob/master/README.ru.md)
+[Русский](https://github.com/Caldis/Mos/blob/master/README.ru.md) |
+[Indonesia](https://github.com/Caldis/Mos/blob/master/README.id.md)
 
 
 ## 主页
@@ -23,10 +24,10 @@ http://mos.caldis.me/
 
 ## 特性
 
-- 平滑你的鼠标滚动体验, 并可自定义加速度与曲线, 也可按不同方向分别处理
+- 平滑你的鼠标滚动体验, 并可自定义加速度与曲线, 也可按滚动方向分别处理
 - 支持分离触控板/鼠标事件, 可按垂直/水平方向分别设置平滑与反向
-- 「按钮」面板支持鼠标快捷键, 绑定系统快捷键并随时启用/禁用
-- 「应用」模块支持按应用处理不同的鼠标策略
+- 支持自订鼠标快捷键, 绑定各种系统快捷键
+- 支持按应用处理不同的配置策略
 
 ## 下载及安装
 
@@ -73,7 +74,7 @@ $ brew reinstall mos
 我们欢迎任何形式的贡献，有任何建议或意见您可以给我们 [提问](https://github.com/Caldis/Mos/issues)。
 
 
-## LICENSE
+  ## LICENSE
 
 Copyright (c) 2017 Caldis rights reserved.
 
