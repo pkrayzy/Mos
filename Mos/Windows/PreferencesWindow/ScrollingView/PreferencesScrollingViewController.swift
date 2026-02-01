@@ -263,6 +263,41 @@ extension PreferencesScrollingViewController {
         })
     }
 
+    /// 按键的完整名称映射 (仅用于 ScrollingView 按钮显示)
+    private static let keyFullNames: [UInt16: String] = [
+        // 修饰键
+        KeyCode.commandL: "⌘ Command",
+        KeyCode.commandR: "⌘ Command",
+        KeyCode.optionL: "⌥ Option",
+        KeyCode.optionR: "⌥ Option",
+        KeyCode.shiftL: "⇧ Shift",
+        KeyCode.shiftR: "⇧ Shift",
+        KeyCode.controlL: "⌃ Control",
+        KeyCode.controlR: "⌃ Control",
+        KeyCode.fnL: "Fn",
+        KeyCode.fnR: "Fn",
+        // 特殊键
+        49: "⎵ Space",
+        51: "⌫ Delete",
+        53: "⎋ Escape",
+        36: "↩ Return",
+        76: "↩ Return",
+        48: "↹ Tab",
+    ]
+
+    /// 获取按键的完整显示名称 (修饰键和特殊键显示完整文案)
+    private func getFullDisplayName(for keyCode: Int) -> String {
+        let code = UInt16(keyCode)
+        // 优先使用完整名称映射
+        if let fullName = PreferencesScrollingViewController.keyFullNames[code] {
+            return fullName
+        }
+        // 其他按键使用原始映射
+        return KeyCode.keyMap[code]
+            ?? KeyCode.mouseMap[code]
+            ?? "Key \(keyCode)"
+    }
+
     /// 更新热键按钮的显示文本和删除按钮可见性
     /// - Parameters:
     ///   - button: 绑定按钮
@@ -278,9 +313,7 @@ extension PreferencesScrollingViewController {
         // 获取显示名称
         let displayName: String
         if hasBound, let code = keyCode {
-            displayName = KeyCode.keyMap[UInt16(code)]
-                ?? KeyCode.mouseMap[UInt16(code)]
-                ?? "Key \(code)"
+            displayName = getFullDisplayName(for: code)
         } else {
             displayName = NSLocalizedString("Disabled", comment: "Hotkey disabled state")
         }
