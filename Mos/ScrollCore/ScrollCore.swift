@@ -23,6 +23,10 @@ class ScrollCore {
         didSet { ScrollPoster.shared.updateShifting(enable: toggleScroll) }
     }
     var blockSmooth = false
+    // 非修饰键热键的按下状态跟踪
+    var dashKeyHeld = false
+    var toggleKeyHeld = false
+    var blockKeyHeld = false
     // 例外应用数据
     var application: Application?
     var currentApplication: Application? // 用于区分按下热键及抬起时的作用目标
@@ -32,7 +36,14 @@ class ScrollCore {
     var mouseEventInterceptor: Interceptor?
     // 拦截掩码
     let scrollEventMask = CGEventMask(1 << CGEventType.scrollWheel.rawValue)
-    let hotkeyEventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+    let hotkeyEventMask: CGEventMask = {
+        let flagsChanged = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+        let keyDown = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let keyUp = CGEventMask(1 << CGEventType.keyUp.rawValue)
+        let otherMouseDown = CGEventMask(1 << CGEventType.otherMouseDown.rawValue)
+        let otherMouseUp = CGEventMask(1 << CGEventType.otherMouseUp.rawValue)
+        return flagsChanged | keyDown | keyUp | otherMouseDown | otherMouseUp
+    }()
     let mouseLeftEventMask = CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
     
     // MARK: - 滚动事件处理
@@ -155,39 +166,78 @@ class ScrollCore {
     // MARK: - 热键事件处理
     let hotkeyEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
         let keyCode = event.keyCode
+        let mouseButton = UInt16(event.getIntegerValueField(.mouseEventButtonNumber))
+
+        // 判断事件类型
+        let isMouseEvent = (type == .otherMouseDown || type == .otherMouseUp)
+        let isKeyDown = (type == .keyDown || type == .otherMouseDown)
+        let isKeyUp = (type == .keyUp || type == .otherMouseUp)
+        let isFlagsChanged = (type == .flagsChanged)
 
         // 记录按键时的目标应用
-        if event.isKeyDown && ScrollCore.shared.currentApplication == nil {
+        if (event.isKeyDown || isKeyDown) && ScrollCore.shared.currentApplication == nil {
             ScrollCore.shared.currentApplication = ScrollCore.shared.application
         }
 
-        // Dash
+        // 获取配置的热键
         let (dashKeyCode, dashKeyMask) = ScrollUtils.shared.optionsDashKey(application: ScrollCore.shared.application)
-        if keyCode == dashKeyCode {
-            let dashKeyIsPressed = event.flags.contains(dashKeyMask)
-            ScrollCore.shared.dashScroll = dashKeyIsPressed
-            ScrollCore.shared.dashAmplification = dashKeyIsPressed ? 5.0 : 1.0
+        let (toggleKeyCode, toggleKeyMask) = ScrollUtils.shared.optionsToggleKey(application: ScrollCore.shared.application)
+        let (blockKeyCode, blockKeyMask) = ScrollUtils.shared.optionsBlockKey(application: ScrollCore.shared.application)
+
+        // 检测热键是否匹配并更新状态
+        func checkAndUpdateHotkey(code: CGKeyCode, mask: CGEventFlags, keyHeld: inout Bool) -> Bool? {
+            let isModifierKey = KeyCode.modifierKeys.contains(code)
+
+            if isModifierKey {
+                // 修饰键：通过 flagsChanged 事件检测
+                if isFlagsChanged && keyCode == code {
+                    return event.flags.contains(mask)
+                }
+            } else if isMouseEvent {
+                // 鼠标按键：检查按键码是否匹配
+                if mouseButton == code {
+                    if isKeyDown { keyHeld = true }
+                    if isKeyUp { keyHeld = false }
+                    return keyHeld
+                }
+            } else if isKeyDown || isKeyUp {
+                // 普通键盘按键：检查键码是否匹配
+                if keyCode == code {
+                    if isKeyDown { keyHeld = true }
+                    if isKeyUp { keyHeld = false }
+                    return keyHeld
+                }
+            }
+            return nil
+        }
+
+        // Dash
+        if let isPressed = checkAndUpdateHotkey(code: dashKeyCode, mask: dashKeyMask, keyHeld: &ScrollCore.shared.dashKeyHeld) {
+            ScrollCore.shared.dashScroll = isPressed
+            ScrollCore.shared.dashAmplification = isPressed ? 5.0 : 1.0
         }
         // Toggle
-        let (toggleKeyCode, toggleKeyMask) = ScrollUtils.shared.optionsToggleKey(application: ScrollCore.shared.application)
-        if keyCode == toggleKeyCode {
-            let toggleKeyIsPressed = event.flags.contains(toggleKeyMask)
-            ScrollCore.shared.toggleScroll = toggleKeyIsPressed
+        if let isPressed = checkAndUpdateHotkey(code: toggleKeyCode, mask: toggleKeyMask, keyHeld: &ScrollCore.shared.toggleKeyHeld) {
+            ScrollCore.shared.toggleScroll = isPressed
         }
         // Block
-        let (blockKeyCode, blockKeyMask) = ScrollUtils.shared.optionsBlockKey(application: ScrollCore.shared.application)
-        if keyCode == blockKeyCode {
-            let blockKeyIsPressed = event.flags.contains(blockKeyMask)
-            ScrollCore.shared.blockSmooth = blockKeyIsPressed
+        if let isPressed = checkAndUpdateHotkey(code: blockKeyCode, mask: blockKeyMask, keyHeld: &ScrollCore.shared.blockKeyHeld) {
+            ScrollCore.shared.blockSmooth = isPressed
         }
+
         // 处理抬起时焦点 App 变化
         let isAppTargetChanged = ScrollCore.shared.currentApplication != ScrollCore.shared.application
-        if isAppTargetChanged && event.isKeyUp {
+        let isAnyKeyUp = event.isKeyUp || isKeyUp
+        if isAppTargetChanged && isAnyKeyUp {
             // 关闭全部
             ScrollCore.shared.dashScroll = false
             ScrollCore.shared.dashAmplification = 1.0
             ScrollCore.shared.toggleScroll = false
             ScrollCore.shared.blockSmooth = false
+            // 重置按键状态
+            ScrollCore.shared.dashKeyHeld = false
+            ScrollCore.shared.toggleKeyHeld = false
+            ScrollCore.shared.blockKeyHeld = false
             // 并更新记录器
             ScrollCore.shared.currentApplication = nil
         }

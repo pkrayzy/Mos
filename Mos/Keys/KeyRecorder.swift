@@ -9,6 +9,14 @@
 
 import Cocoa
 
+/// 录制模式
+enum KeyRecordingMode {
+    /// 组合键模式：需要修饰键+普通键的组合 (用于 ButtonsView)
+    case combination
+    /// 单键模式：支持单个按键，包括单独的修饰键 (用于 ScrollingView)
+    case singleKey
+}
+
 @objc protocol KeyRecorderDelegate: AnyObject {
     /// 录制完成回调
     /// - Parameters:
@@ -24,13 +32,13 @@ import Cocoa
 }
 
 class KeyRecorder: NSObject {
-    
+
     // MARK: - Constants
     static let TIMEOUT: TimeInterval = 10.0
     static let FLAG_CHANGE_NOTI_NAME = NSNotification.Name("RECORD_FLAG_CHANGE_NOTI_NAME")
     static let FINISH_NOTI_NAME = NSNotification.Name("RECORD_FINISH_NOTI_NAME")
     static let CANCEL_NOTI_NAME = NSNotification.Name("RECORD_CANCEL_NOTI_NAME")
-    
+
     // Delegate
     weak var delegate: KeyRecorderDelegate?
     // Recording
@@ -40,6 +48,7 @@ class KeyRecorder: NSObject {
     private var recordTimeoutTimer: Timer? // 超时保护定时器
     private var invalidKeyPressCount = 0 // 无效按键计数
     private let invalidKeyThreshold = 5 // 显示 ESC 提示的阈值
+    private var recordingMode: KeyRecordingMode = .combination // 当前录制模式
     // UI 组件
     private var keyPopover: KeyPopover?
     
@@ -61,12 +70,16 @@ class KeyRecorder: NSObject {
     
     // MARK: - Recording Manager
     // 开始记录事件
-    func startRecording(from sourceView: NSView) {
+    /// - Parameters:
+    ///   - sourceView: 触发录制的视图，用于显示 Popover
+    ///   - mode: 录制模式，默认为组合键模式
+    func startRecording(from sourceView: NSView, mode: KeyRecordingMode = .combination) {
         // Guard: 防止重复执行
         guard !isRecording else { return }
         isRecording = true
+        recordingMode = mode
         // Log
-        NSLog("[EventRecorder] Starting")
+        NSLog("[EventRecorder] Starting in \(mode) mode")
         // 确保清理任何存在的录制界面
         keyPopover?.hide()
         keyPopover = nil
@@ -100,7 +113,7 @@ class KeyRecorder: NSObject {
                     let recordedEvent = event
                     switch type {
                     case .flagsChanged:
-                        // 修饰键变化，发送通知更新UI
+                        // 修饰键变化，发送通知 (单键模式下也用于完成录制)
                         DispatchQueue.main.async {
                             NotificationCenter.default.post(
                                 name: KeyRecorder.FLAG_CHANGE_NOTI_NAME,
@@ -159,7 +172,19 @@ class KeyRecorder: NSObject {
     @objc private func handleModifierFlagsChanged(_ notification: NSNotification) {
         guard isRecording && !isRecorded else { return }
         let event = notification.object as! CGEvent
-        // 如果有修饰键被按下，刷新超时定时器给用户更多时间
+
+        // 单键模式：修饰键按下时直接完成录制
+        if recordingMode == .singleKey && event.isKeyDown && event.isModifiers {
+            NSLog("[EventRecorder] Single key mode: modifier key recorded")
+            // 直接触发录制完成
+            NotificationCenter.default.post(
+                name: KeyRecorder.FINISH_NOTI_NAME,
+                object: event
+            )
+            return
+        }
+
+        // 组合键模式：如果有修饰键被按下，刷新超时定时器给用户更多时间
         let hasActiveModifiers = event.hasModifiers
         if hasActiveModifiers {
             startTimeoutTimer() // 重新启动定时器
@@ -181,8 +206,11 @@ class KeyRecorder: NSObject {
         guard isRecording else { return }
         // Guard: 获取 RecordedEvent
         let event = notification.object as! CGEvent
-        // Guard: 检查事件有效性
-        guard event.isRecordable else {
+        // Guard: 检查事件有效性 (根据录制模式使用不同的验证规则)
+        let isValid = recordingMode == .singleKey
+            ? isRecordableAsSingleKey(event)
+            : event.isRecordable
+        guard isValid else {
             NSLog("[EventRecorder] Invalid event ignored: \(event)")
             // 触发警告动画反馈
             keyPopover?.keyPreview.shakeWarning()
@@ -209,6 +237,36 @@ class KeyRecorder: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
             self?.stopRecording()
         }
+    }
+
+    // MARK: - Single Key Mode Validation
+    /// 单键模式下的事件有效性检查
+    /// - 允许单独的修饰键 (Control, Option, Command, Shift)
+    /// - 允许 F 键
+    /// - 允许普通键盘按键
+    /// - 允许鼠标侧键
+    /// - 不允许鼠标左右键
+    private func isRecordableAsSingleKey(_ event: CGEvent) -> Bool {
+        // 修饰键事件 (flagsChanged)
+        if event.type == .flagsChanged {
+            // 只有按下时才录制，抬起时忽略
+            return event.isKeyDown && event.isModifiers
+        }
+        // 键盘事件
+        if event.isKeyboardEvent {
+            // 任何键盘按键都允许 (ESC 已在上游处理)
+            return true
+        }
+        // 鼠标事件
+        if event.isMouseEvent {
+            // 左右键不允许
+            if KeyCode.mouseMainKeys.contains(event.mouseCode) {
+                return false
+            }
+            // 侧键等允许
+            return true
+        }
+        return false
     }
     // 停止记录
     func stopRecording() {

@@ -3,7 +3,7 @@
   "strings" : {
     "1LK-nr-g7N.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌥ Option\"; ObjectID = \"1LK-nr-g7N\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -249,6 +249,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mos"
+          }
+        }
+      }
+    },
+    "2dJ-u6-vHd.title" : {
+      "comment" : "Class = \"NSButtonCell\"; title = \"Disabled\"; ObjectID = \"2dJ-u6-vHd\";",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Disabled"
           }
         }
       }
@@ -663,7 +675,7 @@
     },
     "8GX-j2-4nN.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌃ Control\"; ObjectID = \"8GX-j2-4nN\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -830,7 +842,7 @@
     },
     "18C-IE-EKk.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌘ Command\"; ObjectID = \"18C-IE-EKk\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2425,7 +2437,7 @@
     },
     "c62-LZ-JNT.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌘ Command\"; ObjectID = \"c62-LZ-JNT\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2677,7 +2689,7 @@
     },
     "cTe-aL-0GQ.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"Disabled\"; ObjectID = \"cTe-aL-0GQ\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3012,7 +3024,7 @@
     },
     "dN3-Eq-Xi1.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌃ Control\"; ObjectID = \"dN3-Eq-Xi1\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5026,7 +5038,7 @@
     },
     "HrY-s6-CCB.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌃ Control\"; ObjectID = \"HrY-s6-CCB\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5977,6 +5989,18 @@
         }
       }
     },
+    "Ky0-gH-I3A.title" : {
+      "comment" : "Class = \"NSButtonCell\"; title = \"Disabled\"; ObjectID = \"Ky0-gH-I3A\";",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Disabled"
+          }
+        }
+      }
+    },
     "l7O-So-nw1.title" : {
       "comment" : "Class = \"NSTextFieldCell\"; title = \"Record Button\"; ObjectID = \"l7O-So-nw1\";",
       "extractionState" : "extracted_with_value",
@@ -6291,7 +6315,7 @@
     },
     "mmw-45-VYt.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌥ Option\"; ObjectID = \"mmw-45-VYt\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6794,7 +6818,7 @@
     },
     "PIa-ES-2Sf.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⇧ Shift\"; ObjectID = \"PIa-ES-2Sf\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7476,7 +7500,7 @@
     },
     "Sfx-Rp-8QA.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⇧ Shift\"; ObjectID = \"Sfx-Rp-8QA\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7560,7 +7584,7 @@
     },
     "Sma-iA-YxQ.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⇧ Shift\"; ObjectID = \"Sma-iA-YxQ\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8526,7 +8550,7 @@
     },
     "UJ4-y2-HO8.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌥ Option\"; ObjectID = \"UJ4-y2-HO8\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8945,7 +8969,7 @@
     },
     "vFk-37-HRU.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"Disabled\"; ObjectID = \"vFk-37-HRU\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -9029,7 +9053,7 @@
     },
     "Vhz-Rn-lcU.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"Disabled\"; ObjectID = \"Vhz-Rn-lcU\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -10358,7 +10382,7 @@
     },
     "ZqO-Rs-CpS.title" : {
       "comment" : "Class = \"NSMenuItem\"; title = \"⌘ Command\"; ObjectID = \"ZqO-Rs-CpS\";",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -10436,6 +10460,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "⌘ Command"
+          }
+        }
+      }
+    },
+    "zTP-iu-A6h.title" : {
+      "comment" : "Class = \"NSButtonCell\"; title = \"Disabled\"; ObjectID = \"zTP-iu-A6h\";",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Disabled"
           }
         }
       }
