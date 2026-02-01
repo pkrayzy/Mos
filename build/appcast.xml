@@ -14,36 +14,36 @@
       <sparkle:channel>beta</sparkle:channel>
 
       <description><![CDATA[<h2>新功能</h2>
-<ul><li>新增应用内更新检查（Sparkle），并支持 Beta 渠道开关。</li></ul>
+<ul><li>新增应用内更新检查（Sparkle），并支持可选的 Beta 渠道。</li><li>滚动功能键现在支持绑定任意热键。</li></ul>
 
 <h2>改进</h2>
-<ul><li>更新法语本地化翻译。</li></ul>
+<ul><li>补充并修正部分本地化内容。</li></ul>
 
 <h2>修复</h2>
-<ul><li>允许在不按修饰键的情况下绑定鼠标中键。</li><li>修复部分非 US 键盘布局下的快捷键问题。</li></ul>
+<ul><li>修复部分非 US 键盘布局下的快捷键问题。</li><li>修复远程桌面或部分特殊设备的滚动输入无法被正确平滑的问题。</li></ul>
 
 
 <hr/>
 
 <h2>New Feature</h2>
-<ul><li>Added in-app update checking via Sparkle, with an optional beta channel toggle.</li></ul>
+<ul><li>Added in-app update checking via Sparkle, with an optional beta channel toggle.</li><li>Scroll hotkeys can now be bound to any key.</li></ul>
 
 <h2>Improvements</h2>
-<ul><li>Updated French localization.</li></ul>
+<ul><li>Refined other localization strings.</li></ul>
 
 <h2>Fixes</h2>
-<ul><li>Allowed binding the middle mouse button without modifier keys.</li><li>Fixed some shortcut issues on non‑US keyboard layouts.</li></ul>]]></description>
-      <pubDate>Fri, 09 Jan 2026 17:10:52 +0000</pubDate>
+<ul><li>Fixed shortcut issues on non‑US keyboard layouts.</li><li>Fixed smooth scrolling not working properly with Remote Desktop or some special devices.</li></ul>]]></description>
+      <pubDate>Sun, 01 Feb 2026 17:13:28 +0000</pubDate>
 
-      <sparkle:releaseNotesLink xml:lang="zh">https://mos.caldis.me/release-notes/4.0.0-beta-20260108.1.zh.html</sparkle:releaseNotesLink>
-      <sparkle:releaseNotesLink>https://mos.caldis.me/release-notes/4.0.0-beta-20260108.1.en.html</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink xml:lang="zh">https://mos.caldis.me/release-notes/4.0.0-beta-20260201.1.zh.html</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>https://mos.caldis.me/release-notes/4.0.0-beta-20260201.1.en.html</sparkle:releaseNotesLink>
       <enclosure
-        url="https://github.com/Caldis/Mos/releases/download/4.0.0-beta-20260108.1/Mos.Versions.4.0.0-beta-20260108.1.zip"
-        length="11322045"
+        url="https://github.com/Caldis/Mos/releases/download/4.0.0-beta-20260201.1/Mos.Versions.4.0.0-beta-20260201.1.zip"
+        length="11351142"
         type="application/octet-stream"
         sparkle:shortVersionString="4.0.0-beta"
-        sparkle:version="20260108.1"
-        sparkle:edSignature="+zuoPzpX6ubZK7eBJHWBxdT+v+W/v1ah4cxJeFG9T5LtQlVCL78yWh/yPDELNDwxeGp6Aqe4tCGLbLHqMtxsAw=="
+        sparkle:version="20260201.1"
+        sparkle:edSignature="x0gMXHojmprH3MxCvI2tnlqPVEvLcthIvJoxI3kSQv4hdtYowScEHpGbpUYkHi8tezGLzXYjHbFBxasD9T9nBQ=="
         sparkle:channel="beta"
       />
     </item>
