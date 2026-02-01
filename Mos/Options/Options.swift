@@ -228,8 +228,11 @@ extension Options {
             return hotkey
         }
 
-        // 无值时返回默认值
-        return defaultValue
+        // 无值时: 检查配置是否已存在
+        // 如果配置已存在但该键无值，说明用户主动删除了它，返回 nil
+        // 如果配置不存在（首次启动），返回默认值
+        let optionsExist = UserDefaults.standard.object(forKey: OptionItem.General.OptionsExist) != nil
+        return optionsExist ? nil : defaultValue
     }
 
     // 保存滚动热键
