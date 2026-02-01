@@ -110,7 +110,7 @@ class OPTIONS_SCROLL_DEFAULT: Codable {
     var reverseHorizontal = true {
         didSet {Options.shared.saveOptions()}
     }
-    var dash:Int? = 0 {
+    var dash:Int? = 58 {
         didSet {Options.shared.saveOptions()}
     }
     var toggle:Int? = 56 {
