@@ -158,10 +158,8 @@ extension CGEvent {
             if !hasModifiers {
                 return false
             }
-            // 纯修饰键不允许被记录
-            if hasModifiers && isKeyboardEvent && keyCode == 0 {
-                return false
-            }
+            // 注意: keyCode 0 是有效按键 "A"，不要误判为"无按键"
+            // 纯修饰键按下时事件类型是 flagsChanged，不会进入这里
             return true
         }
         // 鼠标事件
