@@ -38,6 +38,8 @@ class KeyRecorder: NSObject {
     private var isRecording = false
     private var isRecorded = false // 是否已经记录过 (每次启动只记录一个按键
     private var recordTimeoutTimer: Timer? // 超时保护定时器
+    private var invalidKeyPressCount = 0 // 无效按键计数
+    private let invalidKeyThreshold = 5 // 显示 ESC 提示的阈值
     // UI 组件
     private var keyPopover: KeyPopover?
     
@@ -184,6 +186,11 @@ class KeyRecorder: NSObject {
             NSLog("[EventRecorder] Invalid event ignored: \(event)")
             // 触发警告动画反馈
             keyPopover?.keyPreview.shakeWarning()
+            // 计数无效按键，达到阈值时显示 ESC 提示
+            invalidKeyPressCount += 1
+            if invalidKeyPressCount >= invalidKeyThreshold {
+                keyPopover?.showEscHint()
+            }
             return
         }
         // 更新记录标识
@@ -224,6 +231,7 @@ class KeyRecorder: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.isRecording = false
             self?.isRecorded = false
+            self?.invalidKeyPressCount = 0
             NSLog("[EventRecorder] Stopped")
         }
     }

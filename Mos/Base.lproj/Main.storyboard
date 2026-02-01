@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="24127" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="24506" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24127"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24506"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -272,7 +272,7 @@
                                             <color key="backgroundColor" red="0.11764705882352941" green="0.11764705882352941" blue="0.11764705882352941" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
                                             <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                             <tableColumns>
-                                                <tableColumn identifier="Hotkey" width="417.5" minWidth="40" maxWidth="1000" id="gd2-WO-uk9">
+                                                <tableColumn identifier="Hotkey" width="418" minWidth="40" maxWidth="1000" id="gd2-WO-uk9">
                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Hotkey">
                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -455,7 +455,7 @@
                                         <rect key="frame" x="0.0" y="28" width="450" height="5"/>
                                     </box>
                                     <button imageHugsTitle="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="4Ef-t4-sPm">
-                                        <rect key="frame" x="36" y="4" width="30.5" height="25"/>
+                                        <rect key="frame" x="36" y="4" width="30" height="25"/>
                                         <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="NSRemoveTemplate" imagePosition="only" alignment="center" lineBreakMode="truncatingTail" enabled="NO" state="on" inset="2" id="SGK-IN-m4l">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="system"/>
@@ -469,7 +469,7 @@
                                         </connections>
                                     </button>
                                     <button imageHugsTitle="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="xql-gm-0mI">
-                                        <rect key="frame" x="6" y="-0.5" width="30.5" height="34"/>
+                                        <rect key="frame" x="6" y="-1" width="30" height="34"/>
                                         <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="NSAddTemplate" imagePosition="only" alignment="center" lineBreakMode="truncatingTail" state="on" inset="2" id="Io4-fW-e2U">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="system"/>
@@ -598,7 +598,7 @@
                                             <color key="backgroundColor" red="0.11764705882352941" green="0.11764705882352941" blue="0.11764705882352941" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
                                             <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                             <tableColumns>
-                                                <tableColumn identifier="applicationCell" width="327.5" minWidth="1" maxWidth="1000" id="xfG-Cd-oIk">
+                                                <tableColumn identifier="applicationCell" width="328" minWidth="1" maxWidth="1000" id="xfG-Cd-oIk">
                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title=" Application">
                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                         <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
@@ -657,7 +657,7 @@
                                                     </textFieldCell>
                                                     <prototypeCellViews>
                                                         <tableCellView id="clT-5E-IUd">
-                                                            <rect key="frame" x="343.5" y="6" width="96" height="45"/>
+                                                            <rect key="frame" x="344" y="6" width="96" height="45"/>
                                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                             <subviews>
                                                                 <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="4qv-B4-GnV">
@@ -748,7 +748,7 @@
                                         <rect key="frame" x="0.0" y="28" width="450" height="5"/>
                                     </box>
                                     <button imageHugsTitle="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="ceK-ED-PfL">
-                                        <rect key="frame" x="6" y="-0.5" width="30.5" height="34"/>
+                                        <rect key="frame" x="6" y="-1" width="30" height="34"/>
                                         <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="NSAddTemplate" imagePosition="only" alignment="center" lineBreakMode="truncatingTail" state="on" inset="2" id="ivF-Bk-aLA">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="system"/>
@@ -762,7 +762,7 @@
                                         </connections>
                                     </button>
                                     <button imageHugsTitle="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="HZK-yc-ptT">
-                                        <rect key="frame" x="36" y="4" width="30.5" height="25"/>
+                                        <rect key="frame" x="36" y="4" width="30" height="25"/>
                                         <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="NSRemoveTemplate" imagePosition="only" alignment="center" lineBreakMode="truncatingTail" enabled="NO" state="on" inset="2" id="dnI-fa-wgE">
                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                             <font key="font" metaFont="system"/>
@@ -838,7 +838,7 @@
                                         </textFieldCell>
                                     </textField>
                                     <imageView wantsLayer="YES" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="5uX-Iz-YQ7">
-                                        <rect key="frame" x="330" y="15" width="20" height="31"/>
+                                        <rect key="frame" x="330" y="16" width="20" height="30"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="20" id="ALi-rt-jUu"/>
                                             <constraint firstAttribute="width" constant="20" id="csf-6L-GKj"/>
@@ -1220,7 +1220,7 @@
                                 </textFieldCell>
                             </textField>
                             <popUpButton wantsLayer="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="u9d-n2-6b5" userLabel="Block Key Pop Up Button">
-                                <rect key="frame" x="171" y="264" width="123" height="24"/>
+                                <rect key="frame" x="171" y="264" width="126" height="24"/>
                                 <popUpButtonCell key="cell" type="push" title="Disabled" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="vFk-37-HRU" id="veO-qF-0qO">
                                     <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                     <font key="font" metaFont="message"/>
@@ -1442,7 +1442,7 @@
                                 </connections>
                             </button>
                             <button horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="h1E-p9-RLl">
-                                <rect key="frame" x="302" y="268" width="16" height="16"/>
+                                <rect key="frame" x="305" y="268" width="16" height="16"/>
                                 <buttonCell key="cell" type="help" bezelStyle="helpButton" alignment="center" controlSize="mini" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="j7m-hj-J8F">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                     <font key="font" metaFont="miniSystem"/>
@@ -3032,11 +3032,11 @@ Remove Mos from the list first, and then re-add Mos to authorize. (You can also 
         <image name="AlipayQR" width="256" height="256"/>
         <image name="BuyMeACoffee" width="195" height="40"/>
         <image name="MEOW" width="3024" height="4032"/>
-        <image name="NSAddTemplate" width="18" height="17"/>
+        <image name="NSAddTemplate" width="18" height="16"/>
         <image name="NSApplicationIcon" width="32" height="32"/>
-        <image name="NSIconViewTemplate" width="19" height="18"/>
-        <image name="NSRemoveTemplate" width="18" height="5"/>
-        <image name="NSTouchBarSearchTemplate" width="20" height="20"/>
+        <image name="NSIconViewTemplate" width="19" height="17"/>
+        <image name="NSRemoveTemplate" width="18" height="4"/>
+        <image name="NSTouchBarSearchTemplate" width="20" height="19"/>
         <image name="PaypalLogo" width="200" height="51"/>
         <image name="SF.app.background.dotted" width="135" height="135"/>
         <image name="SF.arrow.clockwise" width="135" height="135"/>
