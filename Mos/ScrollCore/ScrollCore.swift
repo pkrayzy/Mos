@@ -106,13 +106,13 @@ class ScrollCore {
         var smoothedX = 0.0
 
         if shouldSmoothVertical {
-            if !scrollEvent.Y.fixed {
+            if scrollEvent.Y.usableValue.magnitude < step {
                 ScrollEvent.normalizeY(scrollEvent, step)
             }
             smoothedY = scrollEvent.Y.usableValue
         }
         if shouldSmoothHorizontal {
-            if !scrollEvent.X.fixed {
+            if scrollEvent.X.usableValue.magnitude < step {
                 ScrollEvent.normalizeX(scrollEvent, step)
             }
             smoothedX = scrollEvent.X.usableValue
