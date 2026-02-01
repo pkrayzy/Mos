@@ -108,9 +108,9 @@ extension Options {
         } else {
             scroll.reverseHorizontal = UserDefaults.standard.bool(forKey: OptionItem.Scroll.ReverseHorizontal)
         }
-        scroll.dash = UserDefaults.standard.integer(forKey: OptionItem.Scroll.Dash)
-        scroll.toggle = UserDefaults.standard.integer(forKey: OptionItem.Scroll.Toggle)
-        scroll.block = UserDefaults.standard.integer(forKey: OptionItem.Scroll.Block)
+        scroll.dash = loadScrollHotkey(forKey: OptionItem.Scroll.Dash, default: OPTIONS_SCROLL_DEFAULT().dash)
+        scroll.toggle = loadScrollHotkey(forKey: OptionItem.Scroll.Toggle, default: OPTIONS_SCROLL_DEFAULT().toggle)
+        scroll.block = loadScrollHotkey(forKey: OptionItem.Scroll.Block, default: OPTIONS_SCROLL_DEFAULT().block)
         scroll.step = UserDefaults.standard.double(forKey: OptionItem.Scroll.Step)
         scroll.speed = UserDefaults.standard.double(forKey: OptionItem.Scroll.Speed)
         scroll.duration = UserDefaults.standard.double(forKey: OptionItem.Scroll.Duration)
@@ -154,9 +154,9 @@ extension Options {
             UserDefaults.standard.set(scroll.reverse, forKey: OptionItem.Scroll.Reverse)
             UserDefaults.standard.set(scroll.reverseVertical, forKey: OptionItem.Scroll.ReverseVertical)
             UserDefaults.standard.set(scroll.reverseHorizontal, forKey: OptionItem.Scroll.ReverseHorizontal)
-            UserDefaults.standard.set(scroll.dash, forKey: OptionItem.Scroll.Dash)
-            UserDefaults.standard.set(scroll.toggle, forKey: OptionItem.Scroll.Toggle)
-            UserDefaults.standard.set(scroll.block, forKey: OptionItem.Scroll.Block)
+            saveScrollHotkey(scroll.dash, forKey: OptionItem.Scroll.Dash)
+            saveScrollHotkey(scroll.toggle, forKey: OptionItem.Scroll.Toggle)
+            saveScrollHotkey(scroll.block, forKey: OptionItem.Scroll.Block)
             UserDefaults.standard.set(scroll.step, forKey: OptionItem.Scroll.Step)
             UserDefaults.standard.set(scroll.speed, forKey: OptionItem.Scroll.Speed)
             UserDefaults.standard.set(scroll.duration, forKey: OptionItem.Scroll.Duration)
@@ -203,6 +203,46 @@ extension Options {
             UserDefaults.standard.set(data, forKey: OptionItem.Button.Bindings)
         } catch {
             NSLog("Failed to encode button bindings data: \(error), skipping save")
+        }
+    }
+
+    // 加载滚动热键 (支持从旧版 Int 格式迁移)
+    private func loadScrollHotkey(forKey key: String, default defaultValue: ScrollHotkey?) -> ScrollHotkey? {
+        let rawValue = UserDefaults.standard.object(forKey: key)
+
+        // 新格式: Data (JSON encoded ScrollHotkey)
+        if let data = rawValue as? Data {
+            do {
+                return try decoder.decode(ScrollHotkey.self, from: data)
+            } catch {
+                NSLog("Failed to decode ScrollHotkey for \(key): \(error), using default")
+                return defaultValue
+            }
+        }
+
+        // 旧格式迁移: Int (keyboard keyCode only)
+        if let intValue = rawValue as? Int {
+            // 迁移为新格式
+            let hotkey = ScrollHotkey(type: .keyboard, code: UInt16(intValue))
+            saveScrollHotkey(hotkey, forKey: key)
+            return hotkey
+        }
+
+        // 无值时返回默认值
+        return defaultValue
+    }
+
+    // 保存滚动热键
+    private func saveScrollHotkey(_ hotkey: ScrollHotkey?, forKey key: String) {
+        guard let hotkey = hotkey else {
+            UserDefaults.standard.removeObject(forKey: key)
+            return
+        }
+        do {
+            let data = try encoder.encode(hotkey)
+            UserDefaults.standard.set(data, forKey: key)
+        } catch {
+            NSLog("Failed to encode ScrollHotkey for \(key): \(error), skipping save")
         }
     }
 

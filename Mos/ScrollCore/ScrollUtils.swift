@@ -120,42 +120,26 @@ class ScrollUtils {
     }
 
     // 滚动参数: 热键
-    // 使用 0xFFFF 作为未配置的标识, 避免与 keyCode=0 (A键) 或其他功能键冲突
-    // 注意: keyCode 0 是有效按键 "A"，只用 nil 表示未设置
-    func optionsDashKey(application: Application?) -> (CGKeyCode, CGEventFlags) {
-        var code: CGKeyCode
+    // 返回 ScrollHotkey? 供 ScrollCore 使用
+    func optionsDashKey(application: Application?) -> ScrollHotkey? {
         if let targetApplication = application {
-            let keyValue = targetApplication.inherit ? Options.shared.scroll.dash : targetApplication.scroll.dash
-            code = keyValue == nil ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return targetApplication.inherit ? Options.shared.scroll.dash : targetApplication.scroll.dash
         } else {
-            let keyValue = Options.shared.scroll.dash
-            code = keyValue == nil ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return Options.shared.scroll.dash
         }
-        let mask = KeyCode.getKeyMask(code)
-        return (code, mask)
     }
-    func optionsToggleKey(application: Application?) -> (CGKeyCode, CGEventFlags) {
-        var code: CGKeyCode
+    func optionsToggleKey(application: Application?) -> ScrollHotkey? {
         if let targetApplication = application {
-            let keyValue = targetApplication.inherit ? Options.shared.scroll.toggle : targetApplication.scroll.toggle
-            code = keyValue == nil ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return targetApplication.inherit ? Options.shared.scroll.toggle : targetApplication.scroll.toggle
         } else {
-            let keyValue = Options.shared.scroll.toggle
-            code = keyValue == nil ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return Options.shared.scroll.toggle
         }
-        let mask = KeyCode.getKeyMask(code)
-        return (code, mask)
     }
-    func optionsBlockKey(application: Application?) -> (CGKeyCode, CGEventFlags) {
-        var code: CGKeyCode
+    func optionsBlockKey(application: Application?) -> ScrollHotkey? {
         if let targetApplication = application {
-            let keyValue = targetApplication.inherit ? Options.shared.scroll.block : targetApplication.scroll.block
-            code = keyValue == nil ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return targetApplication.inherit ? Options.shared.scroll.block : targetApplication.scroll.block
         } else {
-            let keyValue = Options.shared.scroll.block
-            code = keyValue == nil ? CGKeyCode(0xFFFF) : CGKeyCode(keyValue!)
+            return Options.shared.scroll.block
         }
-        let mask = KeyCode.getKeyMask(code)
-        return (code, mask)
     }
 }

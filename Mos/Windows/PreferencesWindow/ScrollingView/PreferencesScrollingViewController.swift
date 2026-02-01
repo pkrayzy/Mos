@@ -197,11 +197,11 @@ extension PreferencesScrollingViewController {
         scrollReverseCheckBox.state = NSControl.StateValue(rawValue: scroll.reverse ? 1 : 0)
         scrollReverseCheckBox.isEnabled = isNotInherit
         // 加速键
-        updateHotkeyButton(dashKeyBindButton, delButton: dashKeyDelButton, keyCode: scroll.dash, enabled: isNotInherit)
+        updateHotkeyButton(dashKeyBindButton, delButton: dashKeyDelButton, hotkey: scroll.dash, enabled: isNotInherit)
         // 转换键
-        updateHotkeyButton(toggleKeyBindButton, delButton: toggleKeyDelButton, keyCode: scroll.toggle, enabled: isNotInherit)
+        updateHotkeyButton(toggleKeyBindButton, delButton: toggleKeyDelButton, hotkey: scroll.toggle, enabled: isNotInherit)
         // 禁用键
-        updateHotkeyButton(disableKeyBindButton, delButton: disableKeyDelButton, keyCode: scroll.block, enabled: isNotInherit)
+        updateHotkeyButton(disableKeyBindButton, delButton: disableKeyDelButton, hotkey: scroll.block, enabled: isNotInherit)
         // 步长
         let step = scroll.step
         scrollStepSlider.doubleValue = step
@@ -263,7 +263,7 @@ extension PreferencesScrollingViewController {
         })
     }
 
-    /// 按键的完整名称映射 (仅用于 ScrollingView 按钮显示)
+    /// 键盘按键的完整名称映射 (仅用于 ScrollingView 按钮显示)
     private static let keyFullNames: [UInt16: String] = [
         // 修饰键
         KeyCode.commandL: "⌘ Command",
@@ -285,35 +285,31 @@ extension PreferencesScrollingViewController {
         48: "↹ Tab",
     ]
 
-    /// 获取按键的完整显示名称 (修饰键和特殊键显示完整文案)
-    private func getFullDisplayName(for keyCode: Int) -> String {
-        let code = UInt16(keyCode)
-        // 优先使用完整名称映射
-        if let fullName = PreferencesScrollingViewController.keyFullNames[code] {
-            return fullName
+    /// 获取 ScrollHotkey 的完整显示名称
+    private func getFullDisplayName(for hotkey: ScrollHotkey) -> String {
+        switch hotkey.type {
+        case .keyboard:
+            // 优先使用完整名称映射
+            if let fullName = PreferencesScrollingViewController.keyFullNames[hotkey.code] {
+                return fullName
+            }
+            // 其他按键使用原始映射
+            return KeyCode.keyMap[hotkey.code] ?? "Key \(hotkey.code)"
+        case .mouse:
+            return KeyCode.mouseMap[hotkey.code] ?? "🖱\(hotkey.code)"
         }
-        // 其他按键使用原始映射
-        return KeyCode.keyMap[code]
-            ?? KeyCode.mouseMap[code]
-            ?? "Key \(keyCode)"
     }
 
     /// 更新热键按钮的显示文本和删除按钮可见性
-    /// - Parameters:
-    ///   - button: 绑定按钮
-    ///   - delButton: 删除按钮
-    ///   - keyCode: 热键码 (nil 或 0 表示未设置)
-    ///   - enabled: 是否启用 (用于继承设置时禁用)
-    private func updateHotkeyButton(_ button: NSButton?, delButton: NSButton?, keyCode: Int?, enabled: Bool) {
+    private func updateHotkeyButton(_ button: NSButton?, delButton: NSButton?, hotkey: ScrollHotkey?, enabled: Bool) {
         guard let button = button else { return }
 
-        // 判断是否有绑定 (注意: keyCode 0 是有效按键 "A"，只用 nil 表示未设置)
-        let hasBound = keyCode != nil
+        let hasBound = hotkey != nil
 
         // 获取显示名称
         let displayName: String
-        if hasBound, let code = keyCode {
-            displayName = getFullDisplayName(for: code)
+        if let hotkey = hotkey {
+            displayName = getFullDisplayName(for: hotkey)
         } else {
             displayName = NSLocalizedString("Disabled", comment: "Hotkey disabled state")
         }
@@ -333,21 +329,16 @@ extension PreferencesScrollingViewController: KeyRecorderDelegate {
     func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: CGEvent, isDuplicate: Bool) {
         guard let popup = currentRecordingPopup else { return }
 
-        // 获取键码
-        let keyCode: Int
-        if event.isMouseEvent {
-            keyCode = Int(event.getIntegerValueField(.mouseEventButtonNumber))
-        } else {
-            keyCode = Int(event.keyCode)
-        }
+        // 从事件创建 ScrollHotkey
+        let hotkey = ScrollHotkey(from: event)
 
         // 保存设置
         if popup === dashKeyBindButton {
-            getTargetApplicationScrollOptions().dash = keyCode
+            getTargetApplicationScrollOptions().dash = hotkey
         } else if popup === toggleKeyBindButton {
-            getTargetApplicationScrollOptions().toggle = keyCode
+            getTargetApplicationScrollOptions().toggle = hotkey
         } else if popup === disableKeyBindButton {
-            getTargetApplicationScrollOptions().block = keyCode
+            getTargetApplicationScrollOptions().block = hotkey
         }
 
         currentRecordingPopup = nil

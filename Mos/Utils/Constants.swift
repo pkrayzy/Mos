@@ -110,13 +110,13 @@ class OPTIONS_SCROLL_DEFAULT: Codable {
     var reverseHorizontal = true {
         didSet {Options.shared.saveOptions()}
     }
-    var dash:Int? = 58 {
+    var dash: ScrollHotkey? = ScrollHotkey(type: .keyboard, code: KeyCode.optionL) {
         didSet {Options.shared.saveOptions()}
     }
-    var toggle:Int? = 56 {
+    var toggle: ScrollHotkey? = ScrollHotkey(type: .keyboard, code: KeyCode.shiftL) {
         didSet {Options.shared.saveOptions()}
     }
-    var block:Int? = 55 {
+    var block: ScrollHotkey? = ScrollHotkey(type: .keyboard, code: KeyCode.commandL) {
         didSet {Options.shared.saveOptions()}
     }
     var step = 33.6 {
