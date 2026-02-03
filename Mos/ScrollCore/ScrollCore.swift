@@ -54,6 +54,10 @@ class ScrollCore {
         if ScrollEvent.isTrackpad(with: event) {
             return Unmanaged.passUnretained(event)
         }
+        // 当事件来自远程桌面，且其发送的事件 isContinuous=1.0，此时跳过本地平滑
+        if ScrollUtils.shared.isRemoteSmoothedEvent(event) {
+            return Unmanaged.passUnretained(event)
+        }
         // 当鼠标输入, 根据需要执行翻转方向/平滑滚动
         // 获取事件目标
         let targetRunningApplication = ScrollUtils.shared.getRunningApplication(from: event)

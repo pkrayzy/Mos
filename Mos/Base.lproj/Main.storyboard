@@ -1652,17 +1652,17 @@
                             </textField>
                         </subviews>
                         <constraints>
+                            <constraint firstItem="Yww-b9-vE7" firstAttribute="top" secondItem="k59-to-Z4j" secondAttribute="bottom" constant="10" id="1Df-VR-P0o"/>
                             <constraint firstItem="Yww-b9-vE7" firstAttribute="trailing" secondItem="xHE-gD-zSo" secondAttribute="trailing" id="2rK-qE-Mwl"/>
                             <constraint firstItem="k59-to-Z4j" firstAttribute="leading" secondItem="xHE-gD-zSo" secondAttribute="leading" id="4KB-Hs-tVK"/>
                             <constraint firstAttribute="trailing" secondItem="xHE-gD-zSo" secondAttribute="trailing" constant="20" symbolic="YES" id="4bD-Ld-Xdx"/>
                             <constraint firstItem="T2A-GP-RAS" firstAttribute="leading" secondItem="Yww-b9-vE7" secondAttribute="leading" constant="19" id="7JZ-0X-goA"/>
                             <constraint firstItem="xHE-gD-zSo" firstAttribute="top" secondItem="Ii6-1I-pb4" secondAttribute="top" constant="20" symbolic="YES" id="EEv-wf-TaC"/>
-                            <constraint firstAttribute="bottom" secondItem="T2A-GP-RAS" secondAttribute="bottom" constant="20" symbolic="YES" id="IlS-7p-gei"/>
                             <constraint firstItem="Yww-b9-vE7" firstAttribute="leading" secondItem="xHE-gD-zSo" secondAttribute="leading" id="M1T-ng-xhj"/>
                             <constraint firstItem="k59-to-Z4j" firstAttribute="trailing" secondItem="xHE-gD-zSo" secondAttribute="trailing" id="N99-DU-Lrz"/>
                             <constraint firstItem="T2A-GP-RAS" firstAttribute="trailing" secondItem="Yww-b9-vE7" secondAttribute="trailing" id="VeS-ix-CF2"/>
-                            <constraint firstItem="Yww-b9-vE7" firstAttribute="top" secondItem="k59-to-Z4j" secondAttribute="bottom" constant="10" id="gml-e0-kbs"/>
                             <constraint firstItem="k59-to-Z4j" firstAttribute="top" secondItem="xHE-gD-zSo" secondAttribute="bottom" constant="10" id="iBr-mq-zbi"/>
+                            <constraint firstAttribute="bottom" secondItem="T2A-GP-RAS" secondAttribute="bottom" constant="20" symbolic="YES" id="oMp-uu-4Di"/>
                             <constraint firstItem="xHE-gD-zSo" firstAttribute="leading" secondItem="Ii6-1I-pb4" secondAttribute="leading" constant="20" symbolic="YES" id="qH5-So-jW9"/>
                             <constraint firstItem="T2A-GP-RAS" firstAttribute="top" secondItem="Yww-b9-vE7" secondAttribute="bottom" constant="5" id="rcX-pt-2Pv"/>
                         </constraints>
@@ -2361,21 +2361,22 @@
                                         </connections>
                                     </button>
                                     <scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasVerticalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" verticalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="GMF-Nl-CJZ">
-                                        <rect key="frame" x="50" y="263" width="287" height="25"/>
+                                        <rect key="frame" x="50" y="250" width="287" height="38"/>
                                         <clipView key="contentView" drawsBackground="NO" copiesOnScroll="NO" id="s5y-xQ-xSw">
-                                            <rect key="frame" x="0.0" y="0.0" width="287" height="25"/>
+                                            <rect key="frame" x="0.0" y="0.0" width="287" height="38"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <subviews>
                                                 <textView editable="NO" drawsBackground="NO" importsGraphics="NO" verticallyResizable="NO" usesFontPanel="YES" findStyle="panel" continuousSpellChecking="YES" allowsUndo="YES" allowsNonContiguousLayout="YES" quoteSubstitution="YES" dashSubstitution="YES" smartInsertDelete="YES" id="7QQ-Xe-ZO5">
-                                                    <rect key="frame" x="0.0" y="0.0" width="287" height="25"/>
+                                                    <rect key="frame" x="0.0" y="0.0" width="287" height="38"/>
                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                     <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                    <size key="minSize" width="287" height="25"/>
+                                                    <size key="minSize" width="287" height="38"/>
                                                     <size key="maxSize" width="1000" height="10000000"/>
                                                     <attributedString key="textStorage">
                                                         <fragment>
                                                             <string key="content">Trackpad: -
+Remote: -
 Path: -</string>
                                                             <attributes>
                                                                 <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
@@ -2390,7 +2391,7 @@ Path: -</string>
                                             <color key="backgroundColor" red="0.0" green="0.0" blue="0.0" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
                                         </clipView>
                                         <constraints>
-                                            <constraint firstAttribute="height" constant="25" id="PGl-rV-L9w"/>
+                                            <constraint firstAttribute="height" constant="38" id="PGl-rV-L9w"/>
                                             <constraint firstAttribute="width" constant="287" id="fAZ-Yo-yze"/>
                                         </constraints>
                                         <scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" verticalHuggingPriority="750" doubleValue="1" horizontal="YES" id="HRn-mO-WnS">
@@ -2403,7 +2404,7 @@ Path: -</string>
                                         </scroller>
                                     </scrollView>
                                     <scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" hasVerticalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" verticalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="OpG-lX-zPs">
-                                        <rect key="frame" x="50" y="154" width="287" height="99"/>
+                                        <rect key="frame" x="50" y="141" width="287" height="99"/>
                                         <clipView key="contentView" drawsBackground="NO" copiesOnScroll="NO" id="oRR-Pu-oOi">
                                             <rect key="frame" x="0.0" y="0.0" width="287" height="99"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -2450,7 +2451,7 @@ unacceleratedPointerMovementX: 0.0</string>
                                         </scroller>
                                     </scrollView>
                                     <scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" hasVerticalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" verticalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="TZY-Nm-E2J">
-                                        <rect key="frame" x="50" y="82" width="287" height="62"/>
+                                        <rect key="frame" x="50" y="69" width="287" height="62"/>
                                         <clipView key="contentView" drawsBackground="NO" copiesOnScroll="NO" id="Mod-Ee-KxM">
                                             <rect key="frame" x="0.0" y="0.0" width="287" height="62"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -2997,11 +2998,11 @@ Remove Mos from the list first, and then re-add Mos to authorize. (You can also 
                 </viewController>
                 <customObject id="bGO-iO-70m" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="1310.5" y="2130"/>
+            <point key="canvasLocation" x="1311" y="2169"/>
         </scene>
     </scenes>
     <inferredMetricsTieBreakers>
-        <segue reference="GA4-xY-65w"/>
+        <segue reference="i8p-Ht-8EX"/>
     </inferredMetricsTieBreakers>
     <resources>
         <image name="AlipayLogo" width="432" height="150"/>
