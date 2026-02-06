@@ -1,25 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 export function useModal() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleOpen = () => {
+  const handleOpen = useCallback(() => {
     setIsOpen(true);
-    document.addEventListener("keydown", handleKeyDown);
-  };
+  }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsOpen(false);
-    document.removeEventListener("keydown", handleKeyDown);
-  };
-
-  const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      handleClose();
-    }
-  };
+  }, []);
 
   return {
     isOpen,

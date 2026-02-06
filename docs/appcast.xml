@@ -13,6 +13,34 @@
 
       <sparkle:channel>beta</sparkle:channel>
 
+      <description><![CDATA[<h2>改进</h2>
+<ul><li>更新本地化翻译。</li></ul>
+
+
+<hr/>
+
+<h2>Improvements</h2>
+<ul><li>Updated localization.</li></ul>]]></description>
+      <pubDate>Fri, 06 Feb 2026 17:01:10 +0000</pubDate>
+
+      <sparkle:releaseNotesLink xml:lang="zh">https://mos.caldis.me/release-notes/beta.zh.html</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>https://mos.caldis.me/release-notes/beta.en.html</sparkle:releaseNotesLink>
+      <enclosure
+        url="https://github.com/Caldis/Mos/releases/download/4.0.0-beta-20260203.1/Mos.Versions.4.0.0-beta-20260203.1.zip"
+        length="11334589"
+        type="application/octet-stream"
+        sparkle:shortVersionString="4.0.0-beta"
+        sparkle:version="20260203.1"
+        sparkle:edSignature="YKXWwrtmkEoUMU3Nj/eyLysSG+WjsL/ohAwtsBDmf3K/mU7fkvT4nEGhmTgrJ6M3h644P0gazjOjQetFmVcoCg=="
+        sparkle:channel="beta"
+      />
+    </item>
+
+    <item>
+      <title>Mos 4.0.0-beta</title>
+
+      <sparkle:channel>beta</sparkle:channel>
+
       <description><![CDATA[<h2>新功能</h2>
 <ul><li>新增应用内更新检查（Sparkle），并支持可选的 Beta 渠道。</li><li>滚动功能键现在支持绑定任意热键。</li></ul>
 

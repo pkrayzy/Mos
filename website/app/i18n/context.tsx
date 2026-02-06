@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { de } from './de';
 import { el } from './el';
@@ -18,6 +18,62 @@ import { zhHant } from './zh-Hant';
 export type Language = "en" | "zh" | "ru" | "tr" | "ko" | "de" | "el" | "uk" | "ja" | "zh-Hant" | "id" | "pl";
 export type Translations = typeof en;
 
+const SUPPORTED_LANGUAGES: readonly Language[] = [
+  "en",
+  "zh",
+  "ru",
+  "tr",
+  "ko",
+  "de",
+  "el",
+  "uk",
+  "ja",
+  "zh-Hant",
+  "id",
+  "pl",
+];
+
+function isLanguage(value: string): value is Language {
+  return (SUPPORTED_LANGUAGES as readonly string[]).includes(value);
+}
+
+function defaultLanguageFromBrowser(browserLangRaw: string): Language {
+  const browserLang = browserLangRaw.toLowerCase();
+  const languageMap: Record<string, Language | ((lang: string) => Language)> = {
+    zh: (lang) => (lang.includes("hant") ? "zh-Hant" : "zh"),
+    pl: "pl",
+    ru: "ru",
+    tr: "tr",
+    ko: "ko",
+    de: "de",
+    el: "el",
+    uk: "uk",
+    ja: "ja",
+    id: "id",
+  };
+
+  const prefix = Object.keys(languageMap).find((p) => browserLang.startsWith(p));
+  if (!prefix) return "en";
+
+  const mapping = languageMap[prefix];
+  return typeof mapping === "function" ? mapping(browserLang) : mapping;
+}
+
+const TRANSLATIONS_BY_LANGUAGE: Record<Language, Translations> = {
+  en,
+  zh,
+  ru,
+  tr,
+  ko,
+  de,
+  el,
+  uk,
+  ja,
+  "zh-Hant": zhHant,
+  pl,
+  id,
+};
+
 interface I18nContextType {
   language: Language;
   t: Translations;
@@ -28,55 +84,22 @@ const I18nContext = createContext<I18nContextType | null>(null);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState<Language>("en");
-  const [translations, setTranslations] = useState<Translations>(en);
+  const translations = useMemo(() => {
+    return TRANSLATIONS_BY_LANGUAGE[language] ?? en;
+  }, [language]);
 
   useEffect(() => {
     // 从本地存储中获取语言偏好
-    const storedLanguage = localStorage.getItem("language") as Language;
-    if (storedLanguage) {
-      setLanguage(storedLanguage);
-    } else {
-      // 根据浏览器语言设置默认语言
-      const browserLang = navigator.language.toLowerCase();
-      const languageMap: Record<string, Language | ((lang: string) => Language)> = {
-        zh: (lang) => lang.includes("hant") ? "zh-Hant" : "zh",
-        pl: "pl",
-        ru: "ru",
-        tr: "tr",
-        ko: "ko",
-        de: "de",
-        el: "el",
-        uk: "uk",
-        ja: "ja",
-      };
+    const stored = localStorage.getItem("language");
+    const desiredLanguage = stored && isLanguage(stored)
+      ? stored
+      : defaultLanguageFromBrowser(navigator.language);
 
-      const prefix = Object.keys(languageMap).find(p => browserLang.startsWith(p));
-      let defaultLang: Language = "en";
-      if (prefix) {
-        const mapping = languageMap[prefix];
-        defaultLang = typeof mapping === "function" ? mapping(browserLang) : mapping;
-      }
-      setLanguage(defaultLang);
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLanguage(desiredLanguage);
   }, []);
 
   useEffect(() => {
-    // 更新翻译内容
-    const translations = {
-      en,
-      zh,
-      ru,
-      tr,
-      ko,
-      de,
-      el,
-      uk,
-      ja,
-      "zh-Hant": zhHant,
-      pl,
-      id,
-    }[language] || en;
-    setTranslations(translations);
     // 保存语言偏好到本地存储
     localStorage.setItem("language", language);
   }, [language]);
