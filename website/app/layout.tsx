@@ -1,17 +1,24 @@
 import Script from "next/script";
-import { Geist, Geist_Mono } from "next/font/google";
-import { I18nProvider } from "./i18n/context";
+import { IBM_Plex_Mono, Space_Grotesk, Syne } from "next/font/google";
 import "./globals.css";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const fontDisplay = Syne({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["400", "600", "700", "800"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fontBody = Space_Grotesk({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const fontMono = IBM_Plex_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 const GA_ID = "G-9M7WPLB8BR";
@@ -56,18 +63,19 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en">
+    <html lang="en" className="js">
       <head>
         <script
           type="application/ld+json"
           // JSON-LD should be static, machine-readable, and identical for bots & users.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        <noscript>
+          <style>{`html.js .reveal{opacity:1!important;transform:none!important;filter:none!important}`}</style>
+        </noscript>
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <I18nProvider>
-          {children}
-        </I18nProvider>
+      <body className={`${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable} antialiased`}>
+        {children}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="afterInteractive"

@@ -1,12 +1,6 @@
 "use client";
 
 import { ReactNode, useEffect, useId, useMemo, useRef } from "react";
-import { Poppins } from "next/font/google";
-
-const poppins = Poppins({
-  weight: ["400", "600", "700"],
-  subsets: ["latin"],
-});
 
 function getFocusableElements(root: HTMLElement | null): HTMLElement[] {
   if (!root) return [];
@@ -116,9 +110,9 @@ export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: 
 
   return (
     <div
-      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center
-                 transition-opacity duration-500 ease-in-out ${poppins.className}
-                 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      className={`fixed inset-0 z-[60] flex items-center justify-center px-4
+                 bg-black/55 backdrop-blur-md transition-opacity duration-500 ease-in-out
+                 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
       aria-hidden={!isOpen}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -131,20 +125,21 @@ export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: 
         aria-modal="true"
         aria-labelledby={label.titleId}
         tabIndex={-1}
-        className={`bg-zinc-900 border border-white/10 rounded-xl w-[90vw] ${width} p-6 shadow-xl
+        className={`w-full ${width} rounded-[22px] border border-white/10
+                 bg-[rgba(10,11,16,0.72)] shadow-elevated backdrop-blur-xl
                  transform transition-all duration-500 ease-in-out
-                 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
-                 motion-safe:animate-[modal-appear_0.5s_ease-in-out]`}
+                 ${isOpen ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"}
+                 motion-safe:animate-[modal-appear_0.5s_var(--ease-out)]`}
       >
-        <div className="flex justify-between items-center mb-4">
-          <h3 id={label.titleId} className="text-xl font-bold text-white">
+        <div className="flex justify-between items-center px-5 sm:px-6 pt-5 sm:pt-6">
+          <h3 id={label.titleId} className="font-display text-lg sm:text-xl text-white">
             {title}
           </h3>
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="text-white/60 hover:text-white/90 transition-colors"
+            className="rounded-xl p-2 text-white/55 hover:text-white/85 hover:bg-white/5 transition-colors"
             aria-label="Close dialog"
           >
             <svg
@@ -162,7 +157,7 @@ export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: 
             </svg>
           </button>
         </div>
-        {children}
+        <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-4">{children}</div>
       </div>
     </div>
   );

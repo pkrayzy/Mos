@@ -1,118 +1,663 @@
 "use client";
 
 import Image from "next/image";
-import { useI18n } from "./i18n/context";
-import logoM from "@/assets/image/logo-64.png";
-import { Space_Mono, Poppins } from "next/font/google";
-import { Squares } from "./components/SquaresBackground";
-import { GithubVersion } from "./components/GithubVersion";
-import { HomebrewButton } from "./components/HomebrewButton";
-import { DownloadButton } from "./components/DownloadButton";
-import { LanguageSelector } from "./components/LanguageSelector";
-import { SysRequireButton } from "./components/SysRequireButton";
+import { useMemo, useState } from "react";
+import logo512 from "@/assets/image/logo-512.png";
+import { CursorAura } from "./components/CursorAura/CursorAura";
+import { FlowField } from "./components/FlowField/FlowField";
+import { Magnetic } from "./components/Magnetic/Magnetic";
+import { Reveal } from "./components/Reveal/Reveal";
+import { WheelLab } from "./components/WheelLab/WheelLab";
+import { Modal } from "./components/Modal/Modal";
+import { CopyButton } from "./components/CopyButton/CopyButton";
+import { useGithubRelease } from "./services/github";
 
-const spaceMono = Space_Mono({
-  weight: ["400", "700"],
-  subsets: ["latin"],
-});
+const FALLBACK_RELEASE_LINK = "https://github.com/Caldis/Mos/releases/latest";
 
-const poppins = Poppins({
-  weight: ["400", "600", "700"],
-  subsets: ["latin"],
-});
+function pickDownloadUrl(release: unknown): string {
+  if (!release || typeof release !== "object") return FALLBACK_RELEASE_LINK;
+
+  const assetsRaw = (release as Record<string, unknown>).assets;
+  if (!Array.isArray(assetsRaw) || assetsRaw.length === 0) return FALLBACK_RELEASE_LINK;
+
+  const assets = assetsRaw
+    .map((asset) => {
+      if (!asset || typeof asset !== "object") return null;
+      const record = asset as Record<string, unknown>;
+      const name = typeof record.name === "string" ? record.name : null;
+      const url =
+        typeof record.browser_download_url === "string" ? record.browser_download_url : null;
+      if (!name || !url) return null;
+      return { name, url };
+    })
+    .filter(Boolean) as { name: string; url: string }[];
+
+  if (assets.length === 0) return FALLBACK_RELEASE_LINK;
+
+  const byExt = (ext: string) => assets.find((a) => a.name.toLowerCase().endsWith(ext));
+
+  return byExt(".zip")?.url || byExt(".dmg")?.url || assets[0]?.url || FALLBACK_RELEASE_LINK;
+}
 
 export default function HomeClient() {
-  const { t } = useI18n();
+  const { data: release } = useGithubRelease();
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+
+  const versionLabel = useMemo(() => {
+    const tag = release?.tag_name;
+    return typeof tag === "string" && tag.trim() ? `v${tag.replace(/^v/i, "")}` : null;
+  }, [release?.tag_name]);
+
+  const downloadUrl = useMemo(() => pickDownloadUrl(release), [release]);
 
   return (
-    <div className={`w-screen h-screen relative ${poppins.className}`}>
-      {/* 导航栏 */}
-      <nav className="fixed top-0 left-1/2 -translate-x-1/2 w-[90vw] h-16 mt-6 px-6 flex items-center justify-between backdrop-blur-md bg-black/30 z-50 rounded-2xl border border-white/10 shadow-lg shadow-black/5">
-        <div className="flex items-center gap-3">
-          {/* Logo */}
-          <Image
-            src={logoM}
-            alt="Mos app icon"
-            width={32}
-            height={32}
-            className="rounded-lg object-contain"
-          />
-          <span className="text-lg font-bold text-white">Mos</span>
-        </div>
-        {/* 导航链接 */}
-        <div className="flex items-center gap-6">
-          {/* docs */}
-          <a
-            href="https://github.com/Caldis/Mos/wiki"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/60 hover:text-white/90 transition-colors text-sm font-bold flex items-center gap-1.5"
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h8v2H8v-2zm0-4h8v2H8v-2z" />
-            </svg>
-            <span>{t.nav_docs}</span>
-          </a>
-          {/* GitHub */}
-          <a
-            href="https://github.com/Caldis/Mos"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/60 hover:text-white/90 transition-colors text-sm font-bold flex items-center gap-1.5"
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-            </svg>
-            <span>{t.nav_github}</span>
-          </a>
-        </div>
-      </nav>
+    <div className="min-h-[100svh] text-[color:var(--fg0)] selection:bg-[rgba(183,255,78,0.22)] selection:text-white">
+      <a
+        href="#content"
+        className="sr-only focus:not-sr-only focus:fixed focus:z-[100] focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:rounded-xl focus:bg-black/70 focus:text-white focus:outline-none"
+      >
+        Skip to content
+      </a>
 
-      {/* 主要内容区域 */}
-      <main className="w-full h-full flex flex-col items-center justify-center p-6 relative">
-        {/* 背景动画 */}
-        <div className="absolute inset-0 overflow-hidden bg-black">
-          <Squares
-            direction="up"
-            speed={0.2}
-            borderColor="#222"
-            squareSize={20}
-            hoverFillColor="#444"
-          />
-        </div>
+      <CursorAura />
 
-        {/* 内容 */}
-        <div className="relative z-10 text-center w-[65vw]">
-          <h1 className="text-5xl sm:text-6xl font-bold mb-6 text-[#ebebebcc]">
-            {t.hero_title}
-          </h1>
-          <p className="text-xl text-gray-300 mb-8">{t.hero_description}</p>
-        </div>
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <FlowField className="absolute inset-0" />
+        <div className="orb left-[-140px] top-[-120px] w-[380px] h-[380px] bg-[color:var(--accent)]" />
+        <div className="orb right-[-180px] top-[10vh] w-[420px] h-[420px] bg-[color:var(--accent3)] [animation-delay:-1.2s]" />
+        <div className="orb left-[12vw] bottom-[-220px] w-[520px] h-[520px] bg-[color:var(--accent2)] [animation-delay:-2.1s]" />
+      </div>
+
+      <header className="fixed left-0 right-0 top-0 z-50 px-4 sm:px-6">
+        <nav className="mx-auto mt-4 sm:mt-6 max-w-6xl rounded-[var(--radius-xl)] glass ring-accent">
+          <div className="flex items-center justify-between px-4 sm:px-5 py-3">
+            <div className="flex items-center gap-3">
+              <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-white/5 border border-white/10">
+                <Image
+                  src={logo512}
+                  alt="Mos app icon"
+                  fill
+                  sizes="40px"
+                  className="object-contain p-1.5"
+                  priority
+                />
+              </div>
+              <div className="leading-tight">
+                <div className="font-display text-[15px] tracking-[0.18em] uppercase text-white/90">
+                  Mos
+                </div>
+                <div className="font-mono text-[11px] text-white/45">
+                  {versionLabel ? `Release ${versionLabel}` : "macOS utility"}
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2">
+              <a
+                href="https://github.com/Caldis/Mos/wiki"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 rounded-xl text-white/70 hover:text-white/92 transition-colors"
+              >
+                Docs
+              </a>
+              <a
+                href="https://github.com/Caldis/Mos"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 rounded-xl text-white/70 hover:text-white/92 transition-colors"
+              >
+                GitHub
+              </a>
+              <button
+                type="button"
+                onClick={() => setIsDownloadOpen(true)}
+                className="px-3 py-2 rounded-xl text-white/70 hover:text-white/92 hover:bg-white/5 transition-colors"
+              >
+                Install
+              </button>
+              <Magnetic strength={18}>
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
+                  }}
+                >
+                  <span className="relative z-10">Download</span>
+                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(255,255,255,0.55),transparent_55%)]" />
+                </a>
+              </Magnetic>
+            </div>
+
+            <div className="flex sm:hidden items-center gap-2">
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-2xl px-3 py-2 text-sm font-semibold text-black"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
+                }}
+              >
+                Get Mos
+              </a>
+              <button
+                type="button"
+                onClick={() => setIsDownloadOpen(true)}
+                className="rounded-2xl px-3 py-2 text-sm font-semibold border border-white/12 bg-white/5 hover:bg-white/8 transition-colors text-white/85"
+                aria-label="Install options"
+              >
+                ⋯
+              </button>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <main id="content" className="mx-auto max-w-6xl px-4 sm:px-6">
+        <section className="relative min-h-[100svh] flex items-center pt-28 sm:pt-36 pb-12">
+          <div className="w-full">
+            <div
+              className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs text-white/70 shadow-elevated motion-safe:animate-[hero-in_900ms_var(--ease-out)_both]"
+              style={{ animationDelay: "40ms" }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[color:var(--accent)] shadow-[0_0_22px_rgba(183,255,78,0.55)]" />
+                Smooth scrolling for mouse wheels on macOS
+              </span>
+              <span className="hidden sm:inline text-white/35">•</span>
+              <span className="hidden sm:inline font-mono text-white/45">
+                per-app profiles · independent axes · buttons & shortcuts
+              </span>
+            </div>
+
+            <h1
+              className="mt-7 font-display text-balance text-[42px] leading-[1.02] sm:text-[72px] md:text-[84px] text-white motion-safe:animate-[hero-in_1000ms_var(--ease-out)_both]"
+              style={{ animationDelay: "110ms" }}
+            >
+              Turn the wheel
+              <span className="block">
+                into{" "}
+                <span
+                  className="inline-block"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, var(--accent) 0%, var(--accent3) 40%, var(--accent2) 90%)",
+                    WebkitBackgroundClip: "text",
+                    backgroundClip: "text",
+                    color: "transparent",
+                    textShadow: "0 0 42px rgba(183,255,78,0.12)",
+                  }}
+                >
+                  flow
+                </span>
+                .
+              </span>
+            </h1>
+
+            <p
+              className="mt-5 max-w-2xl text-balance text-[15px] sm:text-lg text-white/72 leading-relaxed motion-safe:animate-[hero-in_1000ms_var(--ease-out)_both]"
+              style={{ animationDelay: "180ms" }}
+            >
+              Mos is a free macOS utility that makes your mouse scrolling feel trackpad-smooth,
+              without taking away control. Shape curves, split axes, and override behavior per
+              app.
+            </p>
+
+            <div
+              className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 motion-safe:animate-[hero-in_1050ms_var(--ease-out)_both]"
+              style={{ animationDelay: "250ms" }}
+            >
+              <Magnetic strength={22}>
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated inline-flex items-center justify-center"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
+                  }}
+                >
+                  <span className="relative z-10">Download Mos</span>
+                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(255,255,255,0.55),transparent_55%)]" />
+                </a>
+              </Magnetic>
+
+              <Magnetic strength={14}>
+                <button
+                  type="button"
+                  onClick={() => setIsDownloadOpen(true)}
+                  className="inline-flex items-center justify-center rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-white/85 border border-white/12 bg-white/5 hover:bg-white/8 transition-colors"
+                >
+                  Install options
+                </button>
+              </Magnetic>
+
+              <Magnetic strength={14}>
+                <a
+                  href="https://github.com/Caldis/Mos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center justify-center rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-white/85 border border-white/12 bg-white/5 hover:bg-white/8 transition-colors"
+                >
+                  <span className="mr-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                    ↗
+                  </span>
+                  <span>View on GitHub</span>
+                </a>
+              </Magnetic>
+
+              <div className="sm:ml-auto text-xs text-white/45">
+                <div className="font-mono">Requires macOS 10.13+</div>
+                <div className="font-mono">Free · Open source</div>
+              </div>
+            </div>
+
+            <div
+              className="mt-10 rounded-[var(--radius-xl)] glass shadow-elevated border border-white/10 overflow-hidden motion-safe:animate-[hero-in_1100ms_var(--ease-out)_both]"
+              style={{ animationDelay: "320ms" }}
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+                <div className="font-display text-sm tracking-[0.18em] uppercase text-white/75">
+                  Wheel Lab
+                </div>
+                <div className="font-mono text-xs text-white/45">
+                  Try scrolling here, or drag on mobile
+                </div>
+              </div>
+              <WheelLab />
+            </div>
+
+            <div className="mt-10 flex items-center gap-3 text-white/40">
+              <div className="h-[1px] flex-1 hairline" />
+              <div className="font-mono text-[11px] tracking-[0.18em] uppercase">
+                Scroll to explore
+              </div>
+              <div className="h-[1px] flex-1 hairline" />
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 sm:py-24">
+          <Reveal>
+            <h2 className="font-display text-balance text-3xl sm:text-5xl text-white leading-tight">
+              Built for control, not gimmicks.
+            </h2>
+          </Reveal>
+          <Reveal delayMs={90}>
+            <p className="mt-4 max-w-3xl text-white/68 leading-relaxed">
+              High polish comes from the small wins: predictable curves, consistent feel across
+              apps, and tooling that shows what’s happening in real time.
+            </p>
+          </Reveal>
+
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-12 gap-4">
+            <Reveal className="md:col-span-7" delayMs={140}>
+              <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_20%_0%,rgba(183,255,78,0.16),transparent_55%)]" />
+                <div className="relative p-6 sm:p-8">
+                  <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+                    Curves & Acceleration
+                  </div>
+                  <div className="mt-4 text-2xl sm:text-3xl text-white font-semibold">
+                    Shape the feel.
+                  </div>
+                  <p className="mt-3 text-white/66 leading-relaxed">
+                    Smoothness is a curve. Mos lets you tune acceleration and easing so wheel
+                    input becomes consistent motion.
+                  </p>
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="font-mono text-xs text-white/45">Easing</div>
+                      <div className="font-mono text-xs text-white/45">Acceleration</div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-12 gap-2">
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="h-10 rounded-xl border border-white/10 bg-white/5"
+                          style={{
+                            transform: `translateY(${Math.sin(i / 2.4) * 6}px)`,
+                            transition: "transform 700ms var(--ease-out)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal className="md:col-span-5" delayMs={180}>
+              <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_80%_0%,rgba(0,209,255,0.18),transparent_55%)]" />
+                <div className="relative p-6 sm:p-8">
+                  <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+                    Independent Axes
+                  </div>
+                  <div className="mt-4 text-2xl sm:text-3xl text-white font-semibold">
+                    Split X and Y.
+                  </div>
+                  <p className="mt-3 text-white/66 leading-relaxed">
+                    Tune vertical and horizontal scroll separately, including smoothness and
+                    reverse, for mice and touchpads.
+                  </p>
+
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-2xl border border-white/10 bg-white/5 grid place-items-center">
+                        <span className="font-mono text-xs text-white/60">Y</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                          <div className="h-full w-[68%] bg-[color:var(--accent)]" />
+                        </div>
+                        <div className="mt-2 font-mono text-xs text-white/45">
+                          Smoothness 68%
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-2xl border border-white/10 bg-white/5 grid place-items-center">
+                        <span className="font-mono text-xs text-white/60">X</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                          <div className="h-full w-[42%] bg-[color:var(--accent3)]" />
+                        </div>
+                        <div className="mt-2 font-mono text-xs text-white/45">
+                          Smoothness 42%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal className="md:col-span-6" delayMs={210}>
+              <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_40%_0%,rgba(255,61,154,0.16),transparent_55%)]" />
+                <div className="relative p-6 sm:p-8">
+                  <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+                    Per-app Profiles
+                  </div>
+                  <div className="mt-4 text-2xl sm:text-3xl text-white font-semibold">
+                    Different apps, different feel.
+                  </div>
+                  <p className="mt-3 text-white/66 leading-relaxed">
+                    Let each app inherit defaults or override scroll and button rules. Precision
+                    where it matters, smooth everywhere else.
+                  </p>
+
+                  <div className="mt-6 grid grid-cols-3 gap-2">
+                    {[
+                      { name: "Xcode", c: "rgba(0,209,255,0.22)" },
+                      { name: "Safari", c: "rgba(183,255,78,0.20)" },
+                      { name: "Figma", c: "rgba(255,61,154,0.22)" },
+                      { name: "Terminal", c: "rgba(245,246,255,0.12)" },
+                      { name: "Notion", c: "rgba(245,246,255,0.12)" },
+                      { name: "Chrome", c: "rgba(245,246,255,0.12)" },
+                    ].map((a) => (
+                      <div
+                        key={a.name}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-3 hover:bg-white/8 transition-colors"
+                      >
+                        <div
+                          className="h-10 w-10 rounded-xl border border-white/10 grid place-items-center"
+                          style={{ background: a.c }}
+                        >
+                          <span className="font-display text-[13px] text-white/90">
+                            {a.name.slice(0, 1)}
+                          </span>
+                        </div>
+                        <div className="mt-2 font-mono text-[11px] text-white/55">
+                          {a.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal className="md:col-span-6" delayMs={240}>
+              <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_60%_0%,rgba(183,255,78,0.14),transparent_55%)]" />
+                <div className="relative p-6 sm:p-8">
+                  <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+                    Buttons & Shortcuts
+                  </div>
+                  <div className="mt-4 text-2xl sm:text-3xl text-white font-semibold">
+                    Bind, record, repeat.
+                  </div>
+                  <p className="mt-3 text-white/66 leading-relaxed">
+                    Record mouse or keyboard events and bind them to system shortcuts. See live
+                    monitors to debug what your devices are sending.
+                  </p>
+
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
+                    <div className="font-mono text-xs text-white/45">Quick Bind</div>
+                    <div className="mt-3 grid gap-2">
+                      {[
+                        { k: "Button 4", v: "Mission Control" },
+                        { k: "Button 5", v: "Next Space" },
+                        { k: "Wheel Click", v: "App Switcher" },
+                      ].map((row) => (
+                        <div
+                          key={row.k}
+                          className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                        >
+                          <div className="font-mono text-xs text-white/75">{row.k}</div>
+                          <div className="font-mono text-xs text-white/45">{row.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        <section className="py-16 sm:py-28">
+          <div className="rounded-[28px] glass shadow-elevated border border-white/10 overflow-hidden">
+            <div className="px-6 sm:px-10 py-10 sm:py-14">
+              <Reveal>
+                <h3 className="font-display text-balance text-3xl sm:text-6xl text-white leading-tight">
+                  Download Mos. Feel the difference today.
+                </h3>
+              </Reveal>
+              <Reveal delayMs={90}>
+                <p className="mt-4 max-w-3xl text-white/68 leading-relaxed">
+                  Install in seconds, tune at your pace, and keep your scroll behavior consistent
+                  across the apps you live in.
+                </p>
+              </Reveal>
+
+              <Reveal delayMs={160}>
+                <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <Magnetic strength={22}>
+                    <a
+                      href={downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated inline-flex items-center justify-center"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
+                      }}
+                    >
+                      <span className="relative z-10">
+                        Direct download{versionLabel ? ` (${versionLabel})` : ""}
+                      </span>
+                      <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(900px_260px_at_30%_0%,rgba(255,255,255,0.55),transparent_55%)]" />
+                    </a>
+                  </Magnetic>
+
+                  <Magnetic strength={14}>
+                    <a
+                      href="https://github.com/Caldis/Mos/releases"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-white/85 border border-white/12 bg-white/5 hover:bg-white/8 transition-colors"
+                    >
+                      Release notes
+                    </a>
+                  </Magnetic>
+
+                  <Magnetic strength={14}>
+                    <a
+                      href="https://github.com/Caldis/Mos/wiki"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-white/85 border border-white/12 bg-white/5 hover:bg-white/8 transition-colors"
+                    >
+                      Docs
+                    </a>
+                  </Magnetic>
+                </div>
+              </Reveal>
+
+              <Reveal delayMs={220}>
+                <div className="mt-8 rounded-[22px] border border-white/10 bg-black/35 p-5 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+                        Homebrew
+                      </div>
+                      <div className="mt-2 font-mono text-sm text-white/75">
+                        brew install --cask mos
+                      </div>
+                    </div>
+                    <CopyButton
+                      value="brew install --cask mos"
+                      className="self-start sm:self-auto rounded-2xl px-4 py-2.5 text-sm font-semibold border border-white/12 bg-white/5 hover:bg-white/8 transition-colors text-white/85"
+                    >
+                      Copy
+                    </CopyButton>
+                  </div>
+                  <div className="mt-4 font-mono text-xs text-white/45">
+                    Tip: If you’re on beta, your cask might be <span className="text-white/70">mos@beta</span>.
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+
+            <div className="px-6 sm:px-10 py-6 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white/45">
+              <div className="font-mono text-xs">
+                {versionLabel ? `Latest ${versionLabel}` : "Latest release"} · Requires macOS 10.13+
+              </div>
+              <div className="flex items-center gap-4 font-mono text-xs">
+                <a
+                  href="https://github.com/Caldis/Mos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white/80 transition-colors"
+                >
+                  GitHub
+                </a>
+                <a
+                  href="https://github.com/Caldis/Mos/wiki"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white/80 transition-colors"
+                >
+                  Wiki
+                </a>
+                <a
+                  href="https://github.com/Caldis/Mos/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white/80 transition-colors"
+                >
+                  Releases
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
-      {/* Footer 区域 */}
-      <footer className="fixed bottom-0 left-0 right-0 flex flex-col items-center justify-center p-8 z-50">
-        <div className="flex flex-col gap-1 justify-center mb-6">
-          <DownloadButton />
-          <a
-            href="https://github.com/Caldis/Mos/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`text-white/40 hover:text-white/60 transition-colors text-xs text-center scale-90 ${spaceMono.className}`}
-          >
-            {t.download_releaseNotes}
-          </a>
+      <Modal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} title="Download Mos">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-display text-sm tracking-[0.18em] uppercase text-white/75">
+                  Latest release
+                </div>
+                <div className="mt-2 font-mono text-sm text-white/80">
+                  {versionLabel ?? "Fetching…"}
+                </div>
+              </div>
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-black shadow-elevated"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
+                }}
+              >
+                Direct download
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/75">
+              Homebrew
+            </div>
+            <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <code className="font-mono text-sm text-white/80 bg-white/5 border border-white/10 rounded-2xl px-3 py-2 flex-1">
+                brew install --cask mos
+              </code>
+              <CopyButton
+                value="brew install --cask mos"
+                className="rounded-2xl px-4 py-2.5 text-sm font-semibold border border-white/12 bg-white/5 hover:bg-white/8 transition-colors text-white/85"
+              >
+                Copy
+              </CopyButton>
+            </div>
+            <div className="mt-3 font-mono text-xs text-white/45">
+              Some users might need <span className="text-white/70">mos@beta</span>.
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a
+              href="https://github.com/Caldis/Mos/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-2xl border border-white/12 bg-white/5 hover:bg-white/8 transition-colors px-4 py-3 text-white/85"
+            >
+              <div className="font-display text-sm">Release notes</div>
+              <div className="mt-1 font-mono text-xs text-white/45">Changelog and assets</div>
+            </a>
+            <a
+              href="https://github.com/Caldis/Mos/wiki"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-2xl border border-white/12 bg-white/5 hover:bg-white/8 transition-colors px-4 py-3 text-white/85"
+            >
+              <div className="font-display text-sm">Docs</div>
+              <div className="mt-1 font-mono text-xs text-white/45">Setup and tips</div>
+            </a>
+          </div>
+
+          <div className="font-mono text-xs text-white/45">
+            Requires macOS 10.13+ · Free · Open source
+          </div>
         </div>
-        <div
-          className={`flex items-center text-xs tracking-wide text-gray-400 space-x-4 ${spaceMono.className}`}
-        >
-          <SysRequireButton />
-          <HomebrewButton />
-          <GithubVersion />
-          <LanguageSelector />
-        </div>
-      </footer>
+      </Modal>
     </div>
   );
 }
-

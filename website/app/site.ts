@@ -5,10 +5,9 @@ export const SITE_URL = new URL(rawSiteUrl.endsWith("/") ? rawSiteUrl : `${rawSi
 
 export const SITE_NAME = "Mos";
 
-export const SITE_TITLE = "Mos | Smooth mouse scrolling on macOS";
+export const SITE_TITLE = "Mos | Turn the wheel into flow";
 
 export const SITE_DESCRIPTION =
   "Mos is a free macOS utility that makes mouse wheel scrolling smooth, with per-app settings, independent axis tuning, and button/shortcut bindings.";
 
 export const OG_IMAGE_PATH = "/og.svg";
-
