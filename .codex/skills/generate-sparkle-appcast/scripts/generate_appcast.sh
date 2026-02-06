@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
 DOCS_DIR="$ROOT_DIR/docs"
 KEY_FILE="$ROOT_DIR/sparkle_private_key.txt"
+LAST_RELEASE_FILE="$ROOT_DIR/.last-release-commit"
 
 GITHUB_REPO="Caldis/Mos"
 RELEASES_BASE_URL="https://github.com/${GITHUB_REPO}/releases"
@@ -58,13 +59,17 @@ while [[ $# -gt 0 ]]; do
       ;;
     --help|-h)
       cat <<EOF
-Usage: $(basename "$0") --since <commit>
+Usage: $(basename "$0") [--since <commit>]
 
 Options:
   --since, --since-commit   Git commit to generate release notes from (exclusive)
+                            If not provided, reads from .last-release-commit file
 
 Env:
   RELEASE_NOTES_SINCE_COMMIT  Same as --since
+
+Files:
+  .last-release-commit      Default commit hash if --since not specified
 EOF
       exit 0
       ;;
@@ -74,14 +79,25 @@ EOF
   esac
 done
 
+# If --since not provided, try reading from .last-release-commit file
 if [[ -z "$SINCE_COMMIT" ]]; then
-  cat >&2 <<EOF
+  if [[ -f "$LAST_RELEASE_FILE" ]]; then
+    SINCE_COMMIT="$(tr -d '[:space:]' <"$LAST_RELEASE_FILE")"
+    info "Using commit from $LAST_RELEASE_FILE: $SINCE_COMMIT"
+  else
+    cat >&2 <<EOF
 Missing required parameter: --since <commit>
+
+You can either:
+  1. Pass --since <commit> argument
+  2. Create .last-release-commit file with the commit hash
 
 Example:
   $(basename "$0") --since 1e07d2f
+  echo "1e07d2f" > .last-release-commit
 EOF
-  exit 1
+    exit 1
+  fi
 fi
 
 ZIP_PATH="$(
@@ -339,12 +355,15 @@ NOTES_EN_BUILD="${RELEASE_NOTES_EN_FILE:-$NOTES_EN_BUILD_DEFAULT}"
 
 if [[ ! -s "$NOTES_ZH_BUILD" || ! -s "$NOTES_EN_BUILD" ]]; then
   # Split bilingual HTML into two pages following the same structure, but language-specific.
-  NOTES_HTML="$RELEASE_NOTES_HTML" python3 -c '
+  NOTES_HTML="$RELEASE_NOTES_HTML" NOTES_TITLE="Mos '"${SHORT_VERSION}"' ('"${BUNDLE_VERSION}"')" python3 -c '
+import html
 import os
 import sys
 
 zh_out = sys.argv[1]
 en_out = sys.argv[2]
+
+title = os.environ.get("NOTES_TITLE", "Mos Release Notes")
 
 content = os.environ.get("NOTES_HTML", "")
 parts = content.split("<hr/>")
@@ -358,9 +377,10 @@ def wrap_page(body: str, lang: str) -> str:
         "<head>\n"
         "  <meta charset=\"utf-8\" />\n"
         "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
-        "  <title>Mos Release Notes</title>\n"
+        f"  <title>{html.escape(title)}</title>\n"
         "  <style>\n"
         "    body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;line-height:1.5;padding:20px;max-width:900px;margin:0 auto;}\n"
+        "    h1{margin:0 0 14px 0;font-size:22px;}\n"
         "    h2{margin:18px 0 8px 0;}\n"
         "    ul{margin:6px 0 14px 18px;}\n"
         "    code{background:#f3f4f6;padding:0 4px;border-radius:4px;}\n"
@@ -369,6 +389,7 @@ def wrap_page(body: str, lang: str) -> str:
         "  </style>\n"
         "</head>\n"
         "<body>\n"
+        f"<h1>{html.escape(title)}</h1>\n"
         f"{body}\n"
         "</body>\n"
         "</html>\n"
@@ -385,8 +406,149 @@ fi
 cp "$NOTES_ZH_BUILD" "$RELEASE_NOTES_DIR_DOCS/$(basename "$NOTES_ZH_BUILD")"
 cp "$NOTES_EN_BUILD" "$RELEASE_NOTES_DIR_DOCS/$(basename "$NOTES_EN_BUILD")"
 
-RELEASE_NOTES_ZH_URL="${RELEASE_NOTES_BASE_URL}/$(basename "$NOTES_ZH_BUILD")"
-RELEASE_NOTES_EN_URL="${RELEASE_NOTES_BASE_URL}/$(basename "$NOTES_EN_BUILD")"
+# Generate "channel history" release notes pages so Sparkle can show changes across multiple versions.
+# Sparkle can mark the installed build by adding 'sparkle-installed-version' to elements that have
+# data-sparkle-version="<installed CFBundleVersion>", so we keep each version as a sibling block and hide older ones.
+CHANNEL_SLUG="stable"
+if [[ "$BETA_FLAG" == "true" ]]; then
+  CHANNEL_SLUG="beta"
+fi
+
+HISTORY_ZH_BUILD="$RELEASE_NOTES_DIR_BUILD/${CHANNEL_SLUG}.zh.html"
+HISTORY_EN_BUILD="$RELEASE_NOTES_DIR_BUILD/${CHANNEL_SLUG}.en.html"
+
+python3 - "$RELEASE_NOTES_DIR_DOCS" "$CHANNEL_SLUG" "$BUNDLE_VERSION" "$SHORT_VERSION" "$NOTES_ZH_BUILD" "$NOTES_EN_BUILD" "$HISTORY_ZH_BUILD" "$HISTORY_EN_BUILD" <<'PY'
+import html
+import os
+import re
+import sys
+
+docs_dir = sys.argv[1]
+channel = sys.argv[2]  # "beta" or "stable"
+new_bundle_version = sys.argv[3]
+new_short_version = sys.argv[4]
+new_zh_path = sys.argv[5]
+new_en_path = sys.argv[6]
+out_zh = sys.argv[7]
+out_en = sys.argv[8]
+
+def is_beta_tag(tag: str) -> bool:
+    return "-beta-" in tag
+
+def parse_tag_and_bundle_version(filename: str):
+    # <tag>.<lang>.html where tag ends with -<bundleVersion>
+    m = re.match(r"^(?P<tag>.+)\.(?P<lang>zh|en)\.html$", filename)
+    if not m:
+        return None
+    tag = m.group("tag")
+    if "-" not in tag:
+        return None
+    short_version, bundle_version = tag.rsplit("-", 1)
+    if not re.match(r"^\d{8}\.\d+$", bundle_version):
+        return None
+    return tag, bundle_version
+
+def version_key(bundle_version: str) -> tuple[int, int]:
+    a, b = bundle_version.split(".", 1)
+    return int(a), int(b)
+
+def extract_body(path: str) -> str:
+    raw = open(path, "r", encoding="utf-8").read()
+    m = re.search(r"<body\b[^>]*>(?P<body>.*)</body>", raw, flags=re.I | re.S)
+    return (m.group("body") if m else raw).strip()
+
+def ensure_h1(body: str, title: str) -> str:
+    # If the body already has an <h1>, keep it. Otherwise add one.
+    if re.search(r"<h1\b", body, flags=re.I):
+        return body
+    return f"<h1>{html.escape(title)}</h1>\n{body}"
+
+def version_block(bundle_version: str, inner_html: str) -> str:
+    # Keep blocks as direct siblings so CSS sibling selectors can hide older versions.
+    return (
+        f"<div class=\"version\" data-sparkle-version=\"{html.escape(bundle_version)}\">\n"
+        f"{inner_html.strip()}\n"
+        "</div>"
+    )
+
+def page(blocks_html: str, lang: str) -> str:
+    return (
+        "<!doctype html>\n"
+        f"<html lang=\"{lang}\">\n"
+        "<head>\n"
+        "  <meta charset=\"utf-8\" />\n"
+        "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+        "  <title>Mos Release Notes</title>\n"
+        "  <style>\n"
+        "    body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;line-height:1.5;padding:20px;max-width:900px;margin:0 auto;}\n"
+        "    .version{padding:16px 0;border-bottom:1px solid #e5e7eb;}\n"
+        "    .version:last-of-type{border-bottom:0;}\n"
+        "    .version.sparkle-installed-version{opacity:0.55;}\n"
+        "    .version.sparkle-installed-version ~ .version{display:none;}\n"
+        "    h1{margin:0 0 14px 0;font-size:22px;}\n"
+        "    h2{margin:18px 0 8px 0;}\n"
+        "    ul{margin:6px 0 14px 18px;}\n"
+        "    code{background:#f3f4f6;padding:0 4px;border-radius:4px;}\n"
+        "    a{color:#2563eb;text-decoration:none;}\n"
+        "    a:hover{text-decoration:underline;}\n"
+        "  </style>\n"
+        "</head>\n"
+        "<body>\n"
+        f"{blocks_html.strip()}\n"
+        "</body>\n"
+        "</html>\n"
+    )
+
+def should_include_tag(tag: str) -> bool:
+    # Separate beta/stable histories
+    if channel == "beta":
+        return is_beta_tag(tag)
+    return not is_beta_tag(tag)
+
+def collect_lang(lang: str, new_path: str, new_title: str) -> list[tuple[str, str]]:
+    blocks: dict[str, str] = {}
+
+    # Always include the new version, even if the filename is custom and doesn't match the pattern.
+    new_inner = ensure_h1(extract_body(new_path), new_title)
+    blocks[new_bundle_version] = version_block(new_bundle_version, new_inner)
+
+    # Include older versions from docs/release-notes/<tag>.<lang>.html
+    for name in os.listdir(docs_dir):
+        if not name.endswith(f".{lang}.html"):
+            continue
+        if name in (f"{channel}.zh.html", f"{channel}.en.html"):
+            continue
+        parsed = parse_tag_and_bundle_version(name)
+        if not parsed:
+            continue
+        tag, bundle_version = parsed
+        if not should_include_tag(tag):
+            continue
+        path = os.path.join(docs_dir, name)
+        short_version = tag.rsplit("-", 1)[0]
+        title = f"Mos {short_version} ({bundle_version})"
+        inner = ensure_h1(extract_body(path), title)
+        blocks[bundle_version] = version_block(bundle_version, inner)
+
+    out: list[tuple[str, str]] = []
+    for bundle_version in sorted(blocks.keys(), key=version_key, reverse=True):
+        out.append((bundle_version, blocks[bundle_version]))
+    return out
+
+new_title = f"Mos {new_short_version} ({new_bundle_version})"
+
+zh_blocks = collect_lang("zh", new_zh_path, new_title)
+en_blocks = collect_lang("en", new_en_path, new_title)
+
+open(out_zh, "w", encoding="utf-8").write(page("\n\n".join(b for _, b in zh_blocks), "zh"))
+open(out_en, "w", encoding="utf-8").write(page("\n\n".join(b for _, b in en_blocks), "en"))
+PY
+
+cp "$HISTORY_ZH_BUILD" "$RELEASE_NOTES_DIR_DOCS/$(basename "$HISTORY_ZH_BUILD")"
+cp "$HISTORY_EN_BUILD" "$RELEASE_NOTES_DIR_DOCS/$(basename "$HISTORY_EN_BUILD")"
+
+RELEASE_NOTES_ZH_URL="${RELEASE_NOTES_BASE_URL}/${CHANNEL_SLUG}.zh.html"
+RELEASE_NOTES_EN_URL="${RELEASE_NOTES_BASE_URL}/${CHANNEL_SLUG}.en.html"
 
 key_b64="$(tr -d '\n\r ' <"$KEY_FILE")"
 [[ -n "$key_b64" ]] || die "Sparkle private key file is empty: $KEY_FILE"
@@ -441,17 +603,8 @@ fi
 description_block=$'\n      <description><![CDATA['"$RELEASE_NOTES_HTML"$']]></description>'
 release_notes_link_block=$'\n      <sparkle:releaseNotesLink xml:lang="zh">'${RELEASE_NOTES_ZH_URL}$'</sparkle:releaseNotesLink>\n      <sparkle:releaseNotesLink>'${RELEASE_NOTES_EN_URL}$'</sparkle:releaseNotesLink>'
 
-cat >"$APPCAST_BUILD" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"
-    xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
-    xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <channel>
-    <title>Mos</title>
-    <link>https://mos.caldis.me/</link>
-    <description>Mos Updates</description>
-    <language>en</language>
-
+new_item="$(
+  cat <<EOF
     <item${item_attrs}>
       <title>Mos ${SHORT_VERSION}</title>
 ${channel_element}
@@ -467,10 +620,91 @@ ${release_notes_link_block}
         sparkle:edSignature="${ED_SIGNATURE}"${enclosure_channel_attr}
       />
     </item>
+EOF
+)"
+
+base_appcast=""
+if [[ -s "$APPCAST_DOCS" ]]; then
+  base_appcast="$APPCAST_DOCS"
+elif [[ -s "$APPCAST_BUILD" ]]; then
+  base_appcast="$APPCAST_BUILD"
+fi
+
+appcast_xml="$(NEW_ITEM="$new_item" python3 - "$base_appcast" "$BUNDLE_VERSION" <<'PY'
+import os
+import re
+import sys
+
+base_path = sys.argv[1].strip()
+new_version = sys.argv[2].strip()
+new_item = os.environ.get("NEW_ITEM", "").strip()
+
+def default_appcast() -> str:
+    return """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+    xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+    xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Mos</title>
+    <link>https://mos.caldis.me/</link>
+    <description>Mos Updates</description>
+    <language>en</language>
   </channel>
 </rss>
-EOF
+"""
 
+if base_path and os.path.exists(base_path):
+    text = open(base_path, "r", encoding="utf-8").read()
+else:
+    text = default_appcast()
+
+item_re = re.compile(r"<item\b.*?</item>", flags=re.S)
+matches = list(item_re.finditer(text))
+
+if matches:
+    prefix = text[: matches[0].start()]
+    suffix = text[matches[-1].end() :]
+    items = [m.group(0) for m in matches]
+else:
+    insert_at = text.rfind("</channel>")
+    if insert_at == -1:
+        text = default_appcast()
+        insert_at = text.rfind("</channel>")
+    prefix = text[:insert_at]
+    suffix = text[insert_at:]
+    items = []
+
+def extract_version(item: str) -> str:
+    m = re.search(r'sparkle:version="([^"]+)"', item)
+    if m:
+        return m.group(1)
+    m = re.search(r"<sparkle:version>([^<]+)</sparkle:version>", item)
+    if m:
+        return m.group(1).strip()
+    return ""
+
+filtered: list[str] = []
+seen_versions: set[str] = set()
+for item in items:
+    v = extract_version(item)
+    if v and v == new_version:
+        continue
+    if v:
+        if v in seen_versions:
+            continue
+        seen_versions.add(v)
+    filtered.append(item)
+
+all_items = [new_item] + filtered
+
+indent = prefix.rsplit("\n", 1)[-1]
+sep = "\n\n" + indent
+out = prefix + sep.join(i.strip() for i in all_items if i.strip()) + suffix
+sys.stdout.write(out if out.endswith("\n") else (out + "\n"))
+PY
+)"
+
+printf '%s' "$appcast_xml" >"$APPCAST_BUILD"
 cp "$APPCAST_BUILD" "$APPCAST_DOCS"
 
 info "Selected zip: $ZIP_PATH"
