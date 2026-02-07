@@ -182,7 +182,7 @@ export default function HomeClient() {
               className="mt-8 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 motion-safe:animate-[hero-in_1050ms_var(--ease-out)_both]"
               style={{ animationDelay: "250ms" }}
             >
-              <div className="flex flex-col items-start">
+              <div className="flex flex-col items-start w-fit">
                 <Magnetic strength={22}>
                   <a
                     href={downloadUrl}
@@ -204,7 +204,7 @@ export default function HomeClient() {
                     e.preventDefault();
                     scrollToHomebrew();
                   }}
-                  className="mt-2 pl-[10px] text-xs font-mono text-white/50 hover:text-white/75 transition-colors underline decoration-white/15 hover:decoration-white/35 underline-offset-4"
+                  className="mt-2 self-center text-xs font-mono text-white/50 hover:text-white/75 transition-colors underline decoration-white/15 hover:decoration-white/35 underline-offset-4"
                 >
                   通过 Homebrew 安装
                 </a>
