@@ -78,7 +78,6 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
     let t = 0;
     let lastManualTime = 0;
     let manualInputEnded = true;
-    let trackingEndInserted = false;
     let settled = 0;
 
     let filterWindow = [0.0, 0.0];
@@ -96,7 +95,6 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
         deltaPrev = y;
         lastManualTime = t;
         manualInputEnded = false;
-        trackingEndInserted = false;
       }
 
       // Interpolator.lerp(src: current, dest: buffer, trans: durationTransition)
@@ -108,15 +106,10 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
       const filtered = filterWindow[0] ?? 0;
       const out = Math.abs(filtered) > deadZone ? filtered : 0;
 
-      // Simulate the "TrackingEnd" marker frame Mos emits after manual input stops.
-      if (
-        !manualInputEnded &&
-        !trackingEndInserted &&
-        t - lastManualTime > manualContinuationThreshold
-      ) {
+      // Track when manual input ends (used for stopping conditions),
+      // but do NOT inject the "TrackingEnd = 0" marker frame in the graph.
+      if (!manualInputEnded && t - lastManualTime > manualContinuationThreshold) {
         manualInputEnded = true;
-        trackingEndInserted = true;
-        samples.push(0);
       }
 
       samples.push(out);
