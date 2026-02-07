@@ -7,7 +7,7 @@ import { CursorAura } from "./components/CursorAura/CursorAura";
 import { FlowField } from "./components/FlowField/FlowField";
 import { Magnetic } from "./components/Magnetic/Magnetic";
 import { Reveal } from "./components/Reveal/Reveal";
-import { WheelLab } from "./components/WheelLab/WheelLab";
+import { EasingPlayground } from "./components/EasingPlayground/EasingPlayground";
 import { Modal } from "./components/Modal/Modal";
 import { CopyButton } from "./components/CopyButton/CopyButton";
 import { useGithubRelease } from "./services/github";
@@ -72,23 +72,16 @@ export default function HomeClient() {
         <nav className="mx-auto mt-4 sm:mt-6 max-w-6xl rounded-[var(--radius-xl)] glass ring-accent">
           <div className="flex items-center justify-between px-4 sm:px-5 py-3">
             <div className="flex items-center gap-3">
-              <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-white/5 border border-white/10">
-                <Image
-                  src={logo512}
-                  alt="Mos app icon"
-                  fill
-                  sizes="40px"
-                  className="object-contain p-1.5"
-                  priority
-                />
-              </div>
-              <div className="leading-tight">
-                <div className="font-display text-[15px] tracking-[0.18em] uppercase text-white/90">
-                  Mos
-                </div>
-                <div className="font-mono text-[11px] text-white/45">
-                  {versionLabel ? `Release ${versionLabel}` : "macOS utility"}
-                </div>
+              <Image
+                src={logo512}
+                alt="Mos app icon"
+                width={52}
+                height={52}
+                className="object-contain rounded-[18px]"
+                priority
+              />
+              <div className="font-display text-[15px] sm:text-base tracking-[0.18em] uppercase text-white/90">
+                Mos
               </div>
             </div>
 
@@ -118,34 +111,34 @@ export default function HomeClient() {
               </button>
               <Magnetic strength={18}>
                 <a
-                    href={downloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black border border-black/10 shadow-elevated"
-                    style={{
-                      background:
-                        "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
-                    }}
-                  >
-                    <span className="relative z-10">Download</span>
-                    <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(0,0,0,0.16),transparent_55%)]" />
-                  </a>
-              </Magnetic>
-            </div>
-
-            <div className="flex sm:hidden items-center gap-2">
-                <a
                   href={downloadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-black border border-black/10 shadow-elevated"
+                  className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black border border-black/10 shadow-elevated"
                   style={{
                     background:
                       "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
                   }}
                 >
-                  Get Mos
+                  <span className="relative z-10">Download</span>
+                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(0,0,0,0.16),transparent_55%)]" />
                 </a>
+              </Magnetic>
+            </div>
+
+            <div className="flex sm:hidden items-center gap-2">
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-2xl px-3 py-2 text-sm font-semibold text-black border border-black/10 shadow-elevated"
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                }}
+              >
+                Get Mos
+              </a>
               <button
                 type="button"
                 onClick={() => setIsDownloadOpen(true)}
@@ -166,10 +159,10 @@ export default function HomeClient() {
               className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs text-white/70 shadow-elevated motion-safe:animate-[hero-in_900ms_var(--ease-out)_both]"
               style={{ animationDelay: "40ms" }}
             >
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[color:var(--accent)] shadow-[0_0_22px_rgba(255,255,255,0.35)]" />
-                  Smooth scrolling for mouse wheels on macOS
-                </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[color:var(--accent)] shadow-[0_0_22px_rgba(255,255,255,0.35)]" />
+                Smooth scrolling for mouse wheels on macOS
+              </span>
               <span className="hidden sm:inline text-white/35">•</span>
               <span className="hidden sm:inline font-mono text-white/45">
                 per-app profiles · independent axes · buttons & shortcuts
@@ -184,16 +177,9 @@ export default function HomeClient() {
               <span className="block">
                 into{" "}
                 <span
-                    className="inline-block"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.72) 38%, rgba(255,255,255,0.98) 86%)",
-                      WebkitBackgroundClip: "text",
-                      backgroundClip: "text",
-                      color: "transparent",
-                      textShadow: "0 0 42px rgba(255,255,255,0.08)",
-                    }}
-                  >
+                  className="inline-block text-flow"
+                  style={{ textShadow: "0 0 42px rgba(255,255,255,0.08)" }}
+                >
                   flow
                 </span>
                 .
@@ -215,18 +201,18 @@ export default function HomeClient() {
             >
               <Magnetic strength={22}>
                 <a
-                    href={downloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated border border-black/10 inline-flex items-center justify-center"
-                    style={{
-                      background:
-                        "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
-                    }}
-                  >
-                    <span className="relative z-10">Download Mos</span>
-                    <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
-                  </a>
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated border border-black/10 inline-flex items-center justify-center"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                  }}
+                >
+                  <span className="relative z-10">Download Mos</span>
+                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
+                </a>
               </Magnetic>
 
               <Magnetic strength={14}>
@@ -257,21 +243,6 @@ export default function HomeClient() {
                 <div className="font-mono">Requires macOS 10.13+</div>
                 <div className="font-mono">Free · Open source</div>
               </div>
-            </div>
-
-            <div
-              className="mt-10 rounded-[var(--radius-xl)] glass shadow-elevated border border-white/10 overflow-hidden motion-safe:animate-[hero-in_1100ms_var(--ease-out)_both]"
-              style={{ animationDelay: "320ms" }}
-            >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-                <div className="font-display text-sm tracking-[0.18em] uppercase text-white/75">
-                  Wheel Lab
-                </div>
-                <div className="font-mono text-xs text-white/45">
-                  Try scrolling here, or drag on mobile
-                </div>
-              </div>
-              <WheelLab />
             </div>
 
             <div className="mt-10 flex items-center gap-3 text-white/40">
@@ -309,27 +280,10 @@ export default function HomeClient() {
                     Shape the feel.
                   </div>
                   <p className="mt-3 text-white/66 leading-relaxed">
-                    Smoothness is a curve. Mos lets you tune acceleration and easing so wheel
-                    input becomes consistent motion.
+                    Smoothness is a curve. Tune step, gain, and duration and watch how the curve
+                    maps raw wheel deltas into controlled motion.
                   </p>
-                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="font-mono text-xs text-white/45">Easing</div>
-                      <div className="font-mono text-xs text-white/45">Acceleration</div>
-                    </div>
-                    <div className="mt-3 grid grid-cols-12 gap-2">
-                      {Array.from({ length: 12 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="h-10 rounded-xl border border-white/10 bg-white/5"
-                          style={{
-                            transform: `translateY(${Math.sin(i / 2.4) * 6}px)`,
-                            transition: "transform 700ms var(--ease-out)",
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
+                  <EasingPlayground className="mt-6" />
                 </div>
               </div>
             </Reveal>
