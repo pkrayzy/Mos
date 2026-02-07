@@ -95,11 +95,10 @@ export default function HomeClient() {
                 GitHub
               </a>
               <Magnetic strength={18}>
-                <button
-                  type="button"
-                  onClick={() => setIsDownloadOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={isDownloadOpen}
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black border border-black/10 shadow-elevated"
                   style={{
                     background:
@@ -108,16 +107,15 @@ export default function HomeClient() {
                 >
                   <span className="relative z-10">Download</span>
                   <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(0,0,0,0.16),transparent_55%)]" />
-                </button>
+                </a>
               </Magnetic>
             </div>
 
             <div className="flex sm:hidden items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsDownloadOpen(true)}
-                aria-haspopup="dialog"
-                aria-expanded={isDownloadOpen}
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="rounded-2xl px-3 py-2 text-sm font-semibold text-black border border-black/10 shadow-elevated"
                 style={{
                   background:
@@ -125,7 +123,7 @@ export default function HomeClient() {
                 }}
               >
                 Get Mos
-              </button>
+              </a>
             </div>
           </div>
         </nav>
@@ -179,22 +177,30 @@ export default function HomeClient() {
               className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 motion-safe:animate-[hero-in_1050ms_var(--ease-out)_both]"
               style={{ animationDelay: "250ms" }}
             >
-              <Magnetic strength={22}>
+              <div className="flex flex-col items-start">
+                <Magnetic strength={22}>
+                  <a
+                    href={downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated border border-black/10 inline-flex items-center justify-center"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                    }}
+                  >
+                    <span className="relative z-10">Download Mos</span>
+                    <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
+                  </a>
+                </Magnetic>
                 <button
                   type="button"
                   onClick={() => setIsDownloadOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={isDownloadOpen}
-                  className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated border border-black/10 inline-flex items-center justify-center"
-                  style={{
-                    background:
-                      "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
-                  }}
+                  className="mt-2 text-xs font-mono text-white/50 hover:text-white/75 transition-colors underline decoration-white/15 hover:decoration-white/35 underline-offset-4"
                 >
-                  <span className="relative z-10">Download Mos</span>
-                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
+                  通过 Homebrew 安装
                 </button>
-              </Magnetic>
+              </div>
 
               <Magnetic strength={14}>
                 <a
@@ -421,7 +427,7 @@ export default function HomeClient() {
                         }}
                       >
                       <span className="relative z-10">
-                        Direct download{versionLabel ? ` (${versionLabel})` : ""}
+                        Download
                       </span>
                         <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(900px_260px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
                       </a>
