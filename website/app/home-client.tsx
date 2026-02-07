@@ -226,8 +226,7 @@ export default function HomeClient() {
           <Reveal delayMs={90}>
             <p className="mt-4 max-w-3xl text-white/68 leading-relaxed">
               Mos turns raw wheel deltas into predictable motion. Keep the same feel across apps,
-              override it per-app when needed, and use live monitors when a device or an app
-              behaves differently.
+              override it per-app when needed.
             </p>
           </Reveal>
 
