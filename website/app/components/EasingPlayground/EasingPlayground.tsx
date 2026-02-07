@@ -308,15 +308,15 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
               Step
             </div>
             <div className="font-mono text-xs text-white/55">
-              {step.toFixed(1)}
+              {step.toFixed(2)}
             </div>
           </div>
           <input
             className="mt-3 w-full range"
             type="range"
-            min={6}
-            max={72}
-            step={0.1}
+            min={0.01}
+            max={100}
+            step={0.01}
             value={step}
             onChange={(e) => setStep(Number(e.target.value))}
             aria-label="Step"
@@ -338,9 +338,9 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
           <input
             className="mt-3 w-full range"
             type="range"
-            min={0.6}
-            max={5.4}
-            step={0.05}
+            min={1}
+            max={10}
+            step={0.01}
             value={gain}
             onChange={(e) => setGain(Number(e.target.value))}
             aria-label="Gain"
@@ -362,9 +362,9 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
           <input
             className="mt-3 w-full range"
             type="range"
-            min={0.2}
+            min={1}
             max={5}
-            step={0.05}
+            step={0.01}
             value={duration}
             onChange={(e) => setDuration(Number(e.target.value))}
             aria-label="Duration"
