@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import logo512 from "@/assets/image/logo-512.png";
-import { CursorAura } from "./components/CursorAura/CursorAura";
 import { FlowField } from "./components/FlowField/FlowField";
 import { Magnetic } from "./components/Magnetic/Magnetic";
 import { Reveal } from "./components/Reveal/Reveal";
@@ -50,25 +49,43 @@ export default function HomeClient() {
 
   const homebrewRef = useRef<HTMLDivElement | null>(null);
   const pendingHomebrewFlashRef = useRef(false);
+  const homebrewFlashStartTimerRef = useRef<number | null>(null);
   const homebrewFlashTimerRef = useRef<number | null>(null);
 
-  const flashHomebrew = useCallback(() => {
+  const flashHomebrew = useCallback((delayMs = 0) => {
     const el = homebrewRef.current;
     if (!el) return;
 
-    el.classList.remove("homebrew-highlight");
-    // Force reflow so the animation restarts reliably.
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    el.offsetWidth;
-    el.classList.add("homebrew-highlight");
-
+    if (homebrewFlashStartTimerRef.current) {
+      window.clearTimeout(homebrewFlashStartTimerRef.current);
+      homebrewFlashStartTimerRef.current = null;
+    }
     if (homebrewFlashTimerRef.current) {
       window.clearTimeout(homebrewFlashTimerRef.current);
-    }
-    homebrewFlashTimerRef.current = window.setTimeout(() => {
-      el.classList.remove("homebrew-highlight");
       homebrewFlashTimerRef.current = null;
-    }, 1200);
+    }
+
+    const start = () => {
+      el.classList.remove("homebrew-highlight");
+      // Force reflow so the animation restarts reliably.
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      el.offsetWidth;
+      el.classList.add("homebrew-highlight");
+
+      homebrewFlashTimerRef.current = window.setTimeout(() => {
+        el.classList.remove("homebrew-highlight");
+        homebrewFlashTimerRef.current = null;
+      }, 1200);
+    };
+
+    if (delayMs > 0) {
+      homebrewFlashStartTimerRef.current = window.setTimeout(() => {
+        homebrewFlashStartTimerRef.current = null;
+        start();
+      }, delayMs);
+    } else {
+      start();
+    }
   }, []);
 
   useEffect(() => {
@@ -81,7 +98,7 @@ export default function HomeClient() {
         if (!entry?.isIntersecting) return;
         if (!pendingHomebrewFlashRef.current) return;
         pendingHomebrewFlashRef.current = false;
-        flashHomebrew();
+        flashHomebrew(500);
       },
       { threshold: 0.35 }
     );
@@ -90,6 +107,10 @@ export default function HomeClient() {
 
     return () => {
       io.disconnect();
+      if (homebrewFlashStartTimerRef.current) {
+        window.clearTimeout(homebrewFlashStartTimerRef.current);
+        homebrewFlashStartTimerRef.current = null;
+      }
       if (homebrewFlashTimerRef.current) {
         window.clearTimeout(homebrewFlashTimerRef.current);
         homebrewFlashTimerRef.current = null;
@@ -107,7 +128,7 @@ export default function HomeClient() {
     const inView = rect.top < window.innerHeight * 0.78 && rect.bottom > window.innerHeight * 0.22;
     if (inView) {
       pendingHomebrewFlashRef.current = false;
-      flashHomebrew();
+      flashHomebrew(500);
     } else {
       pendingHomebrewFlashRef.current = true;
     }
@@ -123,8 +144,6 @@ export default function HomeClient() {
       >
         Skip to content
       </a>
-
-      <CursorAura />
 
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <FlowField className="absolute inset-0" />
