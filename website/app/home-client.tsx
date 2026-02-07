@@ -132,8 +132,9 @@ export default function HomeClient() {
       </header>
 
       <main id="content" className="mx-auto max-w-6xl px-4 sm:px-6">
-        <section className="relative pt-28 sm:pt-36 pb-14 sm:pb-18">
-          <div className="w-full">
+        <section className="relative min-h-[100svh] pt-28 sm:pt-36 pb-10 sm:pb-12 flex flex-col">
+          <div className="flex-1 flex items-start sm:items-center">
+            <div className="w-full">
             <div
               className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs text-white/70 shadow-elevated motion-safe:animate-[hero-in_900ms_var(--ease-out)_both]"
               style={{ animationDelay: "40ms" }}
@@ -214,6 +215,15 @@ export default function HomeClient() {
                 <div className="font-mono">Free · Open source</div>
               </div>
             </div>
+            </div>
+          </div>
+
+          <div className="mt-8 sm:mt-10 flex items-center gap-3 text-white/40">
+            <div className="h-[1px] flex-1 hairline" />
+            <div className="font-mono text-[11px] tracking-[0.18em] uppercase">
+              Scroll to explore
+            </div>
+            <div className="h-[1px] flex-1 hairline" />
           </div>
         </section>
 
@@ -382,7 +392,7 @@ export default function HomeClient() {
           </div>
         </section>
 
-        <section className="py-16 sm:py-24">
+        <section className="pt-0 pb-16 sm:pb-24">
           <div className="rounded-[28px] glass shadow-elevated border border-white/10 overflow-hidden">
             <div className="px-6 sm:px-10 py-10 sm:py-14">
               <Reveal>
