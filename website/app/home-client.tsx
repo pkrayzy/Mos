@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import logo512 from "@/assets/image/logo-512.png";
 import { CursorAura } from "./components/CursorAura/CursorAura";
 import { FlowField } from "./components/FlowField/FlowField";
@@ -48,10 +48,70 @@ export default function HomeClient() {
 
   const downloadUrl = useMemo(() => pickDownloadUrl(release), [release]);
 
-  const scrollToHomebrew = () => {
-    const el = document.getElementById("homebrew");
+  const homebrewRef = useRef<HTMLDivElement | null>(null);
+  const pendingHomebrewFlashRef = useRef(false);
+  const homebrewFlashTimerRef = useRef<number | null>(null);
+
+  const flashHomebrew = useCallback(() => {
+    const el = homebrewRef.current;
     if (!el) return;
+
+    el.classList.remove("homebrew-highlight");
+    // Force reflow so the animation restarts reliably.
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    el.offsetWidth;
+    el.classList.add("homebrew-highlight");
+
+    if (homebrewFlashTimerRef.current) {
+      window.clearTimeout(homebrewFlashTimerRef.current);
+    }
+    homebrewFlashTimerRef.current = window.setTimeout(() => {
+      el.classList.remove("homebrew-highlight");
+      homebrewFlashTimerRef.current = null;
+    }, 1200);
+  }, []);
+
+  useEffect(() => {
+    const el = homebrewRef.current;
+    if (!el) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+        if (!pendingHomebrewFlashRef.current) return;
+        pendingHomebrewFlashRef.current = false;
+        flashHomebrew();
+      },
+      { threshold: 0.35 }
+    );
+
+    io.observe(el);
+
+    return () => {
+      io.disconnect();
+      if (homebrewFlashTimerRef.current) {
+        window.clearTimeout(homebrewFlashTimerRef.current);
+        homebrewFlashTimerRef.current = null;
+      }
+    };
+  }, [flashHomebrew]);
+
+  const scrollToHomebrew = () => {
+    const el = homebrewRef.current ?? document.getElementById("homebrew");
+    if (!el) return;
+
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+
+    const rect = el.getBoundingClientRect();
+    const inView = rect.top < window.innerHeight * 0.78 && rect.bottom > window.innerHeight * 0.22;
+    if (inView) {
+      pendingHomebrewFlashRef.current = false;
+      flashHomebrew();
+    } else {
+      pendingHomebrewFlashRef.current = true;
+    }
+
     el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   };
 
@@ -468,6 +528,7 @@ export default function HomeClient() {
               <Reveal delayMs={220}>
                 <div
                   id="homebrew"
+                  ref={homebrewRef}
                   className="mt-8 scroll-mt-28 rounded-[22px] border border-white/10 bg-black/35 p-5 sm:p-6"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

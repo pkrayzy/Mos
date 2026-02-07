@@ -146,6 +146,45 @@ body::before {
   }
 }
 
+@keyframes homebrew-pulse {
+  0% {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+      0 0 0 0 rgba(255, 255, 255, 0),
+      0 0 0 rgba(0, 0, 0, 0);
+  }
+  28% {
+    border-color: rgba(255, 255, 255, 0.26);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.16),
+      0 0 0 10px rgba(255, 255, 255, 0.055),
+      0 0 64px rgba(255, 255, 255, 0.08);
+  }
+  100% {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+      0 0 0 0 rgba(255, 255, 255, 0),
+      0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+@keyframes homebrew-sheen {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 @layer utilities {
   .font-display {
     font-family:
@@ -227,6 +266,27 @@ body::before {
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
   }
 
+  .homebrew-highlight {
+    position: relative;
+    isolation: isolate;
+    will-change: box-shadow;
+    animation: homebrew-pulse 1200ms var(--ease-out) both;
+  }
+
+  .homebrew-highlight::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      radial-gradient(900px 260px at 28% 0%, rgba(255, 255, 255, 0.16), transparent 60%),
+      radial-gradient(720px 240px at 82% 10%, rgba(255, 255, 255, 0.10), transparent 62%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    animation: homebrew-sheen 1200ms var(--ease-out) both;
+  }
+
   .range {
     -webkit-appearance: none;
     appearance: none;
@@ -292,5 +352,20 @@ body::before {
       color: transparent;
       -webkit-text-fill-color: transparent;
     }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homebrew-highlight {
+    animation: none;
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.14) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 0 32px rgba(255, 255, 255, 0.06);
+  }
+  .homebrew-highlight::after {
+    animation: none;
+    opacity: 0;
   }
 }
