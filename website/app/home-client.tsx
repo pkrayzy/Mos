@@ -1,14 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import logo512 from "@/assets/image/logo-512.png";
 import { CursorAura } from "./components/CursorAura/CursorAura";
 import { FlowField } from "./components/FlowField/FlowField";
 import { Magnetic } from "./components/Magnetic/Magnetic";
 import { Reveal } from "./components/Reveal/Reveal";
 import { EasingPlayground } from "./components/EasingPlayground/EasingPlayground";
-import { Modal } from "./components/Modal/Modal";
 import { CopyButton } from "./components/CopyButton/CopyButton";
 import { useGithubRelease } from "./services/github";
 
@@ -41,7 +40,6 @@ function pickDownloadUrl(release: unknown): string {
 
 export default function HomeClient() {
   const { data: release } = useGithubRelease();
-  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
   const versionLabel = useMemo(() => {
     const tag = release?.tag_name;
@@ -49,6 +47,13 @@ export default function HomeClient() {
   }, [release?.tag_name]);
 
   const downloadUrl = useMemo(() => pickDownloadUrl(release), [release]);
+
+  const scrollToHomebrew = () => {
+    const el = document.getElementById("homebrew");
+    if (!el) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
 
   return (
     <div className="min-h-[100svh] text-[color:var(--fg0)]">
@@ -174,7 +179,7 @@ export default function HomeClient() {
             </p>
 
             <div
-              className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 motion-safe:animate-[hero-in_1050ms_var(--ease-out)_both]"
+              className="mt-8 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 motion-safe:animate-[hero-in_1050ms_var(--ease-out)_both]"
               style={{ animationDelay: "250ms" }}
             >
               <div className="flex flex-col items-start">
@@ -193,13 +198,16 @@ export default function HomeClient() {
                     <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
                   </a>
                 </Magnetic>
-                <button
-                  type="button"
-                  onClick={() => setIsDownloadOpen(true)}
-                  className="mt-2 text-xs font-mono text-white/50 hover:text-white/75 transition-colors underline decoration-white/15 hover:decoration-white/35 underline-offset-4"
+                <a
+                  href="#homebrew"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToHomebrew();
+                  }}
+                  className="mt-2 pl-[10px] text-xs font-mono text-white/50 hover:text-white/75 transition-colors underline decoration-white/15 hover:decoration-white/35 underline-offset-4"
                 >
                   通过 Homebrew 安装
-                </button>
+                </a>
               </div>
 
               <Magnetic strength={14}>
@@ -216,7 +224,7 @@ export default function HomeClient() {
                 </a>
               </Magnetic>
 
-              <div className="sm:ml-auto text-xs text-white/45">
+              <div className="sm:ml-auto sm:self-center text-xs text-white/45">
                 <div className="font-mono">Requires macOS 10.13+</div>
                 <div className="font-mono">Free · Open source</div>
               </div>
@@ -458,7 +466,10 @@ export default function HomeClient() {
               </Reveal>
 
               <Reveal delayMs={220}>
-                <div className="mt-8 rounded-[22px] border border-white/10 bg-black/35 p-5 sm:p-6">
+                <div
+                  id="homebrew"
+                  className="mt-8 scroll-mt-28 rounded-[22px] border border-white/10 bg-black/35 p-5 sm:p-6"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
@@ -516,80 +527,6 @@ export default function HomeClient() {
           </div>
         </section>
       </main>
-
-      <Modal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} title="Install Mos">
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="font-display text-sm tracking-[0.18em] uppercase text-white/75">
-                  Latest release
-                </div>
-                <div className="mt-2 font-mono text-sm text-white/80">
-                  {versionLabel ?? "Fetching…"}
-                </div>
-              </div>
-                <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-black shadow-elevated border border-black/10"
-                  style={{
-                    background:
-                      "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
-                  }}
-                >
-                Direct download
-              </a>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/75">
-              Homebrew
-            </div>
-            <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <code className="font-mono text-sm text-white/80 bg-white/5 border border-white/10 rounded-2xl px-3 py-2 flex-1">
-                brew install --cask mos
-              </code>
-              <CopyButton
-                value="brew install --cask mos"
-                className="rounded-2xl px-4 py-2.5 text-sm font-semibold border border-white/12 bg-white/5 hover:bg-white/8 transition-colors text-white/85"
-              >
-                Copy
-              </CopyButton>
-            </div>
-            <div className="mt-3 font-mono text-xs text-white/45">
-              Some users might need <span className="text-white/70">mos@beta</span>.
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <a
-              href="https://github.com/Caldis/Mos/releases"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-2xl border border-white/12 bg-white/5 hover:bg-white/8 transition-colors px-4 py-3 text-white/85"
-            >
-              <div className="font-display text-sm">Release notes</div>
-              <div className="mt-1 font-mono text-xs text-white/45">Changelog and assets</div>
-            </a>
-            <a
-              href="https://github.com/Caldis/Mos/wiki"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-2xl border border-white/12 bg-white/5 hover:bg-white/8 transition-colors px-4 py-3 text-white/85"
-            >
-              <div className="font-display text-sm">Docs</div>
-              <div className="mt-1 font-mono text-xs text-white/45">Setup and tips</div>
-            </a>
-          </div>
-
-          <div className="font-mono text-xs text-white/45">
-            Requires macOS 10.13+ · Free · Open source
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
