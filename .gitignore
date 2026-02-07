@@ -2,6 +2,7 @@
 website/.idea
 website/.next
 website/node_modules
+website/out
 
 # macOS
 .DS_Store
