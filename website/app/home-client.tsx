@@ -80,20 +80,12 @@ export default function HomeClient() {
                 className="object-contain rounded-[18px]"
                 priority
               />
-              <div className="font-display text-[15px] sm:text-base tracking-[0.18em] uppercase text-white/90">
+              <div className="font-display text-[15px] sm:text-base font-semibold tracking-[0.18em] uppercase text-white/90">
                 Mos
               </div>
             </div>
 
             <div className="hidden sm:flex items-center gap-2">
-              <a
-                href="https://github.com/Caldis/Mos/wiki"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 rounded-xl text-white/70 hover:text-white/92 transition-colors"
-              >
-                Docs
-              </a>
               <a
                 href="https://github.com/Caldis/Mos"
                 target="_blank"
@@ -102,18 +94,12 @@ export default function HomeClient() {
               >
                 GitHub
               </a>
-              <button
-                type="button"
-                onClick={() => setIsDownloadOpen(true)}
-                className="px-3 py-2 rounded-xl text-white/70 hover:text-white/92 hover:bg-white/5 transition-colors"
-              >
-                Install
-              </button>
               <Magnetic strength={18}>
-                <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setIsDownloadOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={isDownloadOpen}
                   className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black border border-black/10 shadow-elevated"
                   style={{
                     background:
@@ -122,15 +108,16 @@ export default function HomeClient() {
                 >
                   <span className="relative z-10">Download</span>
                   <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(0,0,0,0.16),transparent_55%)]" />
-                </a>
+                </button>
               </Magnetic>
             </div>
 
             <div className="flex sm:hidden items-center gap-2">
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setIsDownloadOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={isDownloadOpen}
                 className="rounded-2xl px-3 py-2 text-sm font-semibold text-black border border-black/10 shadow-elevated"
                 style={{
                   background:
@@ -138,14 +125,6 @@ export default function HomeClient() {
                 }}
               >
                 Get Mos
-              </a>
-              <button
-                type="button"
-                onClick={() => setIsDownloadOpen(true)}
-                className="rounded-2xl px-3 py-2 text-sm font-semibold border border-white/12 bg-white/5 hover:bg-white/8 transition-colors text-white/85"
-                aria-label="Install options"
-              >
-                ⋯
               </button>
             </div>
           </div>
@@ -153,7 +132,7 @@ export default function HomeClient() {
       </header>
 
       <main id="content" className="mx-auto max-w-6xl px-4 sm:px-6">
-        <section className="relative min-h-[100svh] flex items-center pt-28 sm:pt-36 pb-12">
+        <section className="relative pt-28 sm:pt-36 pb-14 sm:pb-18">
           <div className="w-full">
             <div
               className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs text-white/70 shadow-elevated motion-safe:animate-[hero-in_900ms_var(--ease-out)_both]"
@@ -200,10 +179,11 @@ export default function HomeClient() {
               style={{ animationDelay: "250ms" }}
             >
               <Magnetic strength={22}>
-                <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setIsDownloadOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={isDownloadOpen}
                   className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated border border-black/10 inline-flex items-center justify-center"
                   style={{
                     background:
@@ -212,16 +192,6 @@ export default function HomeClient() {
                 >
                   <span className="relative z-10">Download Mos</span>
                   <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
-                </a>
-              </Magnetic>
-
-              <Magnetic strength={14}>
-                <button
-                  type="button"
-                  onClick={() => setIsDownloadOpen(true)}
-                  className="inline-flex items-center justify-center rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-white/85 border border-white/12 bg-white/5 hover:bg-white/8 transition-colors"
-                >
-                  Install options
                 </button>
               </Magnetic>
 
@@ -244,27 +214,20 @@ export default function HomeClient() {
                 <div className="font-mono">Free · Open source</div>
               </div>
             </div>
-
-            <div className="mt-10 flex items-center gap-3 text-white/40">
-              <div className="h-[1px] flex-1 hairline" />
-              <div className="font-mono text-[11px] tracking-[0.18em] uppercase">
-                Scroll to explore
-              </div>
-              <div className="h-[1px] flex-1 hairline" />
-            </div>
           </div>
         </section>
 
         <section className="py-16 sm:py-24">
           <Reveal>
             <h2 className="font-display text-balance text-3xl sm:text-5xl text-white leading-tight">
-              Built for control, not gimmicks.
+              Deterministic scroll. Tunable feel.
             </h2>
           </Reveal>
           <Reveal delayMs={90}>
             <p className="mt-4 max-w-3xl text-white/68 leading-relaxed">
-              High polish comes from the small wins: predictable curves, consistent feel across
-              apps, and tooling that shows what’s happening in real time.
+              Mos turns raw wheel deltas into predictable motion. Keep the same feel across apps,
+              override it per-app when needed, and use live monitors when a device or an app
+              behaves differently.
             </p>
           </Reveal>
 
@@ -420,7 +383,7 @@ export default function HomeClient() {
           </div>
         </section>
 
-        <section className="py-16 sm:py-28">
+        <section className="py-16 sm:py-24">
           <div className="rounded-[28px] glass shadow-elevated border border-white/10 overflow-hidden">
             <div className="px-6 sm:px-10 py-10 sm:py-14">
               <Reveal>
@@ -539,7 +502,7 @@ export default function HomeClient() {
         </section>
       </main>
 
-      <Modal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} title="Download Mos">
+      <Modal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} title="Install Mos">
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
             <div className="flex items-center justify-between gap-3">
