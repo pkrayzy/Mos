@@ -51,7 +51,7 @@ export default function HomeClient() {
   const downloadUrl = useMemo(() => pickDownloadUrl(release), [release]);
 
   return (
-    <div className="min-h-[100svh] text-[color:var(--fg0)] selection:bg-[rgba(183,255,78,0.22)] selection:text-white">
+    <div className="min-h-[100svh] text-[color:var(--fg0)]">
       <a
         href="#content"
         className="sr-only focus:not-sr-only focus:fixed focus:z-[100] focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:rounded-xl focus:bg-black/70 focus:text-white focus:outline-none"
@@ -118,34 +118,34 @@ export default function HomeClient() {
               </button>
               <Magnetic strength={18}>
                 <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
-                  }}
-                >
-                  <span className="relative z-10">Download</span>
-                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(255,255,255,0.55),transparent_55%)]" />
-                </a>
+                    href={downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black border border-black/10 shadow-elevated"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                    }}
+                  >
+                    <span className="relative z-10">Download</span>
+                    <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(0,0,0,0.16),transparent_55%)]" />
+                  </a>
               </Magnetic>
             </div>
 
             <div className="flex sm:hidden items-center gap-2">
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-2xl px-3 py-2 text-sm font-semibold text-black"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
-                }}
-              >
-                Get Mos
-              </a>
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-black border border-black/10 shadow-elevated"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                  }}
+                >
+                  Get Mos
+                </a>
               <button
                 type="button"
                 onClick={() => setIsDownloadOpen(true)}
@@ -166,10 +166,10 @@ export default function HomeClient() {
               className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs text-white/70 shadow-elevated motion-safe:animate-[hero-in_900ms_var(--ease-out)_both]"
               style={{ animationDelay: "40ms" }}
             >
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[color:var(--accent)] shadow-[0_0_22px_rgba(183,255,78,0.55)]" />
-                Smooth scrolling for mouse wheels on macOS
-              </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[color:var(--accent)] shadow-[0_0_22px_rgba(255,255,255,0.35)]" />
+                  Smooth scrolling for mouse wheels on macOS
+                </span>
               <span className="hidden sm:inline text-white/35">•</span>
               <span className="hidden sm:inline font-mono text-white/45">
                 per-app profiles · independent axes · buttons & shortcuts
@@ -184,16 +184,16 @@ export default function HomeClient() {
               <span className="block">
                 into{" "}
                 <span
-                  className="inline-block"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, var(--accent) 0%, var(--accent3) 40%, var(--accent2) 90%)",
-                    WebkitBackgroundClip: "text",
-                    backgroundClip: "text",
-                    color: "transparent",
-                    textShadow: "0 0 42px rgba(183,255,78,0.12)",
-                  }}
-                >
+                    className="inline-block"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.72) 38%, rgba(255,255,255,0.98) 86%)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      color: "transparent",
+                      textShadow: "0 0 42px rgba(255,255,255,0.08)",
+                    }}
+                  >
                   flow
                 </span>
                 .
@@ -215,18 +215,18 @@ export default function HomeClient() {
             >
               <Magnetic strength={22}>
                 <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated inline-flex items-center justify-center"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
-                  }}
-                >
-                  <span className="relative z-10">Download Mos</span>
-                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(255,255,255,0.55),transparent_55%)]" />
-                </a>
+                    href={downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated border border-black/10 inline-flex items-center justify-center"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                    }}
+                  >
+                    <span className="relative z-10">Download Mos</span>
+                    <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(800px_240px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
+                  </a>
               </Magnetic>
 
               <Magnetic strength={14}>
@@ -300,7 +300,7 @@ export default function HomeClient() {
           <div className="mt-10 grid grid-cols-1 md:grid-cols-12 gap-4">
             <Reveal className="md:col-span-7" delayMs={140}>
               <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_20%_0%,rgba(183,255,78,0.16),transparent_55%)]" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_20%_0%,rgba(255,255,255,0.10),transparent_55%)]" />
                 <div className="relative p-6 sm:p-8">
                   <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
                     Curves & Acceleration
@@ -336,7 +336,7 @@ export default function HomeClient() {
 
             <Reveal className="md:col-span-5" delayMs={180}>
               <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_80%_0%,rgba(0,209,255,0.18),transparent_55%)]" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_80%_0%,rgba(255,255,255,0.08),transparent_55%)]" />
                 <div className="relative p-6 sm:p-8">
                   <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
                     Independent Axes
@@ -383,7 +383,7 @@ export default function HomeClient() {
 
             <Reveal className="md:col-span-6" delayMs={210}>
               <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_40%_0%,rgba(255,61,154,0.16),transparent_55%)]" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_40%_0%,rgba(255,255,255,0.09),transparent_55%)]" />
                 <div className="relative p-6 sm:p-8">
                   <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
                     Per-app Profiles
@@ -398,12 +398,12 @@ export default function HomeClient() {
 
                   <div className="mt-6 grid grid-cols-3 gap-2">
                     {[
-                      { name: "Xcode", c: "rgba(0,209,255,0.22)" },
-                      { name: "Safari", c: "rgba(183,255,78,0.20)" },
-                      { name: "Figma", c: "rgba(255,61,154,0.22)" },
-                      { name: "Terminal", c: "rgba(245,246,255,0.12)" },
-                      { name: "Notion", c: "rgba(245,246,255,0.12)" },
-                      { name: "Chrome", c: "rgba(245,246,255,0.12)" },
+                      { name: "Xcode", c: "rgba(255,255,255,0.18)" },
+                      { name: "Safari", c: "rgba(255,255,255,0.14)" },
+                      { name: "Figma", c: "rgba(255,255,255,0.12)" },
+                      { name: "Terminal", c: "rgba(255,255,255,0.10)" },
+                      { name: "Notion", c: "rgba(255,255,255,0.10)" },
+                      { name: "Chrome", c: "rgba(255,255,255,0.10)" },
                     ].map((a) => (
                       <div
                         key={a.name}
@@ -429,7 +429,7 @@ export default function HomeClient() {
 
             <Reveal className="md:col-span-6" delayMs={240}>
               <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_60%_0%,rgba(183,255,78,0.14),transparent_55%)]" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_60%_0%,rgba(255,255,255,0.07),transparent_55%)]" />
                 <div className="relative p-6 sm:p-8">
                   <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
                     Buttons & Shortcuts
@@ -485,20 +485,20 @@ export default function HomeClient() {
                 <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
                   <Magnetic strength={22}>
                     <a
-                      href={downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated inline-flex items-center justify-center"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
-                      }}
-                    >
+                        href={downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative overflow-hidden rounded-[18px] px-6 py-3.5 text-sm sm:text-base font-semibold tracking-wide text-black shadow-elevated border border-black/10 inline-flex items-center justify-center"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                        }}
+                      >
                       <span className="relative z-10">
                         Direct download{versionLabel ? ` (${versionLabel})` : ""}
                       </span>
-                      <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(900px_260px_at_30%_0%,rgba(255,255,255,0.55),transparent_55%)]" />
-                    </a>
+                        <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(900px_260px_at_30%_0%,rgba(0,0,0,0.18),transparent_55%)]" />
+                      </a>
                   </Magnetic>
 
                   <Magnetic strength={14}>
@@ -597,16 +597,16 @@ export default function HomeClient() {
                   {versionLabel ?? "Fetching…"}
                 </div>
               </div>
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-black shadow-elevated"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(183,255,78,1) 0%, rgba(0,209,255,1) 45%, rgba(255,61,154,1) 100%)",
-                }}
-              >
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-black shadow-elevated border border-black/10"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
+                  }}
+                >
                 Direct download
               </a>
             </div>

@@ -81,9 +81,9 @@ export function CursorAura({
         transform: "translate3d(-9999px, -9999px, 0)",
         borderRadius: 999,
         mixBlendMode: "screen",
-        opacity: 0.92,
+        opacity: 0.82,
         background:
-          "radial-gradient(circle at 30% 30%, rgba(183,255,78,0.22), rgba(0,209,255,0.12) 42%, rgba(255,61,154,0.10) 68%, rgba(0,0,0,0) 72%)",
+          "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), rgba(255,255,255,0.10) 42%, rgba(255,255,255,0.06) 68%, rgba(0,0,0,0) 72%)",
       }}
     />
   );

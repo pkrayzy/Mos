@@ -45,9 +45,9 @@ export function FlowField({ className = "" }: FlowFieldProps) {
 
     const pointer = { x: -10_000, y: -10_000, active: false };
     const colors = [
-      "rgba(183,255,78,0.22)",
-      "rgba(0,209,255,0.18)",
-      "rgba(255,61,154,0.16)",
+      "rgba(255,255,255,0.12)",
+      "rgba(255,255,255,0.08)",
+      "rgba(255,255,255,0.05)",
     ] as const;
 
     let cssW = 1;
@@ -122,7 +122,7 @@ export function FlowField({ className = "" }: FlowFieldProps) {
       const scroll = clamp(window.scrollY / scrollMax, 0, 1);
 
       // Persistent trails.
-      ctx.fillStyle = `rgba(5, 6, 10, ${0.10 + scroll * 0.06})`;
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.12 + scroll * 0.06})`;
       ctx.fillRect(0, 0, cssW, cssH);
 
       ctx.save();

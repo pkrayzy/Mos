@@ -137,7 +137,7 @@ export function WheelLab() {
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[color:var(--accent)] shadow-[0_0_20px_rgba(183,255,78,0.55)]" />
+                <span className="h-2 w-2 rounded-full bg-[color:var(--accent)] shadow-[0_0_20px_rgba(255,255,255,0.35)]" />
                 <span className="font-mono text-xs text-white/70">MOS</span>
               </div>
               <span ref={mosValRef} className="font-mono text-xs text-white/55">
@@ -184,9 +184,9 @@ export function WheelLab() {
               className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full"
               style={{
                 background:
-                  "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95), rgba(255,255,255,0.14) 35%, rgba(255,255,255,0) 66%), radial-gradient(circle at 60% 70%, rgba(183,255,78,0.92), rgba(0,209,255,0.42) 40%, rgba(255,61,154,0.26) 75%)",
+                  "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95), rgba(255,255,255,0.14) 35%, rgba(255,255,255,0) 66%), radial-gradient(circle at 60% 70%, rgba(255,255,255,0.55), rgba(255,255,255,0.10) 45%, rgba(0,0,0,0) 78%)",
                 boxShadow:
-                  "0 0 0 1px rgba(255,255,255,0.14) inset, 0 0 44px rgba(183,255,78,0.30), 0 18px 50px rgba(0,0,0,0.60)",
+                  "0 0 0 1px rgba(255,255,255,0.14) inset, 0 0 44px rgba(255,255,255,0.18), 0 18px 50px rgba(0,0,0,0.60)",
               }}
             />
 
@@ -204,4 +204,3 @@ export function WheelLab() {
     </div>
   );
 }
-
