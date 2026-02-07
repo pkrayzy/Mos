@@ -269,7 +269,7 @@ export default function HomeClient() {
           </Reveal>
 
           <div className="mt-10 grid grid-cols-1 md:grid-cols-12 gap-4">
-            <Reveal className="md:col-span-7" delayMs={140}>
+            <Reveal className="md:col-span-12" delayMs={140}>
               <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_20%_0%,rgba(255,255,255,0.10),transparent_55%)]" />
                 <div className="relative p-6 sm:p-8">
@@ -288,7 +288,7 @@ export default function HomeClient() {
               </div>
             </Reveal>
 
-            <Reveal className="md:col-span-5" delayMs={180}>
+            <Reveal className="md:col-span-6" delayMs={180}>
               <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_80%_0%,rgba(255,255,255,0.08),transparent_55%)]" />
                 <div className="relative p-6 sm:p-8">
@@ -381,7 +381,7 @@ export default function HomeClient() {
               </div>
             </Reveal>
 
-            <Reveal className="md:col-span-6" delayMs={240}>
+            <Reveal className="md:col-span-12" delayMs={240}>
               <div className="group relative h-full rounded-[var(--radius-xl)] glass shadow-elevated overflow-hidden border border-white/10">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 [background:radial-gradient(900px_420px_at_60%_0%,rgba(255,255,255,0.07),transparent_55%)]" />
                 <div className="relative p-6 sm:p-8">
