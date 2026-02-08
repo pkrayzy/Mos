@@ -112,6 +112,22 @@ function computeTargetYMax(step: number, gain: number, duration: number) {
   return Math.min(6000, niceCeil(maxAbs * 1.06));
 }
 
+function stepToDotQuant(step: number) {
+  // User-facing behavior:
+  // - smaller STEP => dot advances in more discrete jumps
+  // - larger STEP  => dot motion feels more continuous ("higher fps")
+  const min = 0.01;
+  const max = 100;
+  const s = clamp(step, min, max);
+  const n =
+    (Math.log(s) - Math.log(min)) / Math.max(1e-6, Math.log(max) - Math.log(min)); // 0..1
+  const inv = 1 - clamp(n, 0, 1);
+  // Quantize u (0..1): higher value => chunkier jumps.
+  const qMin = 0.0025; // very smooth
+  const qMax = 0.045; // visibly discrete
+  return qMin + inv * (qMax - qMin);
+}
+
 type EasingPlaygroundProps = {
   className?: string;
 };
@@ -183,6 +199,7 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
     const travel = 1260;
     const hold = 320;
     const fade = 140;
+    const quant = stepToDotQuant(step);
 
     const tick = (now: number) => {
       const elapsed = now - start;
@@ -191,7 +208,8 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
 
       const pts = graph.points;
       const u = clamp(t / Math.max(1, travel), 0, 1);
-      const pos = u * (pts.length - 1);
+      const uq = clamp(Math.round(u / quant) * quant, 0, 1);
+      const pos = uq * (pts.length - 1);
       const i0 = Math.floor(pos);
       const i1 = Math.min(pts.length - 1, i0 + 1);
       const k = clamp(pos - i0, 0, 1);
@@ -214,7 +232,7 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
     raf = window.requestAnimationFrame(tick);
 
     return () => window.cancelAnimationFrame(raf);
-  }, [graph.points]);
+  }, [graph.points, step]);
 
   return (
     <div className={className}>
