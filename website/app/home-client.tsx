@@ -214,7 +214,7 @@ export default function HomeClient() {
               className="mt-7 font-display text-balance text-[42px] leading-[1.02] sm:text-[72px] md:text-[84px] text-white motion-safe:animate-[hero-in_1000ms_var(--ease-out)_both]"
               style={{ animationDelay: "110ms" }}
             >
-              Turn the wheel
+              Turn the mouse
               <span className="block">
                 into{" "}
                 <span
