@@ -169,46 +169,25 @@ export default function HomeClient() {
               </div>
             </div>
 
-            <div className="hidden sm:flex items-center gap-2">
+            <Magnetic strength={14}>
               <a
                 href="https://github.com/Caldis/Mos"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-2 rounded-xl text-white/70 hover:text-white/92 transition-colors"
+                className="group grid h-11 w-11 place-items-center rounded-2xl border border-white/12 bg-white/5 hover:bg-white/8 transition-colors"
+                aria-label="Mos on GitHub"
+                title="GitHub"
               >
-                GitHub
-              </a>
-              <Magnetic strength={18}>
-                <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-black border border-black/10 shadow-elevated"
-                  style={{
-                    background:
-                      "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
-                  }}
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 text-white/82 group-hover:text-white/92 transition-colors"
+                  fill="currentColor"
                 >
-                  <span className="relative z-10">Download</span>
-                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 [background:radial-gradient(600px_220px_at_50%_0%,rgba(0,0,0,0.16),transparent_55%)]" />
-                </a>
-              </Magnetic>
-            </div>
-
-            <div className="flex sm:hidden items-center gap-2">
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-2xl px-3 py-2 text-sm font-semibold text-black border border-black/10 shadow-elevated"
-                style={{
-                  background:
-                    "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.84) 100%)",
-                }}
-              >
-                Get Mos
+                  <path d="M12 2c-5.52 0-10 4.58-10 10.23 0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.88-.01-1.72-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1.01.07 1.54 1.06 1.54 1.06.9 1.57 2.35 1.12 2.92.86.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.04 1.03-2.76-.1-.26-.45-1.3.1-2.72 0 0 .84-.28 2.75 1.05.8-.23 1.65-.35 2.5-.35.85 0 1.7.12 2.5.35 1.9-1.33 2.75-1.05 2.75-1.05.55 1.42.2 2.46.1 2.72.64.72 1.03 1.64 1.03 2.76 0 3.93-2.34 4.8-4.58 5.05.36.32.69.96.69 1.94 0 1.4-.01 2.52-.01 2.86 0 .26.18.58.69.48A10.3 10.3 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z" />
+                </svg>
               </a>
-            </div>
+            </Magnetic>
           </div>
         </nav>
       </header>
