@@ -35,18 +35,6 @@ function scrollFilterFill(window: number[], nextValue: number) {
   ];
 }
 
-function niceCeil(n: number) {
-  const x = Math.max(1e-6, n);
-  const p = Math.pow(10, Math.floor(Math.log10(x)));
-  const s = x / p;
-  let m = 1;
-  if (s <= 1) m = 1;
-  else if (s <= 2) m = 2;
-  else if (s <= 5) m = 5;
-  else m = 10;
-  return m * p;
-}
-
 type EasingPlaygroundProps = {
   className?: string;
 };
@@ -58,6 +46,10 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
   const [duration, setDuration] = useState(4.35);
 
   const dotRef = useRef<SVGCircleElement | null>(null);
+
+  // Visualization scale is intentionally fixed so the axes don't "re-range" while tuning.
+  // This keeps the user's eye anchored on curve *shape* rather than dynamic scaling.
+  const VIS_Y_MAX = 50;
 
   const sim = useMemo(() => {
     // A compact simulation of Mos' ScrollPoster + Interpolator.lerp + ScrollFilter.
@@ -78,7 +70,6 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
     let t = 0;
     let lastManualTime = 0;
     let manualInputEnded = true;
-    let settled = 0;
 
     let filterWindow = [0.0, 0.0];
     const samples: number[] = [];
@@ -114,21 +105,10 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
 
       samples.push(out);
 
-      const residual = buffer - current;
-      const residualMagnitude = Math.abs(residual);
-      if (manualInputEnded && residualMagnitude <= deadZone && Math.abs(out) <= deadZone) {
-        settled += 1;
-        if (settled >= 6) break;
-      } else {
-        settled = 0;
-      }
-
       t += dt;
     }
 
-    const maxAbs = Math.max(1, ...samples.map((v) => Math.abs(v)));
-    const yMax = niceCeil(maxAbs * 1.06);
-    return { samples, trans, yMax };
+    return { samples, trans, yMax: VIS_Y_MAX };
   }, [duration, gain, step]);
 
   const graph = useMemo(() => {
