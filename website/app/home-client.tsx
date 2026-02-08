@@ -174,7 +174,7 @@ export default function HomeClient() {
                 href="https://github.com/Caldis/Mos"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group grid h-11 w-11 place-items-center rounded-2xl border border-white/12 bg-white/5 hover:bg-white/8 transition-colors"
+                className="group grid h-11 w-11 place-items-center rounded-2xl border border-white/8 bg-white/5 hover:bg-white/8 transition-colors"
                 aria-label="Mos on GitHub"
                 title="GitHub"
               >
