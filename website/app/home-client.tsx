@@ -215,7 +215,7 @@ export default function HomeClient() {
 
       <main id="content" className="mx-auto max-w-6xl px-4 sm:px-6">
         <section className="relative min-h-[100svh] pt-28 sm:pt-36 pb-10 sm:pb-12 flex flex-col">
-          <div className="flex-1 flex items-start sm:items-center">
+          <div className="flex-1 flex items-center">
             <div className="w-full">
             <div
               className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs text-white/70 shadow-elevated motion-safe:animate-[hero-in_900ms_var(--ease-out)_both]"
