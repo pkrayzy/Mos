@@ -35,81 +35,106 @@ function scrollFilterFill(window: number[], nextValue: number) {
   ];
 }
 
+function niceCeil(n: number) {
+  const x = Math.max(1e-6, n);
+  const p = Math.pow(10, Math.floor(Math.log10(x)));
+  const s = x / p;
+  let m = 1;
+  if (s <= 1) m = 1;
+  else if (s <= 2) m = 2;
+  else if (s <= 5) m = 5;
+  else m = 10;
+  return m * p;
+}
+
+function computeSim(step: number, gain: number, duration: number) {
+  // A compact simulation of Mos' ScrollPoster + Interpolator.lerp + ScrollFilter.
+  // We visualize the posted vertical deltas (deadZone-clamped) over time.
+  const manualContinuationThreshold = 0.18; // ScrollPoster.manualContinuationThreshold
+  const deadZone = 1.0; // OPTIONS_SCROLL_DEFAULT.deadZone
+  const burstTicks = 10; // A short "wheel burst" to resemble the in-app monitor.
+  const maxFrames = 90;
+  const fps = 60;
+  const dt = 1 / fps;
+
+  const trans = generateDurationTransition(duration);
+
+  let current = 0;
+  let buffer = 0;
+  let deltaPrev = 0;
+
+  let t = 0;
+  let lastManualTime = 0;
+  let manualInputEnded = true;
+
+  let filterWindow = [0.0, 0.0];
+  const samples: number[] = [];
+
+  for (let frame = 0; frame < maxFrames; frame += 1) {
+    if (frame < burstTicks) {
+      const y = step;
+      if (y * deltaPrev > 0) {
+        buffer += y * gain;
+      } else {
+        buffer = y * gain;
+        current = 0;
+      }
+      deltaPrev = y;
+      lastManualTime = t;
+      manualInputEnded = false;
+    }
+
+    // Interpolator.lerp(src: current, dest: buffer, trans: durationTransition)
+    const delta = (buffer - current) * trans;
+    current += delta;
+
+    // ScrollFilter.fill(with:)
+    filterWindow = scrollFilterFill(filterWindow, delta);
+    const filtered = filterWindow[0] ?? 0;
+    const out = Math.abs(filtered) > deadZone ? filtered : 0;
+
+    // Track when manual input ends (used for stopping conditions),
+    // but do NOT inject the "TrackingEnd = 0" marker frame in the graph.
+    if (!manualInputEnded && t - lastManualTime > manualContinuationThreshold) {
+      manualInputEnded = true;
+    }
+
+    samples.push(out);
+    t += dt;
+  }
+
+  const maxAbs = Math.max(1, ...samples.map((v) => Math.abs(v)));
+  return { samples, trans, maxAbs };
+}
+
+function computeTargetYMax(step: number, gain: number, duration: number) {
+  const { maxAbs } = computeSim(step, gain, duration);
+  return Math.min(6000, niceCeil(maxAbs * 1.06));
+}
+
 type EasingPlaygroundProps = {
   className?: string;
 };
 
 export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
   // Match Mos defaults (OPTIONS_SCROLL_DEFAULT)
-  const [step, setStep] = useState(33.6);
-  const [gain, setGain] = useState(2.7);
-  const [duration, setDuration] = useState(4.35);
+  const DEFAULT_STEP = 33.6;
+  const DEFAULT_GAIN = 2.7;
+  const DEFAULT_DURATION = 4.35;
+
+  const [step, setStep] = useState(DEFAULT_STEP);
+  const [gain, setGain] = useState(DEFAULT_GAIN);
+  const [duration, setDuration] = useState(DEFAULT_DURATION);
 
   const dotRef = useRef<SVGCircleElement | null>(null);
 
-  // Visualization scale is intentionally fixed so the axes don't "re-range" while tuning.
-  // This keeps the user's eye anchored on curve *shape* rather than dynamic scaling.
-  const VIS_Y_MAX = 50;
+  // Start with a sensible default range (matches typical Mos monitor values),
+  // then expand upwards when parameters produce larger peaks.
+  const [yMax, setYMax] = useState(() =>
+    Math.max(60, computeTargetYMax(DEFAULT_STEP, DEFAULT_GAIN, DEFAULT_DURATION))
+  );
 
-  const sim = useMemo(() => {
-    // A compact simulation of Mos' ScrollPoster + Interpolator.lerp + ScrollFilter.
-    // We visualize the posted vertical deltas (deadZone-clamped) over time.
-    const manualContinuationThreshold = 0.18; // ScrollPoster.manualContinuationThreshold
-    const deadZone = 1.0; // OPTIONS_SCROLL_DEFAULT.deadZone
-    const burstTicks = 10; // A short "wheel burst" to resemble the in-app monitor.
-    const maxFrames = 90;
-    const fps = 60;
-    const dt = 1 / fps;
-
-    const trans = generateDurationTransition(duration);
-
-    let current = 0;
-    let buffer = 0;
-    let deltaPrev = 0;
-
-    let t = 0;
-    let lastManualTime = 0;
-    let manualInputEnded = true;
-
-    let filterWindow = [0.0, 0.0];
-    const samples: number[] = [];
-
-    for (let frame = 0; frame < maxFrames; frame += 1) {
-      if (frame < burstTicks) {
-        const y = step;
-        if (y * deltaPrev > 0) {
-          buffer += y * gain;
-        } else {
-          buffer = y * gain;
-          current = 0;
-        }
-        deltaPrev = y;
-        lastManualTime = t;
-        manualInputEnded = false;
-      }
-
-      // Interpolator.lerp(src: current, dest: buffer, trans: durationTransition)
-      const delta = (buffer - current) * trans;
-      current += delta;
-
-      // ScrollFilter.fill(with:)
-      filterWindow = scrollFilterFill(filterWindow, delta);
-      const filtered = filterWindow[0] ?? 0;
-      const out = Math.abs(filtered) > deadZone ? filtered : 0;
-
-      // Track when manual input ends (used for stopping conditions),
-      // but do NOT inject the "TrackingEnd = 0" marker frame in the graph.
-      if (!manualInputEnded && t - lastManualTime > manualContinuationThreshold) {
-        manualInputEnded = true;
-      }
-
-      samples.push(out);
-
-      t += dt;
-    }
-
-    return { samples, trans, yMax: VIS_Y_MAX };
-  }, [duration, gain, step]);
+  const sim = useMemo(() => computeSim(step, gain, duration), [duration, gain, step]);
 
   const graph = useMemo(() => {
     const VW = 860;
@@ -125,8 +150,8 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
     const N = Math.max(2, samples.length);
     const mapX = (i: number) => padL + (clamp(i, 0, N - 1) / (N - 1)) * w;
     const mapY = (v: number) => {
-      const y = clamp(v, 0, sim.yMax);
-      return padT + h - (y / sim.yMax) * h;
+      const y = clamp(v, 0, yMax);
+      return padT + h - (y / yMax) * h;
     };
 
     const points = samples.map((v, i) => ({
@@ -144,7 +169,7 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
     const fill = `${d} L ${mapX(points.length - 1).toFixed(2)} ${baselineY.toFixed(2)} L ${mapX(0).toFixed(2)} ${baselineY.toFixed(2)} Z`;
 
     return { VW, VH, padL, padR, padT, padB, points, d, fill, baselineY };
-  }, [sim.samples, sim.yMax]);
+  }, [sim.samples, yMax]);
 
   useEffect(() => {
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
@@ -291,7 +316,11 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
             max={100}
             step={0.01}
             value={step}
-            onChange={(e) => setStep(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setStep(v);
+              setYMax((prev) => Math.max(prev, computeTargetYMax(v, gain, duration)));
+            }}
             aria-label="Step"
           />
           <div className="mt-2 font-mono text-[11px] text-white/40">
@@ -315,7 +344,11 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
             max={10}
             step={0.01}
             value={gain}
-            onChange={(e) => setGain(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setGain(v);
+              setYMax((prev) => Math.max(prev, computeTargetYMax(step, v, duration)));
+            }}
             aria-label="Gain"
           />
           <div className="mt-2 font-mono text-[11px] text-white/40">
@@ -339,7 +372,11 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
             max={5}
             step={0.01}
             value={duration}
-            onChange={(e) => setDuration(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setDuration(v);
+              setYMax((prev) => Math.max(prev, computeTargetYMax(step, gain, v)));
+            }}
             aria-label="Duration"
           />
           <div className="mt-2 font-mono text-[11px] text-white/40">
