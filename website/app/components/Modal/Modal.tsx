@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect, useId, useMemo, useRef } from "react";
+import { ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 function getFocusableElements(root: HTMLElement | null): HTMLElement[] {
   if (!root) return [];
@@ -31,15 +32,28 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   width?: string;
+  closeLabel?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  width = "max-w-sm",
+  closeLabel = "Close dialog",
+}: ModalProps) {
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
 
   const label = useMemo(() => ({ titleId }), [titleId]);
+
+  useEffect(() => {
+    setPortalRoot(document.body);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -108,16 +122,16 @@ export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: 
     };
   }, [isOpen, onClose]);
 
-  return (
+  if (!portalRoot) return null;
+  if (!isOpen) return null;
+
+  return createPortal(
     <div
-      className={`fixed inset-0 z-[60] flex items-center justify-center px-4
-                 bg-black/55 backdrop-blur-md transition-opacity duration-500 ease-in-out
-                 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-      aria-hidden={!isOpen}
+      className="fixed inset-0 z-[80] grid place-items-center px-4 py-6 bg-black/70 supports-[backdrop-filter:blur(0)]:bg-black/45 supports-[-webkit-backdrop-filter:blur(0)]:bg-black/45 backdrop-blur-xl"
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      tabIndex={-1}
     >
       <div
         ref={dialogRef}
@@ -125,10 +139,8 @@ export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: 
         aria-modal="true"
         aria-labelledby={label.titleId}
         tabIndex={-1}
-        className={`w-full ${width} rounded-[22px] border border-white/10
+        className={`w-full ${width} max-h-[calc(100svh-3rem)] overflow-auto rounded-[22px] border border-white/10
                  bg-[rgba(10,11,16,0.72)] shadow-elevated backdrop-blur-xl
-                 transform transition-all duration-500 ease-in-out
-                 ${isOpen ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"}
                  motion-safe:animate-[modal-appear_0.5s_var(--ease-out)]`}
       >
         <div className="flex justify-between items-center px-5 sm:px-6 pt-5 sm:pt-6">
@@ -140,14 +152,9 @@ export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: 
             type="button"
             onClick={onClose}
             className="rounded-xl p-2 text-white/55 hover:text-white/85 hover:bg-white/5 transition-colors"
-            aria-label="Close dialog"
+            aria-label={closeLabel}
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -159,6 +166,7 @@ export function Modal({ isOpen, onClose, title, children, width = "max-w-sm" }: 
         </div>
         <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    portalRoot
   );
 }

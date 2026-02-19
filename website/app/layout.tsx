@@ -2,6 +2,7 @@ import Script from "next/script";
 import { IBM_Plex_Mono, Space_Grotesk, Syne } from "next/font/google";
 import "./globals.css";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site";
+import { Providers } from "./providers";
 
 const fontDisplay = Syne({
   variable: "--font-display",
@@ -75,7 +76,7 @@ export default function RootLayout({
         </noscript>
       </head>
       <body className={`${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable} antialiased`}>
-        {children}
+        <Providers>{children}</Providers>
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="afterInteractive"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "@/app/i18n/context";
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -133,6 +134,8 @@ type EasingPlaygroundProps = {
 };
 
 export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
+  const { t } = useI18n();
+
   // Match Mos defaults (OPTIONS_SCROLL_DEFAULT)
   const DEFAULT_STEP = 33.6;
   const DEFAULT_GAIN = 2.7;
@@ -237,11 +240,11 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
   return (
     <div className={className}>
       <div className="rounded-2xl border border-white/10 bg-black/35 overflow-hidden">
-        <svg
-          viewBox={`0 0 ${graph.VW} ${graph.VH}`}
-          className="block w-full h-auto"
-          aria-label="Scroll curve graph"
-        >
+	        <svg
+	          viewBox={`0 0 ${graph.VW} ${graph.VH}`}
+	          className="block w-full h-auto"
+	          aria-label={t.easing.graphAria}
+	        >
           <defs>
             <linearGradient id="easeFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="rgba(255,255,255,0.14)" />
@@ -317,16 +320,16 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
         </svg>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-          <div className="flex items-center justify-between">
-            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
-              Step
-            </div>
-            <div className="font-mono text-xs text-white/55">
-              {step.toFixed(2)}
-            </div>
-          </div>
+	      <div className="mt-4 grid gap-4 md:grid-cols-3">
+	        <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+	          <div className="flex items-center justify-between">
+	            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+	              {t.easing.step.label}
+	            </div>
+	            <div className="font-mono text-xs text-white/55">
+	              {step.toFixed(2)}
+	            </div>
+	          </div>
           <input
             className="mt-3 w-full range"
             type="range"
@@ -334,27 +337,27 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
             max={100}
             step={0.01}
             value={step}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setStep(v);
-              setYMax((prev) => Math.max(prev, computeTargetYMax(v, gain, duration)));
-            }}
-            aria-label="Step"
-          />
-          <div className="mt-2 font-mono text-[11px] text-white/40">
-            Quantization floor for wheel deltas.
-          </div>
-        </div>
+	            onChange={(e) => {
+	              const v = Number(e.target.value);
+	              setStep(v);
+	              setYMax((prev) => Math.max(prev, computeTargetYMax(v, gain, duration)));
+	            }}
+	            aria-label={t.easing.step.aria}
+	          />
+	          <div className="mt-2 font-mono text-[11px] text-white/40">
+	            {t.easing.step.help}
+	          </div>
+	        </div>
 
         <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-          <div className="flex items-center justify-between">
-            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
-              Gain
-            </div>
-            <div className="font-mono text-xs text-white/55">
-              ×{gain.toFixed(2)}
-            </div>
-          </div>
+	          <div className="flex items-center justify-between">
+	            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+	              {t.easing.gain.label}
+	            </div>
+	            <div className="font-mono text-xs text-white/55">
+	              ×{gain.toFixed(2)}
+	            </div>
+	          </div>
           <input
             className="mt-3 w-full range"
             type="range"
@@ -362,27 +365,27 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
             max={10}
             step={0.01}
             value={gain}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setGain(v);
-              setYMax((prev) => Math.max(prev, computeTargetYMax(step, v, duration)));
-            }}
-            aria-label="Gain"
-          />
-          <div className="mt-2 font-mono text-[11px] text-white/40">
-            Scales distance per tick and how fast the curve ramps.
-          </div>
-        </div>
+	            onChange={(e) => {
+	              const v = Number(e.target.value);
+	              setGain(v);
+	              setYMax((prev) => Math.max(prev, computeTargetYMax(step, v, duration)));
+	            }}
+	            aria-label={t.easing.gain.aria}
+	          />
+	          <div className="mt-2 font-mono text-[11px] text-white/40">
+	            {t.easing.gain.help}
+	          </div>
+	        </div>
 
         <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-          <div className="flex items-center justify-between">
-            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
-              Duration
-            </div>
-            <div className="font-mono text-xs text-white/55">
-              {duration.toFixed(2)}
-            </div>
-          </div>
+	          <div className="flex items-center justify-between">
+	            <div className="font-display text-sm tracking-[0.18em] uppercase text-white/70">
+	              {t.easing.duration.label}
+	            </div>
+	            <div className="font-mono text-xs text-white/55">
+	              {duration.toFixed(2)}
+	            </div>
+	          </div>
           <input
             className="mt-3 w-full range"
             type="range"
@@ -390,22 +393,22 @@ export function EasingPlayground({ className = "" }: EasingPlaygroundProps) {
             max={5}
             step={0.01}
             value={duration}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setDuration(v);
-              setYMax((prev) => Math.max(prev, computeTargetYMax(step, gain, v)));
-            }}
-            aria-label="Duration"
-          />
-          <div className="mt-2 font-mono text-[11px] text-white/40">
-            Smoothing time constant (higher means longer tail).
-          </div>
-        </div>
-      </div>
+	            onChange={(e) => {
+	              const v = Number(e.target.value);
+	              setDuration(v);
+	              setYMax((prev) => Math.max(prev, computeTargetYMax(step, gain, v)));
+	            }}
+	            aria-label={t.easing.duration.aria}
+	          />
+	          <div className="mt-2 font-mono text-[11px] text-white/40">
+	            {t.easing.duration.help}
+	          </div>
+	        </div>
+	      </div>
 
-      <div className="mt-3 font-mono text-[11px] tracking-[0.18em] uppercase text-white/40">
-        ScrollCore curve
-      </div>
-    </div>
-  );
+	      <div className="mt-3 font-mono text-[11px] tracking-[0.18em] uppercase text-white/40">
+	        {t.easing.footer}
+	      </div>
+	    </div>
+	  );
 }
