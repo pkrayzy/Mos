@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="24127" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="24412" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24127"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24412"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -118,7 +118,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="W3A-cF-zN1"/>
                                 </constraints>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="Status Bar Icon" id="AGU-43-8RD">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -178,7 +178,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="TJD-cl-63A"/>
                                 </constraints>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="Startup" id="E82-7w-YCr">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -289,22 +289,22 @@
                                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                             <subviews>
                                                                 <box boxType="custom" cornerRadius="5" title="Box" translatesAutoresizingMaskIntoConstraints="NO" id="Hcf-QN-htP">
-                                                                    <rect key="frame" x="0.0" y="5" width="412" height="42"/>
+                                                                    <rect key="frame" x="0.0" y="5" width="413" height="42"/>
                                                                     <view key="contentView" wantsLayer="YES" id="sUm-mF-Rt9">
-                                                                        <rect key="frame" x="1" y="1" width="410" height="40"/>
+                                                                        <rect key="frame" x="1" y="1" width="411" height="40"/>
                                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                         <subviews>
                                                                             <box boxType="custom" borderWidth="0.0" cornerRadius="4" title="Box" translatesAutoresizingMaskIntoConstraints="NO" id="ei3-vh-6kV">
-                                                                                <rect key="frame" x="12" y="5" width="249" height="30"/>
+                                                                                <rect key="frame" x="12" y="5" width="250" height="30"/>
                                                                                 <view key="contentView" id="UjE-iu-X41">
-                                                                                    <rect key="frame" x="0.0" y="0.0" width="249" height="30"/>
+                                                                                    <rect key="frame" x="0.0" y="0.0" width="250" height="30"/>
                                                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                                 </view>
                                                                                 <color key="borderColor" red="1" green="1" blue="1" alpha="0.10068822230879106" colorSpace="custom" customColorSpace="sRGB"/>
                                                                                 <color key="fillColor" red="0.96062562677481145" green="0.96754766589999996" blue="0.93064895263721903" alpha="0.0" colorSpace="custom" customColorSpace="displayP3"/>
                                                                             </box>
                                                                             <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="3eO-mD-7ue">
-                                                                                <rect key="frame" x="286" y="8" width="120" height="24"/>
+                                                                                <rect key="frame" x="287" y="8" width="120" height="24"/>
                                                                                 <popUpButtonCell key="cell" type="push" title="No Action" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="epU-lS-atX" id="DPN-ii-WxE">
                                                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                                                     <font key="font" metaFont="message"/>
@@ -421,7 +421,7 @@
                                     <textField wantsLayer="YES" focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Ggg-Eq-Gh7">
                                         <rect key="frame" x="13" y="14" width="189" height="14"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" title="Assign a button to a specific action" id="fXu-uF-M3Q">
-                                            <font key="font" metaFont="smallSystem"/>
+                                            <font key="font" metaFont="system" size="11"/>
                                             <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
@@ -623,7 +623,7 @@
                                                                     <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="NSApplicationIcon" id="QQO-uS-6gC"/>
                                                                 </imageView>
                                                                 <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Fv1-rI-t5W">
-                                                                    <rect key="frame" x="47" y="15" width="283" height="16"/>
+                                                                    <rect key="frame" x="47" y="15" width="284" height="16"/>
                                                                     <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" alignment="left" title="Application Name" id="XjY-7g-GLL">
                                                                         <font key="font" metaFont="system"/>
                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -832,7 +832,7 @@
                                     <textField wantsLayer="YES" focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="V2s-M6-mOE">
                                         <rect key="frame" x="13" y="14" width="254" height="14"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" title="Create a custom configuration for specific apps" id="DS8-og-1pp">
-                                            <font key="font" metaFont="smallSystem"/>
+                                            <font key="font" metaFont="system" size="11"/>
                                             <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
@@ -926,7 +926,7 @@
                             <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="KGW-PK-8DX">
                                 <rect key="frame" x="10" y="10" width="204" height="42"/>
                                 <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="left" title="The allow list mode will make Mos only apply to apps within the application list." id="v26-RK-BtL">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1030,7 +1030,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="uRN-Fz-sJm"/>
                                 </constraints>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="Smooth Scrolling" id="Ngq-sZ-qrp">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1054,7 +1054,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="YBO-Nh-6aE"/>
                                 </constraints>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="Scroll Reverse" id="H2Z-K0-g9o">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1084,7 +1084,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="rlL-do-7ec"/>
                                 </constraints>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="Dash Key" id="hOO-M8-I1z">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1136,7 +1136,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="i4m-8K-DpA"/>
                                 </constraints>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="Toggle Key" id="bQw-5w-Yv0">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1188,13 +1188,13 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="y87-5B-rDj"/>
                                 </constraints>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="Block Key" id="ebE-Zf-T98">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
                             </textField>
                             <popUpButton wantsLayer="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="u9d-n2-6b5" userLabel="Block Key Pop Up Button">
-                                <rect key="frame" x="171" y="264" width="123" height="24"/>
+                                <rect key="frame" x="171" y="264" width="125" height="24"/>
                                 <popUpButtonCell key="cell" type="push" title="Disabled" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="vFk-37-HRU" id="veO-qF-0qO">
                                     <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                     <font key="font" metaFont="message"/>
@@ -1246,7 +1246,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="DAn-rh-ycF"/>
                                 </constraints>
                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Step" id="B8B-hi-x3v">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1304,7 +1304,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="Axk-Bu-mvb"/>
                                 </constraints>
                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Speed" id="Gcw-Ir-olP">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1359,7 +1359,7 @@
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="136" id="ttO-Mn-fbd"/>
                                 </constraints>
                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Duration" id="bqU-Is-gFB">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1409,14 +1409,14 @@
                                 <rect key="frame" x="20" y="20" width="410" height="24"/>
                                 <buttonCell key="cell" type="roundRect" title="Reset to defaults" bezelStyle="roundedRect" alignment="center" state="on" borderStyle="border" allowsMixedState="YES" imageScaling="proportionallyDown" inset="2" id="t2D-X2-Y6W">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <connections>
                                     <action selector="resetToDefaultClick:" target="iW5-CD-5OC" id="YH6-Nc-6jU"/>
                                 </connections>
                             </button>
                             <button horizontalHuggingPriority="750" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="h1E-p9-RLl">
-                                <rect key="frame" x="302" y="268" width="16" height="16"/>
+                                <rect key="frame" x="304" y="268" width="16" height="16"/>
                                 <buttonCell key="cell" type="help" bezelStyle="helpButton" alignment="center" controlSize="mini" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="j7m-hj-J8F">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                     <font key="font" metaFont="miniSystem"/>
@@ -1429,7 +1429,7 @@
                                 <rect key="frame" x="357" y="464" width="18" height="18"/>
                                 <buttonCell key="cell" type="inline" bezelStyle="inline" image="NSIconViewTemplate" imagePosition="only" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Zby-Nv-Yli">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="smallSystemBold"/>
+                                    <font key="font" metaFont="systemBold" size="11"/>
                                 </buttonCell>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="18" id="8SU-Sv-w3Z"/>
@@ -1443,7 +1443,7 @@
                                 <rect key="frame" x="332" y="433" width="18" height="18"/>
                                 <buttonCell key="cell" type="inline" bezelStyle="inline" image="NSIconViewTemplate" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Ef3-I4-vMD">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="18" id="Xox-dE-i6e"/>
@@ -1584,7 +1584,7 @@
                             <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="zrl-5e-XRk">
                                 <rect key="frame" x="10" y="10" width="371" height="14"/>
                                 <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="left" title="Temporarily disable smooth scrolling to improve scrolling accuracy." id="Rgq-87-vjY">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -1614,7 +1614,7 @@
                                 <rect key="frame" x="20" y="84" width="175" height="14"/>
                                 <buttonCell key="cell" type="check" title="Vertical Smooth" bezelStyle="regularSquare" imagePosition="left" controlSize="small" state="on" inset="2" id="GtT-zh-x8d">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <connections>
                                     <action selector="verticalSmoothToggle:" target="6NY-mX-uto" id="xb6-7W-W0E"/>
@@ -1624,7 +1624,7 @@
                                 <rect key="frame" x="20" y="60" width="175" height="14"/>
                                 <buttonCell key="cell" type="check" title="Horizontal Smooth" bezelStyle="regularSquare" imagePosition="left" controlSize="small" state="on" inset="2" id="Nh1-iw-yGN">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <connections>
                                     <action selector="horizontalSmoothToggle:" target="6NY-mX-uto" id="XJ8-cd-9ho"/>
@@ -1634,7 +1634,7 @@
                                 <rect key="frame" x="20" y="36" width="175" height="14"/>
                                 <buttonCell key="cell" type="check" title="Simulate Trackpad (Beta)" bezelStyle="regularSquare" imagePosition="left" controlSize="small" state="on" inset="2" id="p7Y-SJ-d6t">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <connections>
                                     <action selector="simulateTrackpadToggle:" target="6NY-mX-uto" id="r6j-t3-d9L"/>
@@ -2712,7 +2712,7 @@ mouseEventWindowUnderMousePointerThatCanHandleThisEvent: 0.0</string>
                             <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="lw5-DQ-yJl">
                                 <rect key="frame" x="10" y="10" width="297" height="14"/>
                                 <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="left" title="You need to re-run Mos to change the settings" id="cIk-j1-vYt">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -2801,7 +2801,7 @@ mouseEventWindowUnderMousePointerThatCanHandleThisEvent: 0.0</string>
                             <textField wantsLayer="YES" focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" verticalCompressionResistancePriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="Lfz-Lg-BC5">
                                 <rect key="frame" x="134" y="238" width="72" height="14"/>
                                 <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Introducting" id="11f-uB-gEM">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <color key="textColor" name="tertiaryLabelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
@@ -2818,7 +2818,7 @@ mouseEventWindowUnderMousePointerThatCanHandleThisEvent: 0.0</string>
                                 <rect key="frame" x="124" y="20" width="93" height="15"/>
                                 <buttonCell key="cell" type="squareTextured" title="Getting trouble ?" bezelStyle="texturedSquare" alignment="center" state="on" inset="2" id="XMw-QE-lsq">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="15" id="bWl-x7-Qc4"/>
@@ -2834,7 +2834,7 @@ mouseEventWindowUnderMousePointerThatCanHandleThisEvent: 0.0</string>
                                     <constraint firstAttribute="width" constant="265" id="9Dn-iA-gPf"/>
                                 </constraints>
                                 <textFieldCell key="cell" alignment="center" id="yFl-4N-WcD">
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                     <string key="title">Your mouse is about to get a smoothest scrolling experience.
 Pick up your mouse, we just have a few thing that you need to check.</string>
                                     <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
@@ -2961,7 +2961,7 @@ Remove Mos from the list first, and then re-add Mos to authorize. (You can also 
                                 <rect key="frame" x="20" y="44" width="175" height="14"/>
                                 <buttonCell key="cell" type="check" title="Vertical Reverse" bezelStyle="regularSquare" imagePosition="left" controlSize="small" state="on" inset="2" id="qjy-uD-jMy">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <connections>
                                     <action selector="verticalReverseToggle:" target="LBo-ML-z89" id="ykH-L3-rcX"/>
@@ -2971,7 +2971,7 @@ Remove Mos from the list first, and then re-add Mos to authorize. (You can also 
                                 <rect key="frame" x="20" y="20" width="175" height="14"/>
                                 <buttonCell key="cell" type="check" title="Horizontal Reverse" bezelStyle="regularSquare" imagePosition="left" controlSize="small" state="on" inset="2" id="eVu-TE-yMr">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="smallSystem"/>
+                                    <font key="font" metaFont="system" size="11"/>
                                 </buttonCell>
                                 <connections>
                                     <action selector="horizontalReverseToggle:" target="LBo-ML-z89" id="tKR-yj-4ci"/>
