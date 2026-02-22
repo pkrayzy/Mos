@@ -23,6 +23,10 @@ class ScrollCore {
         didSet { ScrollPoster.shared.updateShifting(enable: toggleScroll) }
     }
     var blockSmooth = false
+    // 非修饰键热键的按下状态跟踪
+    var dashKeyHeld = false
+    var toggleKeyHeld = false
+    var blockKeyHeld = false
     // 例外应用数据
     var application: Application?
     var currentApplication: Application? // 用于区分按下热键及抬起时的作用目标
@@ -32,7 +36,14 @@ class ScrollCore {
     var mouseEventInterceptor: Interceptor?
     // 拦截掩码
     let scrollEventMask = CGEventMask(1 << CGEventType.scrollWheel.rawValue)
-    let hotkeyEventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+    let hotkeyEventMask: CGEventMask = {
+        let flagsChanged = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+        let keyDown = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let keyUp = CGEventMask(1 << CGEventType.keyUp.rawValue)
+        let otherMouseDown = CGEventMask(1 << CGEventType.otherMouseDown.rawValue)
+        let otherMouseUp = CGEventMask(1 << CGEventType.otherMouseUp.rawValue)
+        return flagsChanged | keyDown | keyUp | otherMouseDown | otherMouseUp
+    }()
     let mouseLeftEventMask = CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
     
     // MARK: - 滚动事件处理
@@ -41,6 +52,10 @@ class ScrollCore {
         // 无法区分黑苹果, 因为黑苹果的触控板驱动直接模拟鼠标输入
         // 无法区分 Magic Mouse, 因为其滚动特征与内置的 Trackpad 一致
         if ScrollEvent.isTrackpad(with: event) {
+            return Unmanaged.passUnretained(event)
+        }
+        // 当事件来自远程桌面，且其发送的事件 isContinuous=1.0，此时跳过本地平滑
+        if ScrollUtils.shared.isRemoteSmoothedEvent(event) {
             return Unmanaged.passUnretained(event)
         }
         // 当鼠标输入, 根据需要执行翻转方向/平滑滚动
@@ -106,13 +121,13 @@ class ScrollCore {
         var smoothedX = 0.0
 
         if shouldSmoothVertical {
-            if !scrollEvent.Y.fixed {
+            if scrollEvent.Y.usableValue.magnitude < step {
                 ScrollEvent.normalizeY(scrollEvent, step)
             }
             smoothedY = scrollEvent.Y.usableValue
         }
         if shouldSmoothHorizontal {
-            if !scrollEvent.X.fixed {
+            if scrollEvent.X.usableValue.magnitude < step {
                 ScrollEvent.normalizeX(scrollEvent, step)
             }
             smoothedX = scrollEvent.X.usableValue
@@ -155,39 +170,69 @@ class ScrollCore {
     // MARK: - 热键事件处理
     let hotkeyEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
         let keyCode = event.keyCode
+        let mouseButton = UInt16(event.getIntegerValueField(.mouseEventButtonNumber))
+
+        // 判断事件类型
+        let isMouseEvent = (type == .otherMouseDown || type == .otherMouseUp)
+        let isKeyDown = (type == .keyDown || type == .otherMouseDown)
+        let isKeyUp = (type == .keyUp || type == .otherMouseUp)
+        let isFlagsChanged = (type == .flagsChanged)
 
         // 记录按键时的目标应用
-        if event.isKeyDown && ScrollCore.shared.currentApplication == nil {
+        if (event.isKeyDown || isKeyDown) && ScrollCore.shared.currentApplication == nil {
             ScrollCore.shared.currentApplication = ScrollCore.shared.application
         }
 
+        // 获取配置的热键
+        let dashHotkey = ScrollUtils.shared.optionsDashKey(application: ScrollCore.shared.application)
+        let toggleHotkey = ScrollUtils.shared.optionsToggleKey(application: ScrollCore.shared.application)
+        let blockHotkey = ScrollUtils.shared.optionsBlockKey(application: ScrollCore.shared.application)
+
+        // 检测热键是否匹配并更新状态
+        func checkAndUpdateHotkey(_ hotkey: ScrollHotkey?, keyHeld: inout Bool) -> Bool? {
+            guard let hotkey = hotkey else { return nil }
+
+            if hotkey.isModifierKey {
+                // 修饰键：通过 flagsChanged 事件检测
+                if isFlagsChanged && keyCode == hotkey.code {
+                    return event.flags.contains(hotkey.modifierMask)
+                }
+            } else if hotkey.matches(event, keyCode: keyCode, mouseButton: mouseButton, isMouseEvent: isMouseEvent) {
+                // 普通按键或鼠标按键
+                if isKeyDown { keyHeld = true }
+                if isKeyUp { keyHeld = false }
+                return keyHeld
+            }
+            return nil
+        }
+
         // Dash
-        let (dashKeyCode, dashKeyMask) = ScrollUtils.shared.optionsDashKey(application: ScrollCore.shared.application)
-        if keyCode == dashKeyCode {
-            let dashKeyIsPressed = event.flags.contains(dashKeyMask)
-            ScrollCore.shared.dashScroll = dashKeyIsPressed
-            ScrollCore.shared.dashAmplification = dashKeyIsPressed ? 5.0 : 1.0
+        if let isPressed = checkAndUpdateHotkey(dashHotkey, keyHeld: &ScrollCore.shared.dashKeyHeld) {
+            ScrollCore.shared.dashScroll = isPressed
+            ScrollCore.shared.dashAmplification = isPressed ? 5.0 : 1.0
         }
         // Toggle
-        let (toggleKeyCode, toggleKeyMask) = ScrollUtils.shared.optionsToggleKey(application: ScrollCore.shared.application)
-        if keyCode == toggleKeyCode {
-            let toggleKeyIsPressed = event.flags.contains(toggleKeyMask)
-            ScrollCore.shared.toggleScroll = toggleKeyIsPressed
+        if let isPressed = checkAndUpdateHotkey(toggleHotkey, keyHeld: &ScrollCore.shared.toggleKeyHeld) {
+            ScrollCore.shared.toggleScroll = isPressed
         }
         // Block
-        let (blockKeyCode, blockKeyMask) = ScrollUtils.shared.optionsBlockKey(application: ScrollCore.shared.application)
-        if keyCode == blockKeyCode {
-            let blockKeyIsPressed = event.flags.contains(blockKeyMask)
-            ScrollCore.shared.blockSmooth = blockKeyIsPressed
+        if let isPressed = checkAndUpdateHotkey(blockHotkey, keyHeld: &ScrollCore.shared.blockKeyHeld) {
+            ScrollCore.shared.blockSmooth = isPressed
         }
+
         // 处理抬起时焦点 App 变化
         let isAppTargetChanged = ScrollCore.shared.currentApplication != ScrollCore.shared.application
-        if isAppTargetChanged && event.isKeyUp {
+        let isAnyKeyUp = event.isKeyUp || isKeyUp
+        if isAppTargetChanged && isAnyKeyUp {
             // 关闭全部
             ScrollCore.shared.dashScroll = false
             ScrollCore.shared.dashAmplification = 1.0
             ScrollCore.shared.toggleScroll = false
             ScrollCore.shared.blockSmooth = false
+            // 重置按键状态
+            ScrollCore.shared.dashKeyHeld = false
+            ScrollCore.shared.toggleKeyHeld = false
+            ScrollCore.shared.blockKeyHeld = false
             // 并更新记录器
             ScrollCore.shared.currentApplication = nil
         }

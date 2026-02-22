@@ -57,6 +57,27 @@ struct SPECIAL_EVENT_SOURCE_APPLICATION {
     static let logitechOptions = "com.logitech.manager.daemon"
 }
 
+// 远程桌面应用标识列表（用于检测 VNC 等远程滚动事件）
+struct REMOTE_CONTROL_APPLICATION {
+    // 可执行文件路径关键字（用于系统守护进程）
+    static let executableKeywords = [
+        "screensharingd",          // macOS 屏幕共享守护进程
+        "ScreensharingAgent",     // macOS 屏幕共享用户会话代理
+        "ARDAgent",                // Apple Remote Desktop
+    ]
+    // Bundle Identifier（用于第三方应用）
+    static let bundleIdentifiers = [
+        "com.teamviewer.TeamViewer",
+        "com.teamviewer.TeamViewerHost",
+        "com.anydesk.anydesk",
+        "com.parsec.www",
+        "com.rustdesk.RustDesk",
+        "com.microsoft.rdc.macos",  // Microsoft Remote Desktop
+        "com.realvnc.vncviewer",
+        "com.tigervnc.vncviewer",
+    ]
+}
+
 enum ScrollDurationLimits {
     static let simulateTrackpadDefault: Double = 4.75
 }
@@ -73,6 +94,19 @@ class OPTIONS_GENERAL_DEFAULT {
     var hideStatusItem = false {
         willSet {newValue ? StatusItemManager.hideStatusItem() : StatusItemManager.showStatusItem()}
         didSet {Options.shared.saveOptions()}
+    }
+}
+
+// 更新
+class OPTIONS_UPDATE_DEFAULT {
+    // 启动时自动检查更新
+    var checkOnAppStart = false {
+        didSet { Options.shared.saveOptions() }
+    }
+
+    // 包含 beta 版本
+    var includingBetaVersion = false {
+        didSet { Options.shared.saveOptions() }
     }
 }
 
@@ -97,13 +131,13 @@ class OPTIONS_SCROLL_DEFAULT: Codable {
     var reverseHorizontal = true {
         didSet {Options.shared.saveOptions()}
     }
-    var dash:Int? = 0 {
+    var dash: ScrollHotkey? = ScrollHotkey(type: .keyboard, code: KeyCode.optionL) {
         didSet {Options.shared.saveOptions()}
     }
-    var toggle:Int? = 56 {
+    var toggle: ScrollHotkey? = ScrollHotkey(type: .keyboard, code: KeyCode.shiftL) {
         didSet {Options.shared.saveOptions()}
     }
-    var block:Int? = 55 {
+    var block: ScrollHotkey? = ScrollHotkey(type: .keyboard, code: KeyCode.commandL) {
         didSet {Options.shared.saveOptions()}
     }
     var step = 33.6 {

@@ -9,16 +9,19 @@
 import Cocoa
 
 class PreferencesScrollingViewController: NSViewController, ScrollOptionsContextProviding {
-    
+
     // Target application
     // - Using when the VC is inside the Application Setting Popup
     var currentTargetApplication: Application?
     // UI Elements
     @IBOutlet weak var scrollSmoothCheckBox: NSButton!
     @IBOutlet weak var scrollReverseCheckBox: NSButton!
-    @IBOutlet weak var dashKeyPopUpButton: NSPopUpButton!
-    @IBOutlet weak var toggleKeyPopUpButton: NSPopUpButton!
-    @IBOutlet weak var disableKeyPopUpButton: NSPopUpButton!
+    @IBOutlet weak var dashKeyBindButton: NSButton!
+    @IBOutlet weak var dashKeyDelButton: NSButton!
+    @IBOutlet weak var toggleKeyBindButton: NSButton!
+    @IBOutlet weak var toggleKeyDelButton: NSButton!
+    @IBOutlet weak var disableKeyBindButton: NSButton!
+    @IBOutlet weak var disableKeyDelButton: NSButton!
     @IBOutlet weak var scrollStepSlider: NSSlider!
     @IBOutlet weak var scrollStepInput: NSTextField!
     @IBOutlet weak var scrollStepStepper: NSStepper!
@@ -32,14 +35,16 @@ class PreferencesScrollingViewController: NSViewController, ScrollOptionsContext
     @IBOutlet weak var resetToDefaultsButton: NSButton!
     var resetButtonHeightConstraint: NSLayoutConstraint?
     // Constants
-    let PopUpButtonPadding = 2 // 减去第一个 Disabled 和分割线的距离
     let DefaultConfigForCompare = OPTIONS_SCROLL_DEFAULT()
     private var scrollDurationDescriptionDefaultText: String?
     private let scrollDurationLockedDescription = NSLocalizedString(
         "scrollDurationLockedMessage",
         comment: "Message shown when simulate trackpad locks the duration setting"
     )
-    
+    // KeyRecorder for custom hotkey recording
+    private let keyRecorder = KeyRecorder()
+    private weak var currentRecordingPopup: NSButton?
+
     override func viewDidLoad() {
         // 禁止自动 Focus
         scrollStepInput.refusesFirstResponder = true
@@ -49,6 +54,8 @@ class PreferencesScrollingViewController: NSViewController, ScrollOptionsContext
         resetButtonHeightConstraint = resetToDefaultsButton.heightAnchor.constraint(equalToConstant: 24)
         resetButtonHeightConstraint?.isActive = true
         scrollDurationDescriptionDefaultText = scrollDurationDescriptionLabel?.stringValue
+        // 设置 KeyRecorder 代理
+        keyRecorder.delegate = self
         // 读取设置
         syncViewWithOptions()
     }
@@ -80,22 +87,34 @@ class PreferencesScrollingViewController: NSViewController, ScrollOptionsContext
         syncViewWithOptions()
     }
     
-    // 加速
-    @IBAction func dashKeyPopUpButtonChange(_ sender: NSPopUpButton) {
-        let index = sender.indexOfSelectedItem
-        getTargetApplicationScrollOptions().dash = Int(index>1 ? KeyCode.modifierLKeys[index-PopUpButtonPadding] : 0)
+    // 加速键 - 点击触发录制
+    @IBAction func dashKeyButtonClick(_ sender: NSButton) {
+        currentRecordingPopup = sender
+        keyRecorder.startRecording(from: sender, mode: .singleKey)
+    }
+    // 加速键 - 清除绑定
+    @IBAction func dashKeyDelButtonClick(_ sender: NSButton) {
+        getTargetApplicationScrollOptions().dash = nil
         syncViewWithOptions()
     }
-    // 转换
-    @IBAction func toggleKeyPopUpButtonChange(_ sender: NSPopUpButton) {
-        let index = sender.indexOfSelectedItem
-        getTargetApplicationScrollOptions().toggle = Int(index>1 ? KeyCode.modifierLKeys[index-PopUpButtonPadding] : 0)
+    // 转换键 - 点击触发录制
+    @IBAction func toggleKeyButtonClick(_ sender: NSButton) {
+        currentRecordingPopup = sender
+        keyRecorder.startRecording(from: sender, mode: .singleKey)
+    }
+    // 转换键 - 清除绑定
+    @IBAction func toggleKeyDelButtonClick(_ sender: NSButton) {
+        getTargetApplicationScrollOptions().toggle = nil
         syncViewWithOptions()
     }
-    // 禁用
-    @IBAction func disableKeyPopUpButtonChange(_ sender: NSPopUpButton) {
-        let index = sender.indexOfSelectedItem
-        getTargetApplicationScrollOptions().block = Int(index>1 ? KeyCode.modifierLKeys[index-PopUpButtonPadding] : 0)
+    // 禁用键 - 点击触发录制
+    @IBAction func disableKeyButtonClick(_ sender: NSButton) {
+        currentRecordingPopup = sender
+        keyRecorder.startRecording(from: sender, mode: .singleKey)
+    }
+    // 禁用键 - 清除绑定
+    @IBAction func disableKeyDelButtonClick(_ sender: NSButton) {
+        getTargetApplicationScrollOptions().block = nil
         syncViewWithOptions()
     }
     
@@ -177,27 +196,12 @@ extension PreferencesScrollingViewController {
         // 翻转
         scrollReverseCheckBox.state = NSControl.StateValue(rawValue: scroll.reverse ? 1 : 0)
         scrollReverseCheckBox.isEnabled = isNotInherit
-        // 加速
-        if let index = KeyCode.modifierLKeys.firstIndex(of: CGKeyCode(scroll.dash ?? 0)) {
-            dashKeyPopUpButton.selectItem(at: index+PopUpButtonPadding)
-        } else {
-            dashKeyPopUpButton.selectItem(at: 0)
-        }
-        dashKeyPopUpButton.isEnabled = isNotInherit
-        // 转换
-        if let index = KeyCode.modifierLKeys.firstIndex(of: CGKeyCode(scroll.toggle ?? 0)) {
-            toggleKeyPopUpButton.selectItem(at: index+PopUpButtonPadding)
-        } else {
-            toggleKeyPopUpButton.selectItem(at: 0)
-        }
-        toggleKeyPopUpButton.isEnabled = isNotInherit
-        // 禁用
-        if let index = KeyCode.modifierLKeys.firstIndex(of: CGKeyCode(scroll.block ?? 0)) {
-            disableKeyPopUpButton.selectItem(at: index+PopUpButtonPadding)
-        } else {
-            disableKeyPopUpButton.selectItem(at: 0)
-        }
-        disableKeyPopUpButton.isEnabled = isNotInherit
+        // 加速键
+        updateHotkeyButton(dashKeyBindButton, delButton: dashKeyDelButton, hotkey: scroll.dash, enabled: isNotInherit)
+        // 转换键
+        updateHotkeyButton(toggleKeyBindButton, delButton: toggleKeyDelButton, hotkey: scroll.toggle, enabled: isNotInherit)
+        // 禁用键
+        updateHotkeyButton(disableKeyBindButton, delButton: disableKeyDelButton, hotkey: scroll.block, enabled: isNotInherit)
         // 步长
         let step = scroll.step
         scrollStepSlider.doubleValue = step
@@ -257,5 +261,87 @@ extension PreferencesScrollingViewController {
             self.view.layout()
             (self.parent as? PreferencesTabViewController)?.updateWindowSize()
         })
+    }
+
+    /// 键盘按键的完整名称映射 (仅用于 ScrollingView 按钮显示)
+    private static let keyFullNames: [UInt16: String] = [
+        // 修饰键
+        KeyCode.commandL: "⌘ Command",
+        KeyCode.commandR: "⌘ Command",
+        KeyCode.optionL: "⌥ Option",
+        KeyCode.optionR: "⌥ Option",
+        KeyCode.shiftL: "⇧ Shift",
+        KeyCode.shiftR: "⇧ Shift",
+        KeyCode.controlL: "⌃ Control",
+        KeyCode.controlR: "⌃ Control",
+        KeyCode.fnL: "Fn",
+        KeyCode.fnR: "Fn",
+        // 特殊键
+        49: "⎵ Space",
+        51: "⌫ Delete",
+        53: "⎋ Escape",
+        36: "↩ Return",
+        76: "↩ Return",
+        48: "↹ Tab",
+    ]
+
+    /// 获取 ScrollHotkey 的完整显示名称
+    private func getFullDisplayName(for hotkey: ScrollHotkey) -> String {
+        switch hotkey.type {
+        case .keyboard:
+            // 优先使用完整名称映射
+            if let fullName = PreferencesScrollingViewController.keyFullNames[hotkey.code] {
+                return fullName
+            }
+            // 其他按键使用原始映射
+            return KeyCode.keyMap[hotkey.code] ?? "Key \(hotkey.code)"
+        case .mouse:
+            return KeyCode.mouseMap[hotkey.code] ?? "🖱\(hotkey.code)"
+        }
+    }
+
+    /// 更新热键按钮的显示文本和删除按钮可见性
+    private func updateHotkeyButton(_ button: NSButton?, delButton: NSButton?, hotkey: ScrollHotkey?, enabled: Bool) {
+        guard let button = button else { return }
+
+        let hasBound = hotkey != nil
+
+        // 获取显示名称
+        let displayName: String
+        if let hotkey = hotkey {
+            displayName = getFullDisplayName(for: hotkey)
+        } else {
+            displayName = NSLocalizedString("Disabled", comment: "Hotkey disabled state")
+        }
+
+        // 设置按钮标题和启用状态
+        button.title = displayName
+        button.isEnabled = enabled
+
+        // 设置删除按钮可见性：仅在有绑定且启用时显示
+        delButton?.alphaValue = (hasBound && enabled) ? 1.0 : 0.0
+        delButton?.isEnabled = hasBound && enabled
+    }
+}
+
+// MARK: - KeyRecorderDelegate
+extension PreferencesScrollingViewController: KeyRecorderDelegate {
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: CGEvent, isDuplicate: Bool) {
+        guard let popup = currentRecordingPopup else { return }
+
+        // 从事件创建 ScrollHotkey
+        let hotkey = ScrollHotkey(from: event)
+
+        // 保存设置
+        if popup === dashKeyBindButton {
+            getTargetApplicationScrollOptions().dash = hotkey
+        } else if popup === toggleKeyBindButton {
+            getTargetApplicationScrollOptions().toggle = hotkey
+        } else if popup === disableKeyBindButton {
+            getTargetApplicationScrollOptions().block = hotkey
+        }
+
+        currentRecordingPopup = nil
+        syncViewWithOptions()
     }
 }

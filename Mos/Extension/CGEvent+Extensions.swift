@@ -150,22 +150,25 @@ extension CGEvent {
     var isRecordable: Bool {
         // 键盘事件
         if isKeyboardEvent {
+            // F键允许无修饰键录制
+            if KeyCode.functionKeys.contains(keyCode) {
+                return true
+            }
             // 无修饰键不允许被记录
             if !hasModifiers {
                 return false
             }
-            // 纯修饰键不允许被记录
-            if hasModifiers && isKeyboardEvent && keyCode == 0 {
-                return false
-            }
+            // 注意: keyCode 0 是有效按键 "A"，不要误判为"无按键"
+            // 纯修饰键按下时事件类型是 flagsChanged，不会进入这里
             return true
         }
         // 鼠标事件
         if isMouseEvent {
-            // 如果是左中右则必须包含修饰键
-            if !hasModifiers && KeyCode.mouseMainKeys.contains(mouseCode) {
-                return false
+            // 左右键必须包含修饰键
+            if KeyCode.mouseMainKeys.contains(mouseCode) {
+                return hasModifiers
             }
+            // 侧键等允许无修饰键录制
             return true
         }
         // 其他不做处理
