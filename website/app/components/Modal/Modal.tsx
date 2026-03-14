@@ -139,7 +139,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={label.titleId}
         tabIndex={-1}
-        className={`w-full ${width} max-h-[calc(100svh-3rem)] overflow-auto rounded-[22px] border border-white/10
+        className={`w-full ${width} max-h-[calc(100vh-3rem)] max-h-[calc(100svh-3rem)] overflow-auto rounded-[22px] border border-white/10
                  bg-[rgba(10,11,16,0.72)] shadow-elevated backdrop-blur-xl
                  motion-safe:animate-[modal-appear_0.5s_var(--ease-out)]`}
       >

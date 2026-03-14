@@ -13,6 +13,7 @@ class ScrollUtils {
     // 单例
     static let shared = ScrollUtils()
     init() { NSLog("Module initialized: ScrollUtils") }
+    private let syntheticSmoothEventMarker: Int64 = 0x4D4F53534D4F4F54
     
     // 判断事件目标是否变化
     var previousScrollTargetProcessID = 0.0 // 用于在鼠标移动到不同窗口时停止滚动
@@ -25,19 +26,12 @@ class ScrollUtils {
         return previousScrollTargetProcessID != currentScrollTargetProcessID && previousScrollTargetProcessID != 0.0
     }
     
-    // 发送事件
-    func postScrollEvent(_ proxy: CGEventTapProxy, _ event: CGEvent, _ value: ( y: Double, x: Double )) {
-        if let eventClone = event.copy() {
-            eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: value.y)
-            eventClone.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: value.x)
-            eventClone.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: 0.0)
-            eventClone.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: 0.0)
-            eventClone.setDoubleValueField(.scrollWheelEventIsContinuous, value: 1.0)
-            // EventTapProxy 标识了 EventTapCallback 在事件流中接收到事件的特定位置, 其粒度小于 tap 本身
-            // 使用 tapPostEvent 可以将自定义的事件发布到 proxy 标识的位置, 避免被 EventTapCallback 本身重复接收或处理
-            // 新发布的事件将早于 EventTapCallback 所处理的事件进入系统, 也如同 EventTapCallback 所处理的事件, 会被所有后续的 EventTap 接收
-            eventClone.tapPostEvent(proxy)
-        }
+    func markSyntheticSmoothEvent(_ event: CGEvent) {
+        event.setIntegerValueField(.eventSourceUserData, value: syntheticSmoothEventMarker)
+    }
+
+    func isSyntheticSmoothEvent(_ event: CGEvent) -> Bool {
+        return event.getIntegerValueField(.eventSourceUserData) == syntheticSmoothEventMarker
     }
     
     // 从 CGEvent 中携带的 PID 获取应用信息
@@ -81,7 +75,11 @@ class ScrollUtils {
         guard let validRunningApplication = runningApplication else {
             return false
         }
-        // 10.15 以上直接判断是否为 Dock
+        // macOS 26+ LaunchPad 已无分页功能, 平滑滚动是预期行为, 无需特殊处理
+        if #available(macOS 26.0, *) {
+            return false
+        }
+        // 10.15 - 26 以下判断是否为 Dock (LaunchPad 依附于 Dock 进程)
         // FIXME: 当 Dock 的目录设置为 "叠放" 时, 应用对 Dock 的目录预览无法平滑, 且发送平滑后的滚动事件无法被识别, 需要找别的方式
         if #available(OSX 10.15, *) {
             if validRunningApplication.executableURL?.path == "/System/Library/CoreServices/Dock.app/Contents/MacOS/Dock" {

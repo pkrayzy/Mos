@@ -20,7 +20,7 @@ export function Magnetic({
     const inner = innerRef.current;
     if (!root || !inner) return;
 
-    const fine = window.matchMedia?.("(pointer: fine)")?.matches ?? false;
+    const fine = window.matchMedia?.("(any-pointer: fine)")?.matches ?? false;
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
     if (!fine || reduced) return;
 

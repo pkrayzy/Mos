@@ -1,6 +1,14 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { motion, useInView, useReducedMotion } from "framer-motion";
+import { ReactNode, useRef } from "react";
+
+const SPRING = { type: "spring" as const, stiffness: 100, damping: 20 };
+
+const variants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
 
 export function Reveal({
   children,
@@ -12,49 +20,22 @@ export function Reveal({
   delayMs?: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    if (reduced) {
-      const raf = window.requestAnimationFrame(() => {
-        setInView(true);
-      });
-      return () => window.cancelAnimationFrame(raf);
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setInView(true);
-            observer.disconnect();
-            break;
-          }
-        }
-      },
-      {
-        root: null,
-        threshold: 0.14,
-        rootMargin: "40px 0px -10% 0px",
-      }
-    );
-
-    observer.observe(el);
-
-    return () => observer.disconnect();
-  }, []);
+  const shouldReduceMotion = useReducedMotion();
+  const inView = useInView(ref, {
+    once: true,
+    margin: "40px 0px -10% 0px",
+  });
 
   return (
-    <div
+    <motion.div
       ref={ref}
-      className={`reveal ${inView ? "in-view" : ""} ${className}`}
-      style={{ transitionDelay: `${delayMs}ms` }}
+      className={className}
+      variants={variants}
+      initial={shouldReduceMotion ? "visible" : "hidden"}
+      animate={inView ? "visible" : "hidden"}
+      transition={{ ...SPRING, delay: delayMs / 1000 }}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
