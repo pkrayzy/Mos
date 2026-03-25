@@ -53,6 +53,7 @@ class ToastManager {
         style: Toast.Style,
         duration: TimeInterval,
         icon: NSImage?,
+        showsIcon: Bool,
         allowDuplicateVisibleMessage: Bool = false
     ) {
         // 可见集合去重：淡出中的 toast 仍然在屏幕上，因此也参与去重
@@ -80,7 +81,7 @@ class ToastManager {
         }
 
         // 创建新 toast
-        let resolvedIcon = icon ?? ToastContentView.defaultIcon(for: style)
+        let resolvedIcon = showsIcon ? (icon ?? ToastContentView.defaultIcon(for: style)) : nil
         let accentColor = ToastContentView.accentColor(for: style)
         let contentView = ToastContentView(
             message: message,

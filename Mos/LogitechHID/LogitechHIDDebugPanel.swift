@@ -93,16 +93,23 @@ class LogitechHIDDebugPanel: NSObject {
 
     // Tables
     private var deviceInfoTable: NSTableView?
+    private var receiverDevicesTable: NSTableView?
     private var featureTable: NSTableView?
     private var controlsTable: NSTableView?
     private var logTextView: NSTextView?
     private var deviceSelector: NSPopUpButton?
 
+    // Layout: Device Info + Receiver side-by-side
+    private var topSplit: NSSplitView?          // 水平 split (左: DeviceInfo, 右: Receiver)
+    private var receiverSection: NSView?        // 右侧 receiver 容器, 非 receiver 设备时隐藏
+
     // Data
     private var deviceInfoRows: [(String, String, String)] = []   // (property, value, annotation)
+    private var receiverDeviceRows: [(UInt8, String, String, String, String, String, String)] = []
+    // (slot, status, name, type, wirelessPID, protocol, error)
     private var featureRows: [(String, String, String, String)] = [] // (index, featID, name, purpose)
-    private var controlRows: [(Int, String, String, String, String, Bool, Bool)] = []
-    // (idx, cid, name, taskId, flagsDesc, isDivertable, isDiverted)
+    private var controlRows: [(Int, String, String, String, String, String, String)] = []
+    // (idx, cid, name, taskId, flagsDesc, reportingState, targetCID)
 
     private var currentSession: LogitechDeviceSession?
 
@@ -188,6 +195,7 @@ class LogitechHIDDebugPanel: NSObject {
         var bx: CGFloat = 8
         let buttonDefs: [(String, Selector)] = [
             ("Refresh", #selector(refreshClicked)),
+            ("Enumerate", #selector(enumerateClicked)),
             ("Re-Discover", #selector(rediscoverClicked)),
             ("Re-Divert", #selector(redivertClicked)),
             ("Undivert", #selector(undivertClicked)),
@@ -235,13 +243,31 @@ class LogitechHIDDebugPanel: NSObject {
         split.dividerStyle = .thin
         split.autoresizingMask = [.width, .height]
 
-        // Section 1: Device Info
+        // Top row: Device Info (左) + Receiver Devices (右, 仅 receiver 设备时显示)
+        let topH: CGFloat = 140
+        let hSplit = NSSplitView(frame: NSRect(x: 0, y: 0, width: cw, height: topH))
+        hSplit.isVertical = true
+        hSplit.dividerStyle = .thin
+        hSplit.autoresizingMask = [.width, .height]
+        self.topSplit = hSplit
+
         let s1 = makeTableSection(
-            columns: [("Property", 140), ("Value", 280), ("Annotation", 400)],
+            columns: [("Property", 120), ("Value", 200), ("Annotation", 300)],
             tag: 1
         )
-        s1.frame = NSRect(x: 0, y: 0, width: cw, height: 140)
-        split.addSubview(s1)
+        s1.frame = NSRect(x: 0, y: 0, width: cw / 2, height: topH)
+        hSplit.addSubview(s1)
+
+        let s4 = makeTableSection(
+            columns: [("Slot", 35), ("Status", 50), ("Name", 120), ("Type", 60), ("PID", 60), ("Proto", 50), ("Note", 120)],
+            tag: 4
+        )
+        s4.frame = NSRect(x: 0, y: 0, width: cw / 2, height: topH)
+        hSplit.addSubview(s4)
+        self.receiverSection = s4
+
+        hSplit.adjustSubviews()
+        split.addSubview(hSplit)
 
         // Section 2: Feature Table
         let s2 = makeTableSection(
@@ -253,13 +279,13 @@ class LogitechHIDDebugPanel: NSObject {
 
         // Section 3: Controls
         let s3 = makeTableSection(
-            columns: [("Idx", 35), ("CID", 65), ("Name", 120), ("TaskID", 65), ("Flags", 200), ("Dvrt?", 45), ("Status", 55)],
+            columns: [("Idx", 35), ("CID", 65), ("Name", 120), ("TaskID", 65), ("Flags", 160), ("Reporting", 120), ("Target", 100)],
             tag: 3
         )
         s3.frame = NSRect(x: 0, y: 0, width: cw, height: 120)
         split.addSubview(s3)
 
-        // Section 4: Protocol Log
+        // Section 5: Protocol Log
         let logScroll = NSScrollView()
         logScroll.hasVerticalScroller = true
         logScroll.frame = NSRect(x: 0, y: 0, width: cw, height: bodyH - 310)
@@ -288,6 +314,7 @@ class LogitechHIDDebugPanel: NSObject {
         1: "Device Info",
         2: "Feature Table (HID++ Features)",
         3: "Controls (REPROG_CONTROLS_V4 Buttons)",
+        4: "Receiver Devices (Unifying/Bolt)",
     ]
 
     private func makeTableSection(columns: [(String, CGFloat)], tag: Int) -> NSView {
@@ -327,6 +354,7 @@ class LogitechHIDDebugPanel: NSObject {
         case 1: deviceInfoTable = table
         case 2: featureTable = table
         case 3: controlsTable = table
+        case 4: receiverDevicesTable = table
         default: break
         }
 
@@ -352,6 +380,16 @@ class LogitechHIDDebugPanel: NSObject {
     // MARK: - Data Refresh
 
     @objc private func refreshClicked() { refreshAll() }
+
+    @objc private func enumerateClicked() {
+        guard let session = currentSession, session.debugConnectionMode.contains("Receiver") else {
+            LogitechHIDDebugPanel.log("[DebugPanel] Enumerate: not a receiver session")
+            return
+        }
+        session.enumerateReceiverDevices()
+        // 延迟刷新以等待枚举完成
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.refreshReceiverDevices() }
+    }
 
     @objc private func rediscoverClicked() {
         currentSession?.rediscoverFeatures()
@@ -399,6 +437,7 @@ class LogitechHIDDebugPanel: NSObject {
             currentSession = sessions[idx]
         }
         refreshDeviceInfo()
+        refreshReceiverDevices()
         refreshFeatureTable()
         refreshControls()
     }
@@ -422,6 +461,7 @@ class LogitechHIDDebugPanel: NSObject {
         }
 
         refreshDeviceInfo()
+        refreshReceiverDevices()
         refreshFeatureTable()
         refreshControls()
     }
@@ -458,7 +498,7 @@ class LogitechHIDDebugPanel: NSObject {
             ("Usage", String(format: "0x%04X", s.usage), usageName),
             ("Transport", s.transport, s.debugIsBLE ? "Bluetooth Low Energy" : "USB"),
             ("Connection Mode", s.debugConnectionMode, "BLE Direct / Receiver (Unifying-Bolt) / Unsupported"),
-            ("Device Index", String(format: "0x%02X", s.debugDeviceIndex), s.debugIsBLE ? "0xFF = BLE direct" : "0x01-0x06 = Receiver slot"),
+            ("Device Index", String(format: "0x%02X", s.debugDeviceIndex), s.debugIsBLE ? "0xFF = BLE direct" : "Target slot (click row below to switch)"),
             ("Device Opened", s.debugDeviceOpened ? "YES" : "NO", "IOHIDDeviceOpen result"),
             ("HID++ Candidate", s.isHIDPPCandidate ? "YES" : "NO", "Eligible for HID++ protocol"),
             ("Init Complete", s.debugReprogInitComplete ? "YES" : "NO", "Feature discovery + divert done"),
@@ -466,6 +506,43 @@ class LogitechHIDDebugPanel: NSObject {
              s.debugDivertedCIDs.isEmpty ? "No buttons diverted" : "\(s.debugDivertedCIDs.count) buttons diverted"),
         ]
         deviceInfoTable?.reloadData()
+    }
+
+    private func refreshReceiverDevices() {
+        receiverDeviceRows.removeAll()
+        let isReceiver = currentSession?.debugConnectionMode.contains("Receiver") ?? false
+
+        // 非 receiver: 隐藏右侧面板
+        if !isReceiver {
+            receiverSection?.isHidden = true
+            topSplit?.adjustSubviews()
+            receiverDevicesTable?.reloadData()
+            return
+        }
+
+        // Receiver: 显示右侧面板
+        receiverSection?.isHidden = false
+        topSplit?.adjustSubviews()
+
+        guard let s = currentSession else { receiverDevicesTable?.reloadData(); return }
+        let devices = s.debugReceiverPairedDevices
+        let targetSlot = s.debugDeviceIndex
+        if devices.isEmpty {
+            receiverDeviceRows.append((0, "--", "Enumerating...", "--", "--", "--", ""))
+        } else {
+            for dev in devices {
+                let isTarget = dev.slot == targetSlot
+                let status = dev.isConnected ? "Online" : "Offline"
+                let name = dev.name.isEmpty ? "--" : dev.name
+                let typeName = dev.deviceTypeName
+                let pid = dev.wirelessPID == 0 ? "--" : String(format: "0x%04X", dev.wirelessPID)
+                let proto = dev.protocolVersion
+                var note = dev.lastError ?? ""
+                if isTarget { note = note.isEmpty ? "TARGETED" : "TARGETED | \(note)" }
+                receiverDeviceRows.append((dev.slot, status, name, typeName, pid, proto, note))
+            }
+        }
+        receiverDevicesTable?.reloadData()
     }
 
     private func refreshFeatureTable() {
@@ -493,19 +570,40 @@ class LogitechHIDDebugPanel: NSObject {
 
         for (i, c) in s.debugDiscoveredControls.enumerated() {
             let name = LogitechCIDRegistry.name(forCID: c.cid)
-            let isDiverted = s.debugDivertedCIDs.contains(c.cid)
+
+            // Reporting 状态 (从 GetControlReporting function 2 查询)
+            let reporting: String
+            if c.reportingQueried {
+                var parts: [String] = []
+                if c.reportingFlags & 0x01 != 0 { parts.append("tmpDvrt") }
+                if c.reportingFlags & 0x02 != 0 { parts.append("pstDvrt") }
+                if c.reportingFlags & 0x04 != 0 { parts.append("tmpRemap") }
+                if c.reportingFlags & 0x08 != 0 { parts.append("pstRemap") }
+                reporting = parts.isEmpty ? "none" : parts.joined(separator: ",")
+            } else {
+                reporting = "..."
+            }
+
+            // Target CID (remap 目标)
+            let target: String
+            if c.reportingQueried && c.targetCID != 0 && c.targetCID != c.cid {
+                target = "\(String(format: "0x%04X", c.targetCID)) \(LogitechCIDRegistry.name(forCID: c.targetCID))"
+            } else {
+                target = "--"
+            }
+
             controlRows.append((
                 i,
                 String(format: "0x%04X", c.cid),
                 name,
                 String(format: "0x%04X", c.taskId),
                 HIDPPInfo.flagsDescription(c.flags),
-                c.isDivertable,
-                isDiverted
+                reporting,
+                target
             ))
         }
         if controlRows.isEmpty {
-            controlRows.append((0, "--", "No controls discovered", "--", "--", false, false))
+            controlRows.append((0, "--", "No controls discovered", "--", "--", "--", "--"))
         }
         controlsTable?.reloadData()
     }
@@ -573,6 +671,7 @@ extension LogitechHIDDebugPanel: NSTableViewDelegate, NSTableViewDataSource {
         case 1: return deviceInfoRows.count
         case 2: return featureRows.count
         case 3: return controlRows.count
+        case 4: return receiverDeviceRows.count
         default: return 0
         }
     }
@@ -621,25 +720,71 @@ extension LogitechHIDDebugPanel: NSTableViewDelegate, NSTableViewDataSource {
             case "3_Name": cell.stringValue = r.2
             case "3_TaskID": cell.stringValue = r.3
             case "3_Flags": cell.stringValue = r.4
-            case "3_Dvrt?": cell.stringValue = r.5 ? "YES" : "NO"
-                cell.textColor = r.5 ? NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0) : NSColor.secondaryLabelColor
-            case "3_Status":
-                if r.5 {
-                    cell.stringValue = r.6 ? "ON" : "OFF"
-                    cell.textColor = r.6 ? NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0) : NSColor(calibratedRed: 1.0, green: 0.3, blue: 0.3, alpha: 1.0)
-                } else {
-                    cell.stringValue = "--"
+            case "3_Reporting":
+                cell.stringValue = r.5
+                if r.5.contains("Dvrt") || r.5.contains("Remap") {
+                    cell.textColor = NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
+                } else if r.5 == "none" {
                     cell.textColor = NSColor.secondaryLabelColor
                 }
+            case "3_Target":
+                cell.stringValue = r.6
+                cell.textColor = r.6 == "--" ? NSColor.secondaryLabelColor : NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
+            default: break
+            }
+        case 4: // Receiver Devices
+            let r = receiverDeviceRows[row]
+            let isTargeted = r.6.contains("TARGETED")
+            switch colId {
+            case "4_Slot":
+                cell.stringValue = r.0 == 0 ? "--" : "\(r.0)"
+                if isTargeted { cell.textColor = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0) }
+            case "4_Status":
+                cell.stringValue = r.1
+                if r.1 == "Online" {
+                    cell.textColor = isTargeted
+                        ? NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+                        : NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
+                } else {
+                    cell.textColor = NSColor.secondaryLabelColor
+                }
+            case "4_Name":
+                cell.stringValue = r.2
+                if isTargeted { cell.textColor = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0) }
+            case "4_Type": cell.stringValue = r.3
+            case "4_PID": cell.stringValue = r.4
+            case "4_Proto": cell.stringValue = r.5
+            case "4_Note":
+                cell.stringValue = r.6
+                cell.textColor = isTargeted
+                    ? NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+                    : NSColor.secondaryLabelColor
             default: break
             }
         default: break
         }
 
-        if !colId.contains("Annotation") && !colId.contains("Purpose") && !colId.contains("Dvrt") && !colId.contains("Status") {
+        if !colId.contains("Annotation") && !colId.contains("Purpose") && !colId.contains("Reporting") && !colId.contains("Target") && !colId.contains("Status") && !colId.contains("Note") {
             cell.textColor = NSColor.labelColor
         }
         cell.font = NSFont.userFixedPitchFont(ofSize: 11)!
         return cell
+    }
+
+    // MARK: - Receiver Slot Selection
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        guard let table = notification.object as? NSTableView, table.tag == 4 else { return }
+        let row = table.selectedRow
+        guard row >= 0, row < receiverDeviceRows.count else { return }
+        let slot = receiverDeviceRows[row].0
+        guard slot >= 1, slot <= 6 else { return }
+
+        currentSession?.setTargetSlot(slot: slot)
+        LogitechHIDDebugPanel.log("[DebugPanel] Targeted slot \(slot)")
+        refreshDeviceInfo()
+        refreshReceiverDevices()
+        refreshFeatureTable()
+        refreshControls()
     }
 }

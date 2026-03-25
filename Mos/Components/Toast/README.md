@@ -38,6 +38,11 @@ Toast.show("Custom message",
            duration: 5.0,
            icon: NSImage(named: "custom-icon"))
 
+// Hide icon entirely
+Toast.show("Plain message",
+           style: .warning,
+           showsIcon: false)
+
 // Dismiss all visible toasts
 Toast.dismissAll()
 
@@ -60,7 +65,8 @@ struct Toast {
     static func show(_ message: String,
                      style: Style = .info,
                      duration: TimeInterval = 2.5,
-                     icon: NSImage? = nil)
+                     icon: NSImage? = nil,
+                     showsIcon: Bool = true)
 
     /// Dismiss all visible toasts.
     static func dismissAll()
@@ -110,6 +116,7 @@ Call `Toast.showTestPanel()` or add `Toast.debugMenuItem()` to a menu. The panel
 - Message text input
 - Style selector (button group)
 - Duration slider (0.5s -- 10s)
+- Show icon toggle
 - Custom icon toggle
 
 **Quick Tests:**

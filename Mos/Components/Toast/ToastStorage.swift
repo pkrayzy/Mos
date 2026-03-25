@@ -21,6 +21,7 @@ class ToastStorage {
         static let positionY = "positionY"
         static let maxCount = "maxCount"
         static let showsAccentIndicator = "showsAccentIndicator"
+        static let showsIcon = "showsIcon"
     }
 
     init() {
@@ -93,6 +94,21 @@ class ToastStorage {
         }
         set {
             defaults.set(newValue, forKey: Keys.showsAccentIndicator)
+        }
+    }
+
+    // MARK: - Icon
+
+    /// 是否显示 toast 图标，默认开启。
+    var showsIcon: Bool {
+        get {
+            guard defaults.object(forKey: Keys.showsIcon) != nil else {
+                return true
+            }
+            return defaults.bool(forKey: Keys.showsIcon)
+        }
+        set {
+            defaults.set(newValue, forKey: Keys.showsIcon)
         }
     }
 

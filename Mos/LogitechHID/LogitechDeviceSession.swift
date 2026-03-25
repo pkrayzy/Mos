@@ -42,6 +42,11 @@ class LogitechDeviceSession {
     private var isBLE: Bool = false
     private var deviceOpened: Bool = false
 
+    // MARK: - Receiver Enumeration State
+    private(set) var receiverPairedDevices: [ReceiverPairedDevice] = []
+    private var pendingSlotPings: Set<UInt8> = []
+    private var receiverEnumPhase: Int = 0  // 0=idle, 1=pinging, 2=querying info
+
     // MARK: - Report Buffer
     private var reportBufferPtr: UnsafeMutablePointer<UInt8>?
     private static let reportBufferSize = 64
@@ -57,12 +62,46 @@ class LogitechDeviceSession {
     private var reprogQueryIndex: Int = 0
     private var discoveredControls: [ControlInfo] = []
     private var reprogInitComplete: Bool = false  // init 完成后, function 0 = button event 而非 GetControlCount
+    private var reportingQueryIndex: Int = 0      // GetControlReporting 逐按键查询进度
 
     struct ControlInfo {
         let cid: UInt16
         let taskId: UInt16
         let flags: UInt16
         let isDivertable: Bool
+        // GetControlReporting 查询结果
+        var reportingFlags: UInt8 = 0   // bit0=tmpDivert, bit1=persistDivert, bit2=tmpRemap, bit3=persistRemap
+        var targetCID: UInt16 = 0       // remap 目标 CID (0 = 自映射)
+        var reportingQueried: Bool = false
+    }
+
+    // MARK: - Receiver Paired Device Info
+    struct ReceiverPairedDevice {
+        let slot: UInt8              // 1-6
+        var isConnected: Bool = false
+        var protocolMajor: UInt8 = 0
+        var protocolMinor: UInt8 = 0
+        var wirelessPID: UInt16 = 0
+        var deviceType: UInt8 = 0
+        var name: String = ""
+        var lastError: String? = nil
+
+        var protocolVersion: String {
+            guard isConnected else { return "--" }
+            return "\(protocolMajor).\(protocolMinor)"
+        }
+
+        var deviceTypeName: String {
+            switch deviceType {
+            case 0x01: return "Keyboard"
+            case 0x02: return "Mouse"
+            case 0x03: return "Numpad"
+            case 0x04: return "Presenter"
+            case 0x08: return "Trackball"
+            case 0x09: return "Touchpad"
+            default: return deviceType == 0 ? "--" : "0x\(String(format: "%02X", deviceType))"
+            }
+        }
     }
 
     // MARK: - Feature Index Cache (按 PID 缓存, 减少重连 discovery 延迟)
@@ -95,6 +134,17 @@ class LogitechDeviceSession {
     private static let hidppShortReportId: UInt8 = 0x10
     private static let hidppLongReportId: UInt8 = 0x11
     private static let hidppErrorFeatureIdx: UInt8 = 0xFF
+
+    // HID++ 1.0 sub-IDs (receiver register access)
+    private static let hidpp10GetRegister: UInt8 = 0x81
+    private static let hidpp10GetLongRegister: UInt8 = 0x83
+    private static let hidpp10ErrorMsg: UInt8 = 0x8F
+    private static let hidpp10DeviceConnection: UInt8 = 0x41
+
+    // Receiver registers
+    private static let receiverPairingInfo: UInt8 = 0xB5
+    private static let pairingInfoDeviceInfo: UInt8 = 0x20
+    private static let pairingInfoDeviceName: UInt8 = 0x40
 
     // MARK: - Init
 
@@ -133,6 +183,7 @@ class LogitechDeviceSession {
     var debugDeviceIndex: UInt8 { deviceIndex }
     var debugIsBLE: Bool { isBLE }
     var debugDeviceOpened: Bool { deviceOpened }
+    var debugReceiverPairedDevices: [ReceiverPairedDevice] { receiverPairedDevices }
     var debugConnectionMode: String {
         switch connectionMode {
         case .bleDirect: return "BLE Direct"
@@ -152,7 +203,7 @@ class LogitechDeviceSession {
             deviceIndex = 0xFF
         } else if usagePage == 0xFF00 || usagePage == 0xFF43 || usagePage == 0xFFC0 {
             connectionMode = .receiver
-            deviceIndex = 0x01  // TODO: 通过 HID++ 1.0 枚举槽位确定实际 index
+            deviceIndex = 0x01  // 临时值, 枚举后会自动更新到实际在线 slot
         } else {
             connectionMode = .unsupported
         }
@@ -179,7 +230,14 @@ class LogitechDeviceSession {
 
         setupInputReportCallback()
 
-        // Feature Discovery (尝试缓存, 失败则完整 discovery)
+        // Receiver 模式: 先枚举 slot, 找到在线设备后自动 target + feature discovery
+        if connectionMode == .receiver {
+            LogitechHIDDebugPanel.log("\(tag) Receiver mode: enumerating paired devices...")
+            enumerateReceiverDevices()
+            return
+        }
+
+        // BLE / 直连模式: 直接 Feature Discovery (尝试缓存, 失败则完整 discovery)
         if let cached = Self.loadCachedFeatureIndex(for: deviceInfo.productId),
            let reprogIdx = cached[Self.featureReprogV4] {
             LogitechHIDDebugPanel.log("\(tag) Using cached feature index: REPROG at 0x\(String(format: "%02X", reprogIdx))")
@@ -328,24 +386,26 @@ class LogitechDeviceSession {
         let cidH = UInt8(cid >> 8)
         let cidL = UInt8(cid & 0xFF)
 
-        let flagsByte: UInt8
-        switch connectionMode {
-        case .bleDirect:
-            // BLE: bit1 是 "commit" 标志, 必须置位才能生效
-            // SET: bit0=1(divert ON) + bit1=1(commit) = 0x03
-            // CLEAR: bit0=0(divert OFF) + bit1=1(commit) = 0x02
-            flagsByte = divert ? 0x03 : 0x02
-        case .receiver:
-            // Receiver (Unifying/Bolt): TODO - 可能只需 tmpDiverted(bit0) = 0x01
-            flagsByte = divert ? 0x01 : 0x00
-        case .unsupported:
-            return
-        }
+        // HID++ Xvalid 位机制: 每个标志有一个相邻的 valid 位
+        // valid=1 时固件才修改该标志, valid=0 的位保持原值不变
+        //   bit0=divert(值)  bit1=divertValid
+        //   bit2=persistDivert(值)  bit3=persistDivertValid
+        //   bit4=rawXY(值)  bit5=rawXYValid
+        // 只设置 divert + divertValid, 其余 valid=0 → 固件不碰 persist/remap
+        let flagsByte: UInt8 = divert ? 0x03 : 0x02  // bit0=值, bit1=valid=1
 
-        // params: CID(2) + flags(1) + targetCID(2) (自映射)
+        // targetCID=0x0000: 协议约定 "不改变现有 remap 目标"
         sendRequest(featureIndex: featureIndex, functionId: 3,
-                         params: [cidH, cidL, flagsByte, cidH, cidL])
+                         params: [cidH, cidL, flagsByte, 0x00, 0x00])
         if divert { divertedCIDs.insert(cid) } else { divertedCIDs.remove(cid) }
+        // 同步更新 ControlInfo 的 reporting 状态 (只更新 tmpDivert bit)
+        if let idx = discoveredControls.firstIndex(where: { $0.cid == cid }) {
+            if divert {
+                discoveredControls[idx].reportingFlags |= 0x01
+            } else {
+                discoveredControls[idx].reportingFlags &= ~0x01
+            }
+        }
         LogitechHIDDebugPanel.log("[\(deviceInfo.name)] CID \(String(format: "0x%04X", cid)) divert=\(divert ? "ON" : "OFF")")
     }
 
@@ -393,6 +453,279 @@ class LogitechDeviceSession {
         setControlReporting(featureIndex: idx, cid: cid, divert: !currentlyDiverted)
     }
 
+    // MARK: - Receiver Slot Targeting
+
+    /// 切换目标 slot (debug 面板交互/自动选择)
+    func setTargetSlot(slot: UInt8) {
+        guard connectionMode == .receiver, slot >= 1, slot <= 6 else { return }
+        deviceIndex = slot
+        // 重置 feature 状态, 等待新一轮 discovery
+        featureIndex.removeAll()
+        discoveredControls.removeAll()
+        reprogInitComplete = false
+        reprogControlCount = 0
+        reprogQueryIndex = 0
+        divertedCIDs.removeAll()
+        lastActiveCIDs.removeAll()
+        pendingCacheValidation = nil
+        LogitechHIDDebugPanel.log("[\(deviceInfo.name)] Target slot changed to \(slot)")
+        NotificationCenter.default.post(name: LogitechHIDManager.sessionChangedNotification, object: nil)
+    }
+
+    // MARK: - Receiver Device Enumeration
+
+    /// 枚举 receiver 上的配对设备 (ping 所有 slot + 查询设备信息)
+    func enumerateReceiverDevices() {
+        guard connectionMode == .receiver else { return }
+        receiverPairedDevices = (1...6).map { ReceiverPairedDevice(slot: UInt8($0)) }
+        pendingSlotPings = Set((1 as UInt8)...(6 as UInt8))
+        receiverEnumPhase = 1
+        LogitechHIDDebugPanel.log("[\(deviceInfo.name)] Enumerating receiver slots 1-6...")
+
+        for slot: UInt8 in 1...6 {
+            pingReceiverSlot(slot)
+        }
+
+        // 超时: 5秒后自动完成 ping 阶段
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            guard let self = self, self.receiverEnumPhase == 1 else { return }
+            // 未响应的 slot 标记为未连接
+            for slot in self.pendingSlotPings {
+                if let idx = self.receiverPairedDevices.firstIndex(where: { $0.slot == slot }) {
+                    self.receiverPairedDevices[idx].lastError = "Timeout"
+                }
+            }
+            self.pendingSlotPings.removeAll()
+            self.finishPingPhase()
+        }
+    }
+
+    /// Ping 特定 receiver slot (发送 IRoot.Ping)
+    func pingReceiverSlot(_ slot: UInt8) {
+        guard connectionMode == .receiver else { return }
+
+        // HID++ 2.0 IRoot.Ping via short report
+        // [0x10, devIdx, 0x00(IRoot), 0x1A(func=1,swId=0x0A), 0x00, 0x00, slot(pingData)]
+        var report = [UInt8](repeating: 0, count: 7)
+        report[0] = Self.hidppShortReportId
+        report[1] = slot
+        report[2] = 0x00  // IRoot feature index
+        report[3] = 0x1A  // function=1(ping), swId=0x0A
+        report[4] = 0x00
+        report[5] = 0x00
+        report[6] = slot  // ping data for matching
+
+        pendingSlotPings.insert(slot)
+
+        let result = IOHIDDeviceSetReport(
+            hidDevice, kIOHIDReportTypeOutput,
+            CFIndex(report[0]), report, report.count
+        )
+
+        let hex = report.map { String(format: "%02X", $0) }.joined(separator: " ")
+        let resultStr = result == kIOReturnSuccess ? "OK" : String(format: "0x%08x", result)
+        LogitechHIDDebugPanel.log(device: deviceInfo.name, type: .tx, message: "TX: \(hex) -> \(resultStr)",
+                                  decoded: "IRoot.Ping(slot=\(slot))")
+    }
+
+    /// 查询 receiver slot 的设备信息 (register 0xB5)
+    func queryReceiverDeviceInfo(slot: UInt8) {
+        guard connectionMode == .receiver else { return }
+        let entityIdx = slot - 1  // register 0xB5 使用 0-based index
+
+        // 查询设备类型和 wireless PID
+        sendReceiverRegisterGet(register: Self.receiverPairingInfo, isLong: true,
+                                params: [entityIdx, Self.pairingInfoDeviceInfo])
+
+        // 延迟 100ms 查询设备名称 (避免请求堆积)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.sendReceiverRegisterGet(register: Self.receiverPairingInfo, isLong: true,
+                                          params: [entityIdx, Self.pairingInfoDeviceName])
+        }
+    }
+
+    /// 发送 HID++ 1.0 register GET 请求 (target: receiver 0xFF)
+    private func sendReceiverRegisterGet(register: UInt8, isLong: Bool, params: [UInt8] = []) {
+        var report: [UInt8]
+        let subId: UInt8
+
+        if isLong {
+            report = [UInt8](repeating: 0, count: 20)
+            report[0] = Self.hidppLongReportId
+            subId = Self.hidpp10GetLongRegister
+        } else {
+            report = [UInt8](repeating: 0, count: 7)
+            report[0] = Self.hidppShortReportId
+            subId = Self.hidpp10GetRegister
+        }
+
+        report[1] = 0xFF  // receiver device index
+        report[2] = subId
+        report[3] = register
+        for (i, p) in params.enumerated() {
+            if 4 + i < report.count { report[4 + i] = p }
+        }
+
+        let result = IOHIDDeviceSetReport(
+            hidDevice, kIOHIDReportTypeOutput,
+            CFIndex(report[0]), report, report.count
+        )
+
+        let hex = report.prefix(min(report.count, 20)).map { String(format: "%02X", $0) }.joined(separator: " ")
+        let resultStr = result == kIOReturnSuccess ? "OK" : String(format: "0x%08x", result)
+        let regName = register == Self.receiverPairingInfo ? "PairingInfo" : "0x\(String(format: "%02X", register))"
+        let paramsHex = params.map { String(format: "%02X", $0) }.joined(separator: " ")
+        LogitechHIDDebugPanel.log(device: deviceInfo.name, type: .tx, message: "TX: \(hex) -> \(resultStr)",
+                                  decoded: "\(isLong ? "GET_LONG" : "GET")_REGISTER(\(regName), [\(paramsHex)])")
+    }
+
+    // MARK: - Receiver Response Handlers
+
+    /// 处理 HID++ 1.0 错误响应 (sub-ID 0x8F)
+    private func handleHIDPP10Error(_ report: [UInt8]) {
+        let devIdx = report[1]
+        let errorSubId = report[3]
+        let errorAddress = report.count > 4 ? report[4] : 0
+        let errorCode = report.count > 5 ? report[5] : 0
+
+        let hidpp10ErrorNames: [UInt8: String] = [
+            0x00: "Success", 0x01: "InvalidSubID", 0x02: "InvalidAddress",
+            0x03: "InvalidValue", 0x04: "ConnectFailed", 0x05: "TooManyDevices",
+            0x06: "AlreadyExists", 0x07: "Busy", 0x08: "UnknownDevice",
+            0x09: "ResourceError", 0x0A: "RequestUnavailable", 0x0B: "InvalidParamValue",
+        ]
+        let errorName = hidpp10ErrorNames[errorCode] ?? "0x\(String(format: "%02X", errorCode))"
+
+        // 更新 receiver slot 状态 (如果是 ping 错误)
+        if devIdx >= 1 && devIdx <= 6 && pendingSlotPings.contains(devIdx) {
+            pendingSlotPings.remove(devIdx)
+            if let idx = receiverPairedDevices.firstIndex(where: { $0.slot == devIdx }) {
+                receiverPairedDevices[idx].isConnected = false
+                receiverPairedDevices[idx].lastError = errorName
+            }
+            checkPingPhaseComplete()
+        }
+
+        // 只处理来自当前目标设备的 feature discovery 错误
+        // (receiver 自身的 register 错误 devIdx=0xFF 不应影响设备的 feature discovery)
+        if devIdx == deviceIndex {
+            for (featureId, callback) in pendingDiscovery {
+                callback(nil)
+                pendingDiscovery.removeValue(forKey: featureId)
+            }
+        }
+    }
+
+    /// 处理 ping 响应 (device slot 回复 IRoot.Ping)
+    private func handleSlotPingResponse(devIdx: UInt8, report: [UInt8]) {
+        pendingSlotPings.remove(devIdx)
+        let protMajor = report[4]
+        let protMinor = report[5]
+
+        if let idx = receiverPairedDevices.firstIndex(where: { $0.slot == devIdx }) {
+            receiverPairedDevices[idx].isConnected = true
+            receiverPairedDevices[idx].protocolMajor = protMajor
+            receiverPairedDevices[idx].protocolMinor = protMinor
+            receiverPairedDevices[idx].lastError = nil
+        }
+
+        LogitechHIDDebugPanel.log(device: deviceInfo.name, type: .info,
+            message: "Slot \(devIdx): device connected (HID++ \(protMajor).\(protMinor))")
+        checkPingPhaseComplete()
+    }
+
+    /// 检查 ping 阶段是否完成
+    private func checkPingPhaseComplete() {
+        guard pendingSlotPings.isEmpty && receiverEnumPhase == 1 else { return }
+        finishPingPhase()
+    }
+
+    /// 完成 ping 阶段, 进入 info 查询阶段
+    private func finishPingPhase() {
+        receiverEnumPhase = 2
+        let connectedSlots = receiverPairedDevices.filter { $0.isConnected }
+        LogitechHIDDebugPanel.log("[\(deviceInfo.name)] Ping complete: \(connectedSlots.count)/6 slots connected")
+
+        // 查询已连接设备的详细信息 (register 0xB5, 可能在 Bolt receiver 上失败)
+        for dev in connectedSlots {
+            queryReceiverDeviceInfo(slot: dev.slot)
+        }
+
+        // 自动 target 第一个在线设备并启动 feature discovery
+        if let firstConnected = connectedSlots.first {
+            deviceIndex = firstConnected.slot
+            featureIndex.removeAll()
+            discoveredControls.removeAll()
+            reprogInitComplete = false
+            LogitechHIDDebugPanel.log("[\(deviceInfo.name)] Auto-targeted slot \(firstConnected.slot)")
+
+            let tag = "[\(deviceInfo.name):slot\(firstConnected.slot)]"
+            LogitechHIDDebugPanel.log("\(tag) Starting feature discovery for REPROG_CONTROLS_V4 (0x1B04)")
+            startFreshDiscovery(tag: tag)
+        } else {
+            receiverEnumPhase = 0
+            LogitechHIDDebugPanel.log("[\(deviceInfo.name)] No devices found on receiver")
+        }
+
+        NotificationCenter.default.post(name: LogitechHIDManager.sessionChangedNotification, object: nil)
+    }
+
+    /// 处理 receiver register 响应
+    private func handleReceiverRegisterResponse(_ report: [UInt8]) {
+        let register = report[3]
+
+        if register == Self.receiverPairingInfo {
+            let entityIdx = report[4]  // 0-based
+            let infoType = report[5]
+            let slot = entityIdx + 1
+
+            guard let idx = receiverPairedDevices.firstIndex(where: { $0.slot == slot }) else { return }
+
+            if infoType == Self.pairingInfoDeviceInfo && report.count > 10 {
+                // [entityIdx, 0x20, destId, reportInterval, wirelessPID_hi, wirelessPID_lo, deviceType, ...]
+                receiverPairedDevices[idx].wirelessPID = (UInt16(report[8]) << 8) | UInt16(report[9])
+                receiverPairedDevices[idx].deviceType = report[10]
+                LogitechHIDDebugPanel.log(device: deviceInfo.name, type: .info,
+                    message: "Slot \(slot) info: type=\(receiverPairedDevices[idx].deviceTypeName) wirelessPID=\(String(format: "0x%04X", receiverPairedDevices[idx].wirelessPID))")
+            } else if infoType == Self.pairingInfoDeviceName && report.count > 7 {
+                // [entityIdx, 0x40, nameLen, char0, char1, ...]
+                let nameLen = min(Int(report[6]), report.count - 7)
+                if nameLen > 0 {
+                    let nameBytes = Array(report[7..<(7 + nameLen)])
+                    receiverPairedDevices[idx].name = String(bytes: nameBytes, encoding: .utf8) ?? ""
+                    LogitechHIDDebugPanel.log(device: deviceInfo.name, type: .info,
+                        message: "Slot \(slot) name: \"\(receiverPairedDevices[idx].name)\"")
+                }
+            }
+
+            NotificationCenter.default.post(name: LogitechHIDManager.sessionChangedNotification, object: nil)
+        }
+    }
+
+    /// 处理设备连接/断开通知 (sub-ID 0x41)
+    private func handleDeviceConnectionNotification(_ report: [UInt8]) {
+        let devIdx = report[1]
+        let protocolType = report.count > 3 ? report[3] : 0
+        let devInfo = report.count > 4 ? report[4] : 0
+        let connected = (devInfo & 0x40) == 0  // bit 6 = 0: link established
+
+        LogitechHIDDebugPanel.log(device: deviceInfo.name, type: .info,
+            message: "Device \(connected ? "connected" : "disconnected") on slot \(devIdx) (protocol=\(String(format: "0x%02X", protocolType)))")
+
+        if devIdx >= 1 && devIdx <= 6 {
+            if let idx = receiverPairedDevices.firstIndex(where: { $0.slot == devIdx }) {
+                receiverPairedDevices[idx].isConnected = connected
+            } else {
+                // 自动追加 (如果枚举尚未运行)
+                var dev = ReceiverPairedDevice(slot: devIdx)
+                dev.isConnected = connected
+                receiverPairedDevices.append(dev)
+                receiverPairedDevices.sort { $0.slot < $1.slot }
+            }
+            NotificationCenter.default.post(name: LogitechHIDManager.sessionChangedNotification, object: nil)
+        }
+    }
+
     // MARK: - Report Decoding (for debug panel)
 
     private func decodeRequest(featureIndex: UInt8, functionId: UInt8, params: [UInt8]) -> String {
@@ -410,6 +743,12 @@ class LogitechDeviceSession {
             case 1:
                 let idx = params.first.map { "\($0)" } ?? "?"
                 return "REPROG.GetControlInfo(index=\(idx))"
+            case 2:
+                if params.count >= 2 {
+                    let cid = (UInt16(params[0]) << 8) | UInt16(params[1])
+                    return "REPROG.GetControlReporting(CID=\(String(format: "0x%04X", cid)) \(LogitechCIDRegistry.name(forCID: cid)))"
+                }
+                return "REPROG.GetControlReporting"
             case 3:
                 if params.count >= 3 {
                     let cid = (UInt16(params[0]) << 8) | UInt16(params[1])
@@ -426,8 +765,43 @@ class LogitechDeviceSession {
 
     private func decodeReport(_ report: [UInt8]) -> String {
         guard report.count >= 7 else { return "short report" }
+        let devIdx = report[1]
         let featIdx = report[2]
         let funcId = report[3] >> 4
+
+        // HID++ 1.0 error (sub-ID 0x8F)
+        if connectionMode == .receiver && featIdx == Self.hidpp10ErrorMsg {
+            let errorSubId = report[3]
+            let errorCode = report.count > 5 ? report[5] : 0
+            let hidpp10ErrNames: [UInt8: String] = [
+                0x01: "InvalidSubID", 0x02: "InvalidAddress", 0x03: "InvalidValue",
+                0x04: "ConnectFailed", 0x05: "TooManyDevices", 0x06: "AlreadyExists",
+                0x07: "Busy", 0x08: "UnknownDevice", 0x09: "ResourceError",
+            ]
+            let errName = hidpp10ErrNames[errorCode] ?? "0x\(String(format: "%02X", errorCode))"
+            return "HID++ 1.0 ERROR: dev=\(String(format: "0x%02X", devIdx)) subId=\(String(format: "0x%02X", errorSubId)) err=\(errName)"
+        }
+
+        // HID++ 1.0 register response from receiver
+        if connectionMode == .receiver && devIdx == 0xFF &&
+           (featIdx == Self.hidpp10GetRegister || featIdx == Self.hidpp10GetLongRegister) {
+            let regAddr = report[3]
+            let regName: String
+            switch regAddr {
+            case Self.receiverPairingInfo: regName = "PairingInfo"
+            case 0x00: regName = "Notifications"
+            case 0x02: regName = "ConnectionState"
+            default: regName = "0x\(String(format: "%02X", regAddr))"
+            }
+            return "Register \(featIdx == Self.hidpp10GetLongRegister ? "GET_LONG" : "GET"): \(regName)"
+        }
+
+        // Device connection notification (sub-ID 0x41)
+        if connectionMode == .receiver && featIdx == Self.hidpp10DeviceConnection {
+            let devInfo = report.count > 4 ? report[4] : 0
+            let connected = (devInfo & 0x40) == 0
+            return "DeviceConnection: slot=\(devIdx) \(connected ? "CONNECTED" : "DISCONNECTED")"
+        }
 
         if featIdx == Self.hidppErrorFeatureIdx {
             let errCode = report.count > 6 ? report[6] : 0
@@ -464,6 +838,20 @@ class LogitechDeviceSession {
                     offset += 2
                 }
                 return cids.isEmpty ? "BUTTON EVENT: all released" : "BUTTON EVENT: \(cids.joined(separator: " + "))"
+            }
+            if funcId == 2 && report.count >= 9 {
+                let cid = (UInt16(report[4]) << 8) | UInt16(report[5])
+                let rFlags = report[6]
+                let tCID = (UInt16(report[7]) << 8) | UInt16(report[8])
+                let cidName = LogitechCIDRegistry.name(forCID: cid)
+                var parts: [String] = []
+                if rFlags & 0x01 != 0 { parts.append("tmpDvrt") }
+                if rFlags & 0x02 != 0 { parts.append("pstDvrt") }
+                if rFlags & 0x04 != 0 { parts.append("tmpRemap") }
+                if rFlags & 0x08 != 0 { parts.append("pstRemap") }
+                let fStr = parts.isEmpty ? "none" : parts.joined(separator: ",")
+                let tStr = tCID != cid && tCID != 0 ? " -> \(LogitechCIDRegistry.name(forCID: tCID))" : ""
+                return "REPROG.GetReporting(\(cidName)): \(fStr)\(tStr)"
             }
             if funcId == 3 {
                 return "REPROG.SetControlReporting ACK"
@@ -702,10 +1090,41 @@ class LogitechDeviceSession {
         let featureIdx = report[2]
         let functionId = report[3] >> 4
         let rxDecoded = decodeReport(report)
-        let rxType: LogEntryType = featureIdx == Self.hidppErrorFeatureIdx ? .error : .rx
+        let isError = featureIdx == Self.hidppErrorFeatureIdx ||
+            (connectionMode == .receiver && featureIdx == Self.hidpp10ErrorMsg)
+        let rxType: LogEntryType = isError ? .error : .rx
         LogitechHIDDebugPanel.log(device: deviceInfo.name, type: rxType, message: "RX: \(hex)", decoded: rxDecoded)
 
-        // Error report
+        // Receiver mode: route HID++ 1.0 responses first
+        if connectionMode == .receiver {
+            let devIdx = report[1]
+
+            // HID++ 1.0 error (sub-ID 0x8F)
+            if featureIdx == Self.hidpp10ErrorMsg {
+                handleHIDPP10Error(report)
+                return
+            }
+
+            // HID++ 1.0 register response from receiver (device index 0xFF)
+            if devIdx == 0xFF && (featureIdx == Self.hidpp10GetRegister || featureIdx == Self.hidpp10GetLongRegister) {
+                handleReceiverRegisterResponse(report)
+                return
+            }
+
+            // Device connection notification (sub-ID 0x41)
+            if featureIdx == Self.hidpp10DeviceConnection {
+                handleDeviceConnectionNotification(report)
+                return
+            }
+
+            // Ping response from device behind receiver (IRoot function 1)
+            if devIdx >= 1 && devIdx <= 6 && featureIdx == 0x00 && functionId == 1 && pendingSlotPings.contains(devIdx) {
+                handleSlotPingResponse(devIdx: devIdx, report: report)
+                return
+            }
+        }
+
+        // HID++ 2.0 Error report
         if featureIdx == Self.hidppErrorFeatureIdx {
             let errorCode = report.count > 6 ? report[6] : 0
             LogitechHIDDebugPanel.log("[\(deviceInfo.name)] HID++ Error: feat=\(String(format: "0x%02X", report[3])) err=\(String(format: "0x%02X", errorCode))")
@@ -743,6 +1162,7 @@ class LogitechDeviceSession {
                 switch functionId {
                 case 0: handleGetControlCountResponse(report)
                 case 1: handleGetControlInfoResponse(report)
+                case 2: handleGetControlReportingResponse(report)
                 default: break  // ACK 等直接忽略, 不当作 button event
                 }
             }
@@ -940,6 +1360,64 @@ class LogitechDeviceSession {
         if reprogQueryIndex < reprogControlCount, let idx = featureIndex[Self.featureReprogV4] {
             sendGetControlInfo(featureIndex: idx, index: reprogQueryIndex)
         } else {
+            // ControlInfo 全部获取完毕, 开始逐个查询 reporting 状态
+            startReportingQuery()
+        }
+    }
+
+    // MARK: - GetControlReporting Query (function 2)
+
+    /// 开始逐个查询按键的 reporting 状态
+    private func startReportingQuery() {
+        reportingQueryIndex = 0
+        guard !discoveredControls.isEmpty, let idx = featureIndex[Self.featureReprogV4] else {
+            divertBoundControls()
+            return
+        }
+        LogitechHIDDebugPanel.log("[\(deviceInfo.name)] Querying reporting state for \(discoveredControls.count) controls...")
+        sendGetControlReporting(featureIndex: idx, controlIndex: 0)
+    }
+
+    private func sendGetControlReporting(featureIndex: UInt8, controlIndex: Int) {
+        guard controlIndex < discoveredControls.count else { return }
+        let cid = discoveredControls[controlIndex].cid
+        // GetControlReporting: function 2, params: CID(2)
+        sendRequest(featureIndex: featureIndex, functionId: 2,
+                    params: [UInt8(cid >> 8), UInt8(cid & 0xFF)])
+    }
+
+    private func handleGetControlReportingResponse(_ report: [UInt8]) {
+        guard report.count >= 9 else { return }
+        // response: byte[4-5]=CID, byte[6]=reportingFlags, byte[7-8]=targetCID
+        let cid = (UInt16(report[4]) << 8) | UInt16(report[5])
+        let reportingFlags = report[6]
+        let targetCID = (UInt16(report[7]) << 8) | UInt16(report[8])
+
+        if let idx = discoveredControls.firstIndex(where: { $0.cid == cid }) {
+            discoveredControls[idx].reportingFlags = reportingFlags
+            discoveredControls[idx].targetCID = targetCID
+            discoveredControls[idx].reportingQueried = true
+        }
+
+        let cidName = LogitechCIDRegistry.name(forCID: cid)
+        let flagParts: [String] = [
+            (reportingFlags & 0x01) != 0 ? "tmpDivert" : nil,
+            (reportingFlags & 0x02) != 0 ? "persistDivert" : nil,
+            (reportingFlags & 0x04) != 0 ? "tmpRemap" : nil,
+            (reportingFlags & 0x08) != 0 ? "persistRemap" : nil,
+        ].compactMap { $0 }
+        let flagStr = flagParts.isEmpty ? "none" : flagParts.joined(separator: ",")
+        let targetStr = targetCID != cid && targetCID != 0
+            ? " -> \(String(format: "0x%04X", targetCID))(\(LogitechCIDRegistry.name(forCID: targetCID)))"
+            : ""
+        LogitechHIDDebugPanel.log("[\(deviceInfo.name)] Reporting[\(cidName)]: flags=\(flagStr)\(targetStr)")
+
+        // 继续查询下一个
+        reportingQueryIndex += 1
+        if reportingQueryIndex < discoveredControls.count, let reprogIdx = featureIndex[Self.featureReprogV4] {
+            sendGetControlReporting(featureIndex: reprogIdx, controlIndex: reportingQueryIndex)
+        } else {
+            LogitechHIDDebugPanel.log("[\(deviceInfo.name)] Reporting query complete")
             divertBoundControls()
         }
     }
