@@ -25,10 +25,13 @@ class PreferencesApplicationViewController: NSViewController {
     // 选项菜单
     @IBOutlet var applicationSourceMenuControl: NSMenu!
     @IBOutlet weak var runningAndInstalledManuItem: NSMenuItem!
-    @IBOutlet weak var runningAndInstalledMenuChildrenContainer: NSMenu!
+    private var runningAndInstalledMenuChildrenContainer: NSMenu!
     @IBOutlet weak var manuallySelectFromFinderMenuItem: NSMenuItem!
-    
+
     override func viewDidLoad() {
+        // 为 "Running Applications" 菜单项动态创建 submenu (避免 Storyboard 中的 menu 父子关系警告)
+        runningAndInstalledMenuChildrenContainer = NSMenu(title: "")
+        runningAndInstalledManuItem.submenu = runningAndInstalledMenuChildrenContainer
         // 设置图标
         Utils.attachImage(to: runningAndInstalledManuItem, withImage: #imageLiteral(resourceName: "SF.wand.and.rays.inverse"))
         Utils.attachImage(to: manuallySelectFromFinderMenuItem, withImage: #imageLiteral(resourceName: "SF.tray"))
@@ -82,6 +85,8 @@ class PreferencesApplicationViewController: NSViewController {
         guard tableView.selectedRow != -1 else { return }
         // 删除
         Options.shared.application.applications.remove(at: tableView.selectedRow)
+        // 同步 Logi 按键 divert 状态 (被删应用可能有独立的 Logi 滚动热键绑定)
+        LogitechHIDManager.shared.syncDivertWithBindings()
         // 重新加载
         tableView.reloadData()
         // 立即更新空状态显示

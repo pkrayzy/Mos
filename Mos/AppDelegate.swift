@@ -40,6 +40,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.sessionDidResignActiveNotification,
             object: nil
         )
+        // 监听系统休眠/唤醒, 复用 session 生命周期方法
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(AppDelegate.sessionDidResign),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(AppDelegate.sessionDidActive),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
     }
     // 运行后启动滚动处理
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -60,6 +73,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // 关闭前停止滚动处理
     func applicationWillTerminate(_ aNotification: Notification) {
+        LogitechHIDManager.shared.stop()
         ScrollCore.shared.disable()
         ButtonCore.shared.disable()
     }
@@ -74,12 +88,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 NSLog("First Initialization (Accessibility Authorization Needed)")
                 ScrollCore.shared.enable()
                 ButtonCore.shared.enable()
+                LogitechHIDManager.shared.start()
             }
         } else {
             if Utils.isHadAccessibilityPermissions() {
                 NSLog("Regular Initialization")
                 ScrollCore.shared.enable()
                 ButtonCore.shared.enable()
+                LogitechHIDManager.shared.start()
             } else {
                 // 如果应用不在辅助权限列表内, 则弹出欢迎窗口
                 WindowManager.shared.showWindow(withIdentifier: WINDOW_IDENTIFIER.introductionWindowController, withTitle: "")
@@ -99,8 +115,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func sessionDidActive(notification: NSNotification){
         ScrollCore.shared.enable()
         ButtonCore.shared.enable()
+        LogitechHIDManager.shared.start()
     }
     @objc func sessionDidResign(notification: NSNotification){
+        LogitechHIDManager.shared.stop()
         ScrollCore.shared.disable()
         ButtonCore.shared.disable()
     }

@@ -94,27 +94,73 @@ class KeyPreview: NSStackView {
         keyViews.removeAll()
         waitingView = nil
     }
+    private static let logiTagMarker = "[Logi]"
+
     private func createKeyViews() {
-        for (index, component) in keyComponents.enumerated() {
+        var i = 0
+        var viewIndex = 0  // 用于决定是否加 "+" 分隔符
+        while i < keyComponents.count {
+            let component = keyComponents[i]
+
+            // 跳过 [Logi] 标记 (已在前一个 component 中处理)
+            if component == KeyPreview.logiTagMarker { i += 1; continue }
+
             // 添加分隔符
-            if index > 0 {
+            if viewIndex > 0 {
                 let plusLabel = NSTextField(labelWithString: "+")
                 plusLabel.font = NSFont.systemFont(ofSize: KeyPreview.FONT_SIZE)
                 plusLabel.textColor = NSColor.secondaryLabelColor
                 addArrangedSubview(plusLabel)
             }
 
-            // 创建按键视图
+            // 检查下一个是否为 [Logi] 标记 → 嵌套渲染
+            let nextIsLogi = (i + 1 < keyComponents.count && keyComponents[i + 1] == KeyPreview.logiTagMarker)
             let isWaiting = (component == KeyPreview.WAITING_WORDING)
-            let keyView = createSingleKeyView(for: component, isWaiting: isWaiting)
-            addArrangedSubview(keyView)
-            keyViews.append(keyView)
 
-            // 缓存 waiting view
-            if isWaiting, let container = keyView as? KeyComponentContainer {
-                waitingView = container
+            if nextIsLogi && !isWaiting {
+                let keyView = createKeyViewWithBrandTag(for: component, brand: .logi)
+                addArrangedSubview(keyView)
+                keyViews.append(keyView)
+                i += 2  // 跳过 [Logi]
+            } else {
+                let keyView = createSingleKeyView(for: component, isWaiting: isWaiting)
+                addArrangedSubview(keyView)
+                keyViews.append(keyView)
+                if isWaiting, let container = keyView as? KeyComponentContainer {
+                    waitingView = container
+                }
+                i += 1
             }
+            viewIndex += 1
         }
+    }
+
+    /// 创建带嵌套品牌 tag 的按键视图 (按键名 + 小 tag 在同一个容器内)
+    private func createKeyViewWithBrandTag(for text: String, brand: BrandTagConfig) -> NSView {
+        let container = KeyComponentContainer(keyStatus: status, isWaiting: false)
+
+        // 按键名标签
+        let label = NSTextField(labelWithString: text)
+        label.font = NSFont.systemFont(ofSize: KeyPreview.FONT_SIZE, weight: .medium)
+        label.textColor = (status == .recorded || status == .duplicate) ? NSColor.white : NSColor.labelColor
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(label)
+
+        // 品牌 tag (使用 BrandTag 统一创建)
+        let tagView = BrandTag.createTagView(brand: brand)
+        container.addSubview(tagView)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            tagView.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4),
+            tagView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            tagView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
+            container.heightAnchor.constraint(equalToConstant: KeyPreview.VIEW_SIZE),
+        ])
+
+        return container
     }
     private func createSingleKeyView(for text: String, isWaiting: Bool) -> NSView {
         // 创建一个能动态响应外观变化的容器

@@ -21,13 +21,21 @@ struct SystemShortcut {
         let modifiers: NSEvent.ModifierFlags
         let minimumVersion: OperatingSystemVersion?  // 最低系统版本要求(可选)
         let preserveFlagsOnKeyUp: Bool  // KeyUp 时是否保留修饰键 flags (用于 Command+Tab 等需要保持修饰键的快捷键)
+        let descriptionKey: String?  // 菜单描述文本的本地化键 (仅 Logi 动作使用)
 
-        init(_ identifier: String, _ code: UInt16, _ modifiers: NSEvent.ModifierFlags, minimumVersion: OperatingSystemVersion? = nil, preserveFlagsOnKeyUp: Bool = false) {
+        init(_ identifier: String, _ code: UInt16, _ modifiers: NSEvent.ModifierFlags, minimumVersion: OperatingSystemVersion? = nil, preserveFlagsOnKeyUp: Bool = false, descriptionKey: String? = nil) {
             self.identifier = identifier
             self.code = code
             self.modifiers = modifiers
             self.minimumVersion = minimumVersion
             self.preserveFlagsOnKeyUp = preserveFlagsOnKeyUp
+            self.descriptionKey = descriptionKey
+        }
+
+        /// 获取本地化描述文本 (用于菜单项下方的灰色说明行)
+        var localizedDescription: String? {
+            guard let key = descriptionKey else { return nil }
+            return NSLocalizedString(key, comment: "")
         }
 
         /// 检查当前系统是否支持此快捷键
@@ -108,6 +116,23 @@ struct SystemShortcut {
                 case "invertColors": return "circle.lefthalf.filled.inverse"
                 case "zoomIn": return "plus.magnifyingglass"
                 case "zoomOut": return "minus.magnifyingglass"
+                // 鼠标按键
+                case "mouseLeftClick": return "cursorarrow.click"
+                case "mouseRightClick": return "cursorarrow.click.2"
+                case "mouseMiddleClick": return "computermouse"
+                case "mouseBackClick": return "chevron.backward"
+                case "mouseForwardClick": return "chevron.forward"
+                // Logi
+                case "logiSmartShiftToggle": return "gearshape.2"
+                case "logiDPICycleUp": return "arrow.up.circle"
+                case "logiDPICycleDown": return "arrow.down.circle"
+                case "logiHost1": return "1.circle"
+                case "logiHost2": return "2.circle"
+                case "logiHost3": return "3.circle"
+                case "logiHiResScrollToggle": return "lines.measurement.vertical"
+                case "logiScrollInvertToggle": return "arrow.up.arrow.down"
+                case "logiThumbWheelToggle": return "dial.low"
+                case "logiPointerSpeedCycle": return "cursorarrow.motionlines"
                 // 其他
                 default: return "questionmark.circle"
             }
@@ -273,6 +298,18 @@ struct SystemShortcut {
         "switchTabLeft": switchTabLeft, "switchTabRight": switchTabRight,
         // 辅助功能
         "invertColors": invertColors, "zoomIn": zoomIn, "zoomOut": zoomOut,
+        // 鼠标按键
+        "mouseLeftClick": mouseLeftClick, "mouseRightClick": mouseRightClick,
+        "mouseMiddleClick": mouseMiddleClick, "mouseBackClick": mouseBackClick,
+        "mouseForwardClick": mouseForwardClick,
+        // Logi
+        "logiSmartShiftToggle": logiSmartShiftToggle,
+        "logiDPICycleUp": logiDPICycleUp, "logiDPICycleDown": logiDPICycleDown,
+        "logiHost1": logiHost1, "logiHost2": logiHost2, "logiHost3": logiHost3,
+        "logiHiResScrollToggle": logiHiResScrollToggle,
+        "logiScrollInvertToggle": logiScrollInvertToggle,
+        "logiThumbWheelToggle": logiThumbWheelToggle,
+        "logiPointerSpeedCycle": logiPointerSpeedCycle,
     ]
 
     /// 根据修饰键和按键代码查找快捷键名称
@@ -331,6 +368,56 @@ struct SystemShortcut {
         // ]),
     ]
 
+    // MARK: - Mouse Button Actions
+    // 鼠标按键动作 (不是键盘快捷键, 由 ShortcutExecutor 特殊处理)
+    // 使用 code=0xFFFF 和空修饰键作为占位, 实际执行逻辑在 ShortcutExecutor 中
+
+    static let mouseLeftClick = Shortcut("mouseLeftClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 0))
+    static let mouseRightClick = Shortcut("mouseRightClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 1))
+    static let mouseMiddleClick = Shortcut("mouseMiddleClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 2))
+    static let mouseBackClick = Shortcut("mouseBackClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 3))
+    static let mouseForwardClick = Shortcut("mouseForwardClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 4))
+
+    // MARK: - Logi HID++ Actions
+    // Logitech 专有动作 (由 ShortcutExecutor 通过 HID++ 协议执行)
+
+    static let logiSmartShiftToggle = Shortcut("logiSmartShiftToggle", 0xFFFE, NSEvent.ModifierFlags(rawValue: 0),
+        descriptionKey: "logiSmartShiftToggleDesc")
+    static let logiDPICycleUp = Shortcut("logiDPICycleUp", 0xFFFE, NSEvent.ModifierFlags(rawValue: 1),
+        descriptionKey: "logiDPICycleUpDesc")
+    static let logiDPICycleDown = Shortcut("logiDPICycleDown", 0xFFFE, NSEvent.ModifierFlags(rawValue: 2),
+        descriptionKey: "logiDPICycleDownDesc")
+    static let logiHost1 = Shortcut("logiHost1", 0xFFFE, NSEvent.ModifierFlags(rawValue: 4),
+        descriptionKey: "logiHostSwitchDesc")
+    static let logiHost2 = Shortcut("logiHost2", 0xFFFE, NSEvent.ModifierFlags(rawValue: 5),
+        descriptionKey: "logiHostSwitchDesc")
+    static let logiHost3 = Shortcut("logiHost3", 0xFFFE, NSEvent.ModifierFlags(rawValue: 6),
+        descriptionKey: "logiHostSwitchDesc")
+    static let logiHiResScrollToggle = Shortcut("logiHiResScrollToggle", 0xFFFE, NSEvent.ModifierFlags(rawValue: 7),
+        descriptionKey: "logiHiResScrollToggleDesc")
+    static let logiScrollInvertToggle = Shortcut("logiScrollInvertToggle", 0xFFFE, NSEvent.ModifierFlags(rawValue: 8),
+        descriptionKey: "logiScrollInvertToggleDesc")
+    static let logiThumbWheelToggle = Shortcut("logiThumbWheelToggle", 0xFFFE, NSEvent.ModifierFlags(rawValue: 9),
+        descriptionKey: "logiThumbWheelToggleDesc")
+    static let logiPointerSpeedCycle = Shortcut("logiPointerSpeedCycle", 0xFFFE, NSEvent.ModifierFlags(rawValue: 10),
+        descriptionKey: "logiPointerSpeedCycleDesc")
+
+    /// 鼠标按键动作分类
+    static let mouseButtonsCategory: (category: String, shortcuts: [Shortcut]) = (
+        "categoryMouseButtons", [
+            mouseLeftClick, mouseRightClick, mouseMiddleClick, mouseBackClick, mouseForwardClick
+        ]
+    )
+
+    /// Logi 专有动作分类
+    static let logiActionsCategory: (category: String, shortcuts: [Shortcut]) = (
+        "categoryLogiActions", [
+            logiSmartShiftToggle, logiDPICycleUp, logiDPICycleDown,
+            logiHost1, logiHost2, logiHost3,
+            logiHiResScrollToggle, logiScrollInvertToggle, logiThumbWheelToggle, logiPointerSpeedCycle
+        ]
+    )
+
     /// 获取分类的本地化名称
     static func localizedCategoryName(_ categoryIdentifier: String) -> String {
         return NSLocalizedString(categoryIdentifier, comment: "")
@@ -347,6 +434,8 @@ struct SystemShortcut {
         case "categoryScreenshot": return "camera.viewfinder"
         case "categoryNavigation": return "arrow.left.and.right"
         case "categoryAccessibility": return "eye"
+        case "categoryMouseButtons": return "computermouse"
+        case "categoryLogiActions": return "gear.badge"
         default: return "questionmark.folder"
         }
     }

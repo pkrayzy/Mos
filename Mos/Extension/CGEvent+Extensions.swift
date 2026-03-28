@@ -69,7 +69,11 @@ extension CGEvent {
         if type == CGEventType.flagsChanged {
             return flags.contains(KeyCode.getKeyMask(keyCode))
         }
-        // 常规情况
+        // 鼠标按钮
+        if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown {
+            return true
+        }
+        // 键盘
         return type == CGEventType.keyDown
     }
     var isKeyUp: Bool {
