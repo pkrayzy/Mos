@@ -27,6 +27,8 @@ struct LogEntry {
     let type: LogEntryType
     let message: String
     let decoded: String?
+    let rawBytes: [UInt8]?
+    var isExpanded: Bool = false
 }
 
 // MARK: - HID++ Protocol Dictionaries
@@ -83,74 +85,181 @@ struct HIDPPInfo {
     ]
 }
 
+// MARK: - Feature Action Definitions
+
+struct HIDPPFeatureAction {
+    let name: String
+    let functionId: UInt8
+    enum ParamType { case none, index, hex }
+    let paramType: ParamType
+    let defaultParams: [UInt8]
+}
+
+struct HIDPPFeatureActions {
+    static let knownActions: [UInt16: [HIDPPFeatureAction]] = [
+        0x0000: [
+            HIDPPFeatureAction(name: "Ping", functionId: 0x01, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "GetFeature", functionId: 0x00, paramType: .hex, defaultParams: [0x00, 0x01]),
+        ],
+        0x0001: [
+            HIDPPFeatureAction(name: "GetCount", functionId: 0x00, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "GetFeatureID", functionId: 0x01, paramType: .index, defaultParams: []),
+        ],
+        0x0003: [
+            HIDPPFeatureAction(name: "GetEntityCount", functionId: 0x00, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "GetFWVersion", functionId: 0x01, paramType: .index, defaultParams: []),
+        ],
+        0x0005: [
+            HIDPPFeatureAction(name: "GetCount", functionId: 0x00, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "GetName", functionId: 0x01, paramType: .index, defaultParams: []),
+            HIDPPFeatureAction(name: "GetType", functionId: 0x02, paramType: .none, defaultParams: []),
+        ],
+        0x1000: [
+            HIDPPFeatureAction(name: "GetLevel", functionId: 0x00, paramType: .none, defaultParams: []),
+        ],
+        0x1004: [
+            HIDPPFeatureAction(name: "GetStatus", functionId: 0x00, paramType: .none, defaultParams: []),
+        ],
+        0x1B04: [
+            HIDPPFeatureAction(name: "GetCount", functionId: 0x00, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "GetInfo", functionId: 0x01, paramType: .index, defaultParams: []),
+            HIDPPFeatureAction(name: "GetReporting", functionId: 0x02, paramType: .hex, defaultParams: [0x00, 0x50]),
+            HIDPPFeatureAction(name: "SetReporting", functionId: 0x03, paramType: .hex, defaultParams: [0x00, 0x50, 0x03]),
+        ],
+        0x2110: [
+            HIDPPFeatureAction(name: "GetStatus", functionId: 0x00, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "SetStatus", functionId: 0x01, paramType: .hex, defaultParams: [0x02]),
+        ],
+        0x2121: [
+            HIDPPFeatureAction(name: "GetCapability", functionId: 0x00, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "GetMode", functionId: 0x01, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "SetMode", functionId: 0x02, paramType: .hex, defaultParams: [0x00]),
+        ],
+        0x2201: [
+            HIDPPFeatureAction(name: "GetSensorCount", functionId: 0x00, paramType: .none, defaultParams: []),
+            HIDPPFeatureAction(name: "GetDPI", functionId: 0x01, paramType: .index, defaultParams: []),
+            HIDPPFeatureAction(name: "SetDPI", functionId: 0x02, paramType: .hex, defaultParams: [0x00, 0x00, 0x03, 0x20]),
+            HIDPPFeatureAction(name: "GetDPIList", functionId: 0x03, paramType: .index, defaultParams: []),
+        ],
+    ]
+
+    static func actions(for featureId: UInt16) -> [HIDPPFeatureAction] {
+        if let known = knownActions[featureId] { return known }
+        return (0...15).map { funcId in
+            HIDPPFeatureAction(name: "Func \(funcId)", functionId: UInt8(funcId), paramType: .hex, defaultParams: [])
+        }
+    }
+}
+
 // MARK: - Debug Panel
 
 class LogitechHIDDebugPanel: NSObject {
+
     static let shared = LogitechHIDDebugPanel()
     static let logNotification = NSNotification.Name("LogitechHIDDebugLog")
 
-    private var window: NSWindow?
+    // MARK: - Layout Constants
 
-    // Tables
-    private var deviceInfoTable: NSTableView?
-    private var receiverDevicesTable: NSTableView?
-    private var featureTable: NSTableView?
-    private var controlsTable: NSTableView?
-    private var logTextView: NSTextView?
-    private var deviceSelector: NSPopUpButton?
+    private struct L {
+        static let defaultWidth: CGFloat = 1100
+        static let defaultHeight: CGFloat = 750
+        static let minWidth: CGFloat = 1100
+        static let minHeight: CGFloat = 600
+        static let sidebarWidth: CGFloat = 180
+        static let actionsWidth: CGFloat = 160
+        static let gap: CGFloat = 2
+        static let pad: CGFloat = 8
+        static let btnH: CGFloat = 24
+        static let btnGap: CGFloat = 4
+        static let topRatio: CGFloat = 0.4
+        static let devInfoH: CGFloat = 140
+        static let logToolbarH: CGFloat = 28
+        static let rawInputH: CGFloat = 30
+        static let sectionHdrH: CGFloat = 20
+    }
 
-    // Layout: Device Info + Receiver side-by-side
-    private var topSplit: NSSplitView?          // 水平 split (左: DeviceInfo, 右: Receiver)
-    private var receiverSection: NSView?        // 右侧 receiver 容器, 非 receiver 设备时隐藏
+    // MARK: - Window
 
-    // Data
-    private var deviceInfoRows: [(String, String, String)] = []   // (property, value, annotation)
-    private var receiverDeviceRows: [(UInt8, String, String, String, String, String, String)] = []
-    // (slot, status, name, type, wirelessPID, protocol, error)
-    private var featureRows: [(String, String, String, String)] = [] // (index, featID, name, purpose)
-    private var controlRows: [(Int, String, String, String, String, String, String)] = []
-    // (idx, cid, name, taskId, flagsDesc, reportingState, targetCID)
+    private var window: NSPanel?
+
+    // MARK: - Sidebar
+
+    private var outlineView: NSOutlineView!
+    private var deviceInfoLabels: [(key: NSTextField, value: NSTextField)] = []
+    private var moreInfoLabels: [(key: NSTextField, value: NSTextField)] = []
+    private var moreInfoContainer: NSView!
+    private var moreInfoExpanded = false
+
+    // MARK: - Tables
+
+    private var featureTableView: NSTableView!
+    private var controlsTableView: NSTableView!
+
+    // MARK: - Actions Panel
+
+    private var contextActionsContainer: NSView!
+    private var paramInputField: NSTextField?
+    private var indexStepper: NSStepper?
+    private var indexStepperLabel: NSTextField?
+
+    // MARK: - Log
+
+    private var logTableView: NSTableView!
+    private var filterButtons: [LogEntryType: NSButton] = [:]
+    private var rawInputField: NSTextField!
+    private var reportTypeControl: NSSegmentedControl!
+
+    // MARK: - State
 
     private var currentSession: LogitechDeviceSession?
-
-    // Log
-    private static var logBuffer: [LogEntry] = []
-    private static let maxLogLines = 500
     private var logTypeFilter: Set<LogEntryType> = Set(LogEntryType.allCases)
-
-    // Observers
+    static var logBuffer: [LogEntry] = []
+    static let maxLogLines = 500
     private var logObserver: NSObjectProtocol?
     private var sessionObserver: NSObjectProtocol?
+
+    // MARK: - Sidebar Data
+
+    private class DeviceNode {
+        let session: LogitechDeviceSession
+        var isReceiver: Bool { session.debugConnectionMode == "receiver" }
+        init(session: LogitechDeviceSession) { self.session = session }
+    }
+
+    private class SlotNode {
+        let session: LogitechDeviceSession
+        let slot: UInt8
+        init(session: LogitechDeviceSession, slot: UInt8) { self.session = session; self.slot = slot }
+    }
+
+    private var deviceNodes: [DeviceNode] = []
+
+    // MARK: - Feature/Control Data
+
+    private var featureRows: [(index: String, featureId: UInt16, featureIdHex: String, name: String)] = []
+    private var controlRows: [LogitechDeviceSession.ControlInfo] = []
+    private var selectedFeatureId: UInt16?
+    private var selectedControlCID: UInt16?
 
     // MARK: - Logging API
 
     class func log(_ message: String) {
-        let entry = LogEntry(
-            timestamp: timestamp(),
-            deviceName: "",
-            type: .info,
-            message: message,
-            decoded: nil
-        )
+        let entry = LogEntry(timestamp: timestamp(), deviceName: "", type: .info, message: message, decoded: nil, rawBytes: nil)
         appendToBuffer(entry)
     }
 
-    class func log(device: String, type: LogEntryType, message: String, decoded: String? = nil) {
-        let entry = LogEntry(
-            timestamp: timestamp(),
-            deviceName: device,
-            type: type,
-            message: message,
-            decoded: decoded
-        )
+    class func log(device: String, type: LogEntryType, message: String, decoded: String? = nil, rawBytes: [UInt8]? = nil) {
+        let entry = LogEntry(timestamp: timestamp(), deviceName: device, type: type, message: message, decoded: decoded, rawBytes: rawBytes)
         appendToBuffer(entry)
     }
+
+    // Note: existing callers that pass (device:type:message:decoded:) without rawBytes
+    // will use the default rawBytes: nil from the method above.
 
     private class func appendToBuffer(_ entry: LogEntry) {
-        // 仅输出到 HID++ debug 面板, 不污染系统 console
         logBuffer.append(entry)
         if logBuffer.count > maxLogLines { logBuffer.removeFirst(logBuffer.count - maxLogLines) }
-        NotificationCenter.default.post(name: logNotification, object: nil, userInfo: ["entry": entry])
+        NotificationCenter.default.post(name: logNotification, object: entry)
     }
 
     private static func timestamp() -> String {
@@ -162,629 +271,1200 @@ class LogitechHIDDebugPanel: NSObject {
     // MARK: - Show / Hide
 
     func show() {
-        if let w = window { w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
-        createWindow()
+        if let w = window {
+            w.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            refreshAll()
+            startObserving()
+            return
+        }
+        let w = buildWindow()
+        window = w
         refreshAll()
-        for entry in LogitechHIDDebugPanel.logBuffer { appendLogEntry(entry) }
         startObserving()
-        window?.makeKeyAndOrderFront(nil)
+        w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    // MARK: - Window Creation
+    // MARK: - Build Window
 
-    private func createWindow() {
-        let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 680),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered, defer: false
+    private func buildWindow() -> NSPanel {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: L.defaultWidth, height: L.defaultHeight),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
         )
-        w.title = "Logitech HID++ Debug"
-        w.center()
-        w.isReleasedWhenClosed = false
-        w.minSize = NSSize(width: 700, height: 400)
+        panel.title = "Logitech HID++ Debug"
+        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .hidden
+        panel.minSize = NSSize(width: L.minWidth, height: L.minHeight)
+        panel.center()
+        panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = true
+        panel.hasShadow = true
+        panel.hidesOnDeactivate = false
 
-        let content = w.contentView!
-        let cw = content.bounds.width
-        let ch = content.bounds.height
-
-        // Toolbar (top 36px)
-        let toolbar = NSView(frame: NSRect(x: 0, y: ch - 36, width: cw, height: 36))
-        toolbar.autoresizingMask = [.width, .minYMargin]
-
-        var bx: CGFloat = 8
-        let buttonDefs: [(String, Selector)] = [
-            ("Refresh", #selector(refreshClicked)),
-            ("Enumerate", #selector(enumerateClicked)),
-            ("Re-Discover", #selector(rediscoverClicked)),
-            ("Re-Divert", #selector(redivertClicked)),
-            ("Undivert", #selector(undivertClicked)),
-            ("Clear Log", #selector(clearLogClicked)),
-        ]
-        for (title, action) in buttonDefs {
-            let btn = NSButton(title: title, target: self, action: action)
-            btn.bezelStyle = .rounded
-            btn.frame = NSRect(x: bx, y: 6, width: CGFloat(title.count * 9 + 20), height: 24)
-            toolbar.addSubview(btn)
-            bx += btn.frame.width + 4
+        let effectView = NSVisualEffectView(frame: NSRect(origin: .zero, size: panel.frame.size))
+        effectView.autoresizingMask = [.width, .height]
+        effectView.state = .active
+        effectView.blendingMode = .behindWindow
+        panel.appearance = NSAppearance(named: .vibrantDark)
+        if #available(macOS 10.14, *) {
+            effectView.material = .hudWindow
+        } else {
+            effectView.material = .dark
         }
-        // 分隔线
-        bx += 8
-        let sep = NSBox(frame: NSRect(x: bx, y: 8, width: 1, height: 20))
-        sep.boxType = .separator
-        toolbar.addSubview(sep)
-        bx += 8
-        // Logi 动作测试按钮
-        let testDefs: [(String, Selector)] = [
-            ("SmartShift", #selector(testSmartShiftClicked)),
-            ("DPI+", #selector(testDPIUpClicked)),
-            ("DPI-", #selector(testDPIDownClicked)),
-        ]
-        for (title, action) in testDefs {
-            let btn = NSButton(title: title, target: self, action: action)
-            btn.bezelStyle = .rounded
-            btn.frame = NSRect(x: bx, y: 6, width: CGFloat(title.count * 9 + 20), height: 24)
-            toolbar.addSubview(btn)
-            bx += btn.frame.width + 4
-        }
-        // Device selector
-        let selector = NSPopUpButton(frame: NSRect(x: bx + 20, y: 6, width: 200, height: 24), pullsDown: false)
-        selector.target = self
-        selector.action = #selector(deviceSelectorChanged)
-        toolbar.addSubview(selector)
-        self.deviceSelector = selector
+        panel.contentView = effectView
 
-        content.addSubview(toolbar)
+        let topInset = resolvedTopInset(for: panel)
+        buildContent(in: effectView, topInset: topInset)
 
-        // NSSplitView: 可拖动分隔条
-        let bodyH = ch - 36
-        let split = NSSplitView(frame: NSRect(x: 0, y: 0, width: cw, height: bodyH))
-        split.isVertical = false
-        split.dividerStyle = .thin
-        split.autoresizingMask = [.width, .height]
-
-        // Top row: Device Info (左) + Receiver Devices (右, 仅 receiver 设备时显示)
-        let topH: CGFloat = 140
-        let hSplit = NSSplitView(frame: NSRect(x: 0, y: 0, width: cw, height: topH))
-        hSplit.isVertical = true
-        hSplit.dividerStyle = .thin
-        hSplit.autoresizingMask = [.width, .height]
-        self.topSplit = hSplit
-
-        let s1 = makeTableSection(
-            columns: [("Property", 120), ("Value", 200), ("Annotation", 300)],
-            tag: 1
-        )
-        s1.frame = NSRect(x: 0, y: 0, width: cw / 2, height: topH)
-        hSplit.addSubview(s1)
-
-        let s4 = makeTableSection(
-            columns: [("Slot", 35), ("Status", 50), ("Name", 120), ("Type", 60), ("PID", 60), ("Proto", 50), ("Note", 120)],
-            tag: 4
-        )
-        s4.frame = NSRect(x: 0, y: 0, width: cw / 2, height: topH)
-        hSplit.addSubview(s4)
-        self.receiverSection = s4
-
-        hSplit.adjustSubviews()
-        split.addSubview(hSplit)
-
-        // Section 2: Feature Table
-        let s2 = makeTableSection(
-            columns: [("Index", 60), ("Feature ID", 90), ("Name", 180), ("Purpose", 400)],
-            tag: 2
-        )
-        s2.frame = NSRect(x: 0, y: 0, width: cw, height: 50)
-        split.addSubview(s2)
-
-        // Section 3: Controls
-        let s3 = makeTableSection(
-            columns: [("Idx", 35), ("CID", 65), ("Name", 120), ("TaskID", 65), ("Flags", 160), ("Reporting", 120), ("Target", 100)],
-            tag: 3
-        )
-        s3.frame = NSRect(x: 0, y: 0, width: cw, height: 120)
-        split.addSubview(s3)
-
-        // Section 5: Protocol Log
-        let logScroll = NSScrollView()
-        logScroll.hasVerticalScroller = true
-        logScroll.frame = NSRect(x: 0, y: 0, width: cw, height: bodyH - 310)
-        let tv = NSTextView()
-        tv.isEditable = false
-        tv.isSelectable = true
-        tv.font = NSFont.userFixedPitchFont(ofSize: 11)!
-        tv.backgroundColor = NSColor(calibratedWhite: 0.1, alpha: 1.0)
-        tv.textColor = NSColor.white
-        tv.autoresizingMask = [.width]
-        tv.isVerticallyResizable = true
-        tv.isHorizontallyResizable = false
-        tv.textContainer?.widthTracksTextView = true
-        tv.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        logScroll.documentView = tv
-        self.logTextView = tv
-        split.addSubview(logScroll)
-
-        content.addSubview(split)
-        split.adjustSubviews()
-
-        self.window = w
+        return panel
     }
 
-    private static let sectionTitles: [Int: String] = [
-        1: "Device Info",
-        2: "Feature Table (HID++ Features)",
-        3: "Controls (REPROG_CONTROLS_V4 Buttons)",
-        4: "Receiver Devices (Unifying/Bolt)",
-    ]
+    private func resolvedTopInset(for panel: NSPanel) -> CGFloat {
+        let titlebarH = panel.frame.height - panel.contentLayoutRect.height
+        return max(L.pad, titlebarH + 4)
+    }
 
-    private func makeTableSection(columns: [(String, CGFloat)], tag: Int) -> NSView {
-        let container = NSView()
-        container.autoresizingMask = [.width, .height]
+    private func buildContent(in container: NSView, topInset: CGFloat) {
+        let contentView = FlippedView(frame: container.bounds)
+        contentView.autoresizingMask = [.width, .height]
+        container.addSubview(contentView)
 
-        // Section 标题
-        let titleLabel = NSTextField(labelWithString: LogitechHIDDebugPanel.sectionTitles[tag] ?? "")
-        titleLabel.font = NSFont.boldSystemFont(ofSize: 11)
-        titleLabel.textColor = NSColor.secondaryLabelColor
-        titleLabel.frame = NSRect(x: 6, y: 0, width: 400, height: 16)
-        titleLabel.autoresizingMask = [.width, .maxYMargin]
+        let mainX = L.sidebarWidth + L.gap
+        let mainW = container.bounds.width - mainX
+        let bodyH = container.bounds.height - topInset
+        let topH = bodyH * L.topRatio
+        let logY = topInset + topH + L.gap
+        let logH = bodyH - topH - L.gap
 
-        // 表格
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.autoresizingMask = [.width, .height]
+        buildSidebar(in: contentView, x: 0, y: topInset, width: L.sidebarWidth, height: bodyH)
+
+        // Use NSSplitView for top/log to properly handle resize
+        let splitView = NSSplitView(frame: NSRect(x: mainX, y: topInset, width: mainW, height: bodyH))
+        splitView.isVertical = false
+        splitView.dividerStyle = .thin
+        splitView.autoresizingMask = [.width, .height]
+        contentView.addSubview(splitView)
+
+        let topContainer = NSView(frame: NSRect(x: 0, y: 0, width: mainW, height: topH))
+        buildTopArea(in: topContainer, x: 0, y: 0, width: mainW, height: topH)
+        splitView.addSubview(topContainer)
+
+        let logContainer = NSView(frame: NSRect(x: 0, y: 0, width: mainW, height: logH))
+        buildLogArea(in: logContainer, x: 0, y: 0, width: mainW, height: logH)
+        splitView.addSubview(logContainer)
+
+        splitView.adjustSubviews()
+    }
+
+    private final class FlippedView: NSView {
+        override var isFlipped: Bool { return true }
+    }
+
+    // MARK: - Build Sidebar
+
+    private func buildSidebar(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+        let container = NSView(frame: NSRect(x: x, y: y, width: width, height: height))
+        container.autoresizingMask = [.height]
+        parent.addSubview(container)
+
+        let bg = makeSectionBg()
+        bg.frame = container.bounds
+        bg.autoresizingMask = [.width, .height]
+        container.addSubview(bg)
+
+        var cy: CGFloat = L.pad
+
+        let header = makeSectionHeader("DEVICES")
+        header.frame = NSRect(x: L.pad, y: cy, width: width - L.pad * 2, height: L.sectionHdrH)
+        container.addSubview(header)
+        cy += L.sectionHdrH
+
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: cy, width: width, height: height - cy - L.devInfoH - 1))
+        scrollView.autoresizingMask = [.height]
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        let outline = NSOutlineView()
+        outline.headerView = nil
+        outline.backgroundColor = .clear
+        outline.selectionHighlightStyle = .sourceList
+        outline.indentationPerLevel = 14
+        outline.rowHeight = 22
+        let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("device"))
+        col.resizingMask = .autoresizingMask
+        outline.addTableColumn(col)
+        outline.outlineTableColumn = col
+        outline.delegate = self
+        outline.dataSource = self
+        outline.target = self
+        outline.action = #selector(outlineViewClicked(_:))
+        scrollView.documentView = outline
+        container.addSubview(scrollView)
+        self.outlineView = outline
+
+        let sep = makeSep()
+        sep.frame = NSRect(x: L.pad, y: height - L.devInfoH - 1, width: width - L.pad * 2, height: 1)
+        sep.autoresizingMask = [.minYMargin]
+        container.addSubview(sep)
+
+        buildDeviceInfoArea(in: container, y: height - L.devInfoH, width: width, height: L.devInfoH)
+    }
+
+    private func buildDeviceInfoArea(in parent: NSView, y: CGFloat, width: CGFloat, height: CGFloat) {
+        let infoContainer = NSView(frame: NSRect(x: 0, y: y, width: width, height: height))
+        infoContainer.autoresizingMask = [.minYMargin]
+        parent.addSubview(infoContainer)
+
+        let keys = ["VID", "PID", "Protocol", "Transport", "Dev Index", "Conn Mode", "Opened"]
+        var iy: CGFloat = L.pad
+        let keyW: CGFloat = 65
+        let valX: CGFloat = keyW + 4
+
+        deviceInfoLabels.removeAll()
+        for keyText in keys {
+            let kl = makeLabel(text: keyText, fontSize: 9, weight: .medium, color: .tertiaryLabelColor)
+            kl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+            kl.frame = NSRect(x: L.pad, y: iy, width: keyW, height: 14)
+            infoContainer.addSubview(kl)
+            let vl = makeLabel(text: "--", fontSize: 9, color: .secondaryLabelColor)
+            vl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+            vl.frame = NSRect(x: valX, y: iy, width: width - valX - L.pad, height: 14)
+            infoContainer.addSubview(vl)
+            deviceInfoLabels.append((key: kl, value: vl))
+            iy += 16
+        }
+
+        let moreBtn = NSButton(title: "More...", target: self, action: #selector(toggleMoreInfo))
+        moreBtn.isBordered = false
+        moreBtn.font = NSFont.systemFont(ofSize: 9, weight: .medium)
+        if #available(macOS 10.14, *) { moreBtn.contentTintColor = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0) }
+        moreBtn.frame = NSRect(x: L.pad, y: iy, width: 60, height: 14)
+        infoContainer.addSubview(moreBtn)
+
+        let moreC = NSView(frame: NSRect(x: 0, y: iy + 16, width: width, height: 80))
+        moreC.isHidden = true
+        infoContainer.addSubview(moreC)
+        self.moreInfoContainer = moreC
+
+        let moreKeys = ["UsagePage", "Usage", "HID++ Cand", "Init Done", "Dvrt CIDs"]
+        var my: CGFloat = 0
+        moreInfoLabels.removeAll()
+        for keyText in moreKeys {
+            let kl = makeLabel(text: keyText, fontSize: 9, weight: .medium, color: .tertiaryLabelColor)
+            kl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+            kl.frame = NSRect(x: L.pad, y: my, width: keyW, height: 14)
+            moreC.addSubview(kl)
+            let vl = makeLabel(text: "--", fontSize: 9, color: .secondaryLabelColor)
+            vl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+            vl.frame = NSRect(x: valX, y: my, width: width - valX - L.pad, height: 14)
+            moreC.addSubview(vl)
+            moreInfoLabels.append((key: kl, value: vl))
+            my += 16
+        }
+    }
+
+    @objc private func toggleMoreInfo() {
+        moreInfoExpanded = !moreInfoExpanded
+        moreInfoContainer?.isHidden = !moreInfoExpanded
+    }
+
+    @objc private func outlineViewClicked(_ sender: Any?) {
+        let row = outlineView.selectedRow
+        guard row >= 0 else { return }
+        let item = outlineView.item(atRow: row)
+
+        if let node = item as? DeviceNode {
+            currentSession = node.session
+            selectedFeatureId = nil
+            selectedControlCID = nil
+            refreshRightPanels()
+        } else if let slot = item as? SlotNode {
+            // Validate slot is online
+            let paired = slot.session.debugReceiverPairedDevices
+            let idx = Int(slot.slot) - 1
+            guard idx >= 0, idx < paired.count, paired[idx].isConnected else { return }
+            currentSession = slot.session
+            slot.session.setTargetSlot(slot: slot.slot)
+            refreshRightPanelsLoading()
+            slot.session.rediscoverFeatures()
+        }
+    }
+
+    // MARK: - Build Top Area
+
+    private func buildTopArea(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+        let container = NSView(frame: NSRect(x: x, y: y, width: width, height: height))
+        container.autoresizingMask = [.width]
+        parent.addSubview(container)
+
+        let actionsX = width - L.actionsWidth
+        let tableW = actionsX - L.gap
+        let halfW = (tableW - L.gap) / 2
+
+        buildFeatureTable(in: container, x: 0, y: 0, width: halfW, height: height)
+        buildControlsTable(in: container, x: halfW + L.gap, y: 0, width: halfW, height: height)
+        buildActionsPanel(in: container, x: actionsX, y: 0, width: L.actionsWidth, height: height)
+    }
+
+    private func buildFeatureTable(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+        let bg = makeSectionBg()
+        bg.frame = NSRect(x: x, y: y, width: width, height: height)
+        bg.autoresizingMask = [.width]
+        parent.addSubview(bg)
+
+        let header = makeSectionHeader("FEATURES (0)")
+        header.frame = NSRect(x: x + L.pad, y: y + 4, width: width - L.pad * 2, height: 16)
+        header.tag = 100
+        parent.addSubview(header)
+
+        let tableY = y + L.sectionHdrH
+        let sv = NSScrollView(frame: NSRect(x: x, y: tableY, width: width, height: height - L.sectionHdrH))
+        sv.autoresizingMask = [.width, .height]
+        sv.hasVerticalScroller = true
+        sv.borderType = .noBorder
+        sv.drawsBackground = false
 
         let table = NSTableView()
-        table.headerView = NSTableHeaderView()
-        table.usesAlternatingRowBackgroundColors = true
-        table.rowHeight = 18
-        table.tag = tag
+        table.backgroundColor = .clear
+        table.headerView = nil
+        table.selectionHighlightStyle = .regular
+        table.rowHeight = 20
+        table.tag = 200
         table.delegate = self
         table.dataSource = self
+        table.target = self
+        table.action = #selector(featureTableClicked(_:))
 
-        for (title, width) in columns {
-            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("\(tag)_\(title)"))
-            col.title = title
-            col.width = width
+        for (id, w) in [("fIdx", CGFloat(36)), ("fId", CGFloat(50)), ("fName", CGFloat(0))] {
+            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            col.width = w > 0 ? w : 100
+            if w == 0 { col.resizingMask = .autoresizingMask }
             table.addTableColumn(col)
         }
 
-        scroll.documentView = table
-
-        switch tag {
-        case 1: deviceInfoTable = table
-        case 2: featureTable = table
-        case 3: controlsTable = table
-        case 4: receiverDevicesTable = table
-        default: break
-        }
-
-        container.addSubview(scroll)
-        container.addSubview(titleLabel)
-
-        // macOS 坐标系: y=0 在底部. 标题在顶部, 表格在下方
-        // 使用 autoresizingMask 回调来动态布局
-        container.postsFrameChangedNotifications = true
-        NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: container, queue: .main) { _ in
-            let h = container.bounds.height
-            titleLabel.frame = NSRect(x: 6, y: h - 16, width: container.bounds.width - 12, height: 16)
-            scroll.frame = NSRect(x: 0, y: 0, width: container.bounds.width, height: h - 16)
-        }
-        // 初始布局
-        let h = container.bounds.height > 0 ? container.bounds.height : 100
-        titleLabel.frame = NSRect(x: 6, y: h - 16, width: 900, height: 16)
-        scroll.frame = NSRect(x: 0, y: 0, width: 900, height: h - 16)
-
-        return container
+        sv.documentView = table
+        parent.addSubview(sv)
+        self.featureTableView = table
     }
 
-    // MARK: - Data Refresh
+    private func buildControlsTable(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+        let bg = makeSectionBg()
+        bg.frame = NSRect(x: x, y: y, width: width, height: height)
+        bg.autoresizingMask = [.width]
+        parent.addSubview(bg)
 
-    @objc private func refreshClicked() { refreshAll() }
+        let header = makeSectionHeader("CONTROLS (0)")
+        header.frame = NSRect(x: x + L.pad, y: y + 4, width: width - L.pad * 2, height: 16)
+        header.tag = 101
+        parent.addSubview(header)
 
-    @objc private func enumerateClicked() {
-        guard let session = currentSession, session.debugConnectionMode.contains("Receiver") else {
-            LogitechHIDDebugPanel.log("[DebugPanel] Enumerate: not a receiver session")
-            return
+        let tableY = y + L.sectionHdrH
+        let sv = NSScrollView(frame: NSRect(x: x, y: tableY, width: width, height: height - L.sectionHdrH))
+        sv.autoresizingMask = [.width, .height]
+        sv.hasVerticalScroller = true
+        sv.borderType = .noBorder
+        sv.drawsBackground = false
+
+        let table = NSTableView()
+        table.backgroundColor = .clear
+        table.headerView = nil
+        table.selectionHighlightStyle = .regular
+        table.rowHeight = 20
+        table.tag = 201
+        table.delegate = self
+        table.dataSource = self
+        table.target = self
+        table.action = #selector(controlsTableClicked(_:))
+
+        for (id, w) in [("cCid", CGFloat(50)), ("cName", CGFloat(0)), ("cFlags", CGFloat(40)), ("cStatus", CGFloat(50))] {
+            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            col.width = w > 0 ? w : 100
+            if w == 0 { col.resizingMask = .autoresizingMask }
+            table.addTableColumn(col)
         }
-        session.enumerateReceiverDevices()
-        // 延迟刷新以等待枚举完成
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.refreshReceiverDevices() }
+
+        sv.documentView = table
+        parent.addSubview(sv)
+        self.controlsTableView = table
     }
+
+    private func buildActionsPanel(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+        let bg = makeSectionBg()
+        bg.frame = NSRect(x: x, y: y, width: width, height: height)
+        parent.addSubview(bg)
+
+        let header = makeSectionHeader("ACTIONS")
+        header.frame = NSRect(x: x + L.pad, y: y + 4, width: width - L.pad * 2, height: 16)
+        parent.addSubview(header)
+
+        let ctxY = y + L.sectionHdrH
+        let globalH: CGFloat = CGFloat(5) * (L.btnH + L.btnGap) + L.pad * 2
+        let ctxH = height - L.sectionHdrH - globalH - 1
+        let ctxC = NSView(frame: NSRect(x: x, y: ctxY, width: width, height: max(ctxH, 60)))
+        parent.addSubview(ctxC)
+        self.contextActionsContainer = ctxC
+
+        let placeholder = makeLabel(text: "Select a feature\nor control", fontSize: 10, color: .tertiaryLabelColor)
+        placeholder.frame = NSRect(x: L.pad, y: L.pad, width: width - L.pad * 2, height: 40)
+        placeholder.alignment = .center
+        placeholder.maximumNumberOfLines = 2
+        ctxC.addSubview(placeholder)
+
+        let sep = makeSep()
+        let sepY = ctxY + ctxH
+        sep.frame = NSRect(x: x + L.pad, y: sepY, width: width - L.pad * 2, height: 1)
+        parent.addSubview(sep)
+
+        let globalY = sepY + L.pad
+        let globalC = NSView(frame: NSRect(x: x, y: globalY, width: width, height: globalH))
+        parent.addSubview(globalC)
+
+        let btnW = width - L.pad * 2
+        var by: CGFloat = 0
+        let globalActions: [(String, Selector)] = [
+            ("Re-Discover", #selector(rediscoverClicked)),
+            ("Re-Divert", #selector(redivertClicked)),
+            ("Undivert All", #selector(undivertClicked)),
+            ("Enumerate", #selector(enumerateClicked)),
+            ("Clear Log", #selector(clearLogClicked)),
+        ]
+        for (title, action) in globalActions {
+            let btn = makeActionBtn(title: title, action: action)
+            btn.frame = NSRect(x: L.pad, y: by, width: btnW, height: L.btnH)
+            globalC.addSubview(btn)
+            by += L.btnH + L.btnGap
+        }
+    }
+
+    // MARK: - Build Log Area
+
+    private func buildLogArea(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+        let bg = makeLogBg()
+        bg.frame = NSRect(x: x, y: y, width: width, height: height)
+        bg.autoresizingMask = [.width, .height]
+        parent.addSubview(bg)
+
+        var cy = y + 4
+
+        // Toolbar
+        let toolbar = NSView(frame: NSRect(x: x, y: cy, width: width, height: L.logToolbarH))
+        toolbar.autoresizingMask = [.width]
+        parent.addSubview(toolbar)
+
+        let logLabel = makeSectionHeader("PROTOCOL LOG")
+        logLabel.frame = NSRect(x: L.pad, y: 6, width: 100, height: 16)
+        toolbar.addSubview(logLabel)
+
+        let chipColors: [(LogEntryType, String, NSColor)] = [
+            (.tx, "TX", NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)),
+            (.rx, "RX", NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)),
+            (.error, "ERR", NSColor(calibratedRed: 1.0, green: 0.3, blue: 0.3, alpha: 1.0)),
+            (.buttonEvent, "BTN", NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)),
+            (.warning, "WARN", NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.2, alpha: 1.0)),
+            (.info, "INFO", NSColor(calibratedWhite: 0.75, alpha: 1.0)),
+        ]
+        var fx: CGFloat = 110
+        for (i, (entryType, label, color)) in chipColors.enumerated() {
+            let btn = NSButton(title: label, target: self, action: #selector(filterChipClicked(_:)))
+            btn.isBordered = false
+            btn.wantsLayer = true
+            btn.layer?.backgroundColor = color.withAlphaComponent(0.3).cgColor
+            btn.layer?.cornerRadius = 3
+            btn.font = NSFont.systemFont(ofSize: 9, weight: .medium)
+            if #available(macOS 10.14, *) { btn.contentTintColor = color }
+            btn.tag = i
+            btn.frame = NSRect(x: fx, y: 4, width: 38, height: 20)
+            toolbar.addSubview(btn)
+            filterButtons[entryType] = btn
+            fx += 42
+        }
+
+        let clearBtn = makeActionBtn(title: "Clear", action: #selector(clearLogClicked))
+        clearBtn.frame = NSRect(x: width - 50, y: 4, width: 42, height: 20)
+        clearBtn.font = NSFont.systemFont(ofSize: 9, weight: .medium)
+        toolbar.addSubview(clearBtn)
+
+        let exportBtn = makeActionBtn(title: "Export", action: #selector(exportLogClicked))
+        exportBtn.frame = NSRect(x: width - 100, y: 4, width: 46, height: 20)
+        exportBtn.font = NSFont.systemFont(ofSize: 9, weight: .medium)
+        toolbar.addSubview(exportBtn)
+
+        cy += L.logToolbarH
+
+        // Log table
+        let tableH = height - L.logToolbarH - L.rawInputH - 8
+        let sv = NSScrollView(frame: NSRect(x: x, y: cy, width: width, height: tableH))
+        sv.autoresizingMask = [.width, .height]
+        sv.hasVerticalScroller = true
+        sv.borderType = .noBorder
+        sv.drawsBackground = false
+
+        let table = NSTableView()
+        table.backgroundColor = .clear
+        table.headerView = nil
+        table.selectionHighlightStyle = .none
+        table.rowHeight = 18
+        table.tag = 300
+        table.delegate = self
+        table.dataSource = self
+        table.target = self
+        table.action = #selector(logRowClicked(_:))
+        let logCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("log"))
+        logCol.resizingMask = .autoresizingMask
+        table.addTableColumn(logCol)
+        sv.documentView = table
+        parent.addSubview(sv)
+        self.logTableView = table
+
+        cy += tableH + 4
+
+        // Raw input bar
+        buildRawInputBar(in: parent, x: x, y: cy, width: width)
+    }
+
+    private func buildRawInputBar(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat) {
+        let container = NSView(frame: NSRect(x: x, y: y, width: width, height: L.rawInputH))
+        container.autoresizingMask = [.width, .minYMargin]
+        parent.addSubview(container)
+
+        let sep = makeSep()
+        sep.frame = NSRect(x: L.pad, y: 0, width: width - L.pad * 2, height: 1)
+        sep.autoresizingMask = [.width]
+        container.addSubview(sep)
+
+        let rawLabel = makeLabel(text: "RAW:", fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
+        rawLabel.frame = NSRect(x: L.pad, y: 6, width: 35, height: 18)
+        container.addSubview(rawLabel)
+
+        let segCtrl = NSSegmentedControl(labels: ["Short 7B", "Long 20B"], trackingMode: .selectOne, target: nil, action: nil)
+        segCtrl.selectedSegment = 1
+        segCtrl.frame = NSRect(x: 48, y: 5, width: 120, height: 20)
+        segCtrl.font = NSFont.systemFont(ofSize: 9)
+        container.addSubview(segCtrl)
+        self.reportTypeControl = segCtrl
+
+        let inputField = NSTextField()
+        inputField.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        inputField.placeholderString = "11 FF 00 01 1B 04 00 ..."
+        inputField.frame = NSRect(x: 174, y: 5, width: width - 174 - 56, height: 20)
+        inputField.wantsLayer = true
+        inputField.layer?.cornerRadius = 3
+        inputField.textColor = .labelColor
+        inputField.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.06)
+        inputField.isBezeled = false
+        inputField.autoresizingMask = [.width]
+        container.addSubview(inputField)
+        self.rawInputField = inputField
+
+        let sendBtn = makeActionBtn(title: "Send", action: #selector(sendRawClicked),
+                                    color: NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0))
+        sendBtn.frame = NSRect(x: width - 50, y: 5, width: 42, height: 20)
+        sendBtn.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        sendBtn.autoresizingMask = [.minXMargin]
+        container.addSubview(sendBtn)
+    }
+
+    // MARK: - Table Click Handlers
+
+    @objc private func featureTableClicked(_ sender: Any?) {
+        let row = featureTableView.selectedRow
+        controlsTableView?.deselectAll(nil)
+        selectedControlCID = nil
+        guard row >= 0, row < featureRows.count else { selectedFeatureId = nil; updateContextActions(); return }
+        selectedFeatureId = featureRows[row].featureId
+        updateContextActions()
+    }
+
+    @objc private func controlsTableClicked(_ sender: Any?) {
+        let row = controlsTableView.selectedRow
+        featureTableView?.deselectAll(nil)
+        selectedFeatureId = nil
+        guard row >= 0, row < controlRows.count else { selectedControlCID = nil; updateContextActions(); return }
+        selectedControlCID = controlRows[row].cid
+        updateContextActions()
+    }
+
+    private func updateContextActions() {
+        guard let container = contextActionsContainer else { return }
+        container.subviews.forEach { $0.removeFromSuperview() }
+        let w = container.bounds.width - L.pad * 2
+        var by: CGFloat = 0
+
+        if let featureId = selectedFeatureId {
+            let actions = HIDPPFeatureActions.actions(for: featureId)
+            for action in actions {
+                let btn = makeActionBtn(title: action.name, action: #selector(featureActionClicked(_:)))
+                btn.tag = Int(action.functionId)
+                btn.frame = NSRect(x: L.pad, y: by, width: w, height: L.btnH)
+                container.addSubview(btn)
+                by += L.btnH + L.btnGap
+            }
+            by += 4
+            let pf = NSTextField()
+            pf.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+            pf.placeholderString = "params (hex)"
+            pf.frame = NSRect(x: L.pad, y: by, width: w, height: 22)
+            pf.wantsLayer = true
+            pf.layer?.cornerRadius = 3
+            pf.textColor = .labelColor
+            pf.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.08)
+            pf.isBezeled = false
+            container.addSubview(pf)
+            self.paramInputField = pf
+            by += 26
+
+            let sl = makeLabel(text: "Index: 0", fontSize: 10, color: .secondaryLabelColor)
+            sl.frame = NSRect(x: L.pad, y: by, width: 60, height: 18)
+            container.addSubview(sl)
+            self.indexStepperLabel = sl
+
+            let stepper = NSStepper()
+            stepper.minValue = 0
+            stepper.maxValue = 255
+            stepper.integerValue = 0
+            stepper.target = self
+            stepper.action = #selector(indexStepperChanged(_:))
+            stepper.frame = NSRect(x: L.pad + 62, y: by, width: 19, height: 18)
+            container.addSubview(stepper)
+            self.indexStepper = stepper
+
+        } else if let cid = selectedControlCID {
+            let isDiverted = currentSession?.debugDivertedCIDs.contains(cid) ?? false
+            let divertBtn = makeActionBtn(title: isDiverted ? "Undivert" : "Divert", action: #selector(toggleDivertClicked))
+            divertBtn.frame = NSRect(x: L.pad, y: by, width: w, height: L.btnH)
+            container.addSubview(divertBtn)
+            by += L.btnH + L.btnGap
+
+            let queryBtn = makeActionBtn(title: "Query Reporting", action: #selector(queryReportingClicked))
+            queryBtn.frame = NSRect(x: L.pad, y: by, width: w, height: L.btnH)
+            container.addSubview(queryBtn)
+            by += L.btnH + L.btnGap + 4
+
+            // Show current flags and target CID
+            if let ctrl = controlRows.first(where: { $0.cid == cid }) {
+                let flagsText = "Flags: \(HIDPPInfo.flagsDescription(ctrl.flags))"
+                let fl = makeLabel(text: flagsText, fontSize: 9, color: .secondaryLabelColor)
+                fl.frame = NSRect(x: L.pad, y: by, width: w, height: 14)
+                container.addSubview(fl)
+                by += 16
+
+                if ctrl.targetCID != 0 && ctrl.targetCID != ctrl.cid {
+                    let targetText = "Target: \(String(format: "0x%04X", ctrl.targetCID))"
+                    let tl = makeLabel(text: targetText, fontSize: 9, color: .secondaryLabelColor)
+                    tl.frame = NSRect(x: L.pad, y: by, width: w, height: 14)
+                    container.addSubview(tl)
+                }
+            }
+        } else {
+            let ph = makeLabel(text: "Select a feature\nor control", fontSize: 10, color: .tertiaryLabelColor)
+            ph.frame = NSRect(x: L.pad, y: L.pad, width: w, height: 40)
+            ph.alignment = .center
+            ph.maximumNumberOfLines = 2
+            container.addSubview(ph)
+        }
+    }
+
+    @objc private func indexStepperChanged(_ sender: NSStepper) {
+        indexStepperLabel?.stringValue = "Index: \(sender.integerValue)"
+    }
+
+    // MARK: - Global Actions
 
     @objc private func rediscoverClicked() {
         currentSession?.rediscoverFeatures()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.refreshAll() }
+        refreshRightPanelsLoading()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.refreshRightPanels() }
     }
 
     @objc private func redivertClicked() {
         currentSession?.redivertAllControls()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.refreshAll() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.refreshControls() }
     }
 
     @objc private func undivertClicked() {
         currentSession?.undivertAllControls()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.refreshAll() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.refreshControls() }
+    }
+
+    @objc private func enumerateClicked() {
+        currentSession?.enumerateReceiverDevices()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            self?.refreshSidebar()
+            self?.refreshRightPanels()
+        }
     }
 
     @objc private func clearLogClicked() {
-        logTextView?.string = ""
+        LogitechHIDDebugPanel.logBuffer.removeAll()
+        logTableView?.reloadData()
     }
 
-    // MARK: - Logi Action Tests
+    // MARK: - Feature Actions
 
-    @objc private func testSmartShiftClicked() {
-        guard let session = currentSession else { return }
-        LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .info, message: ">>> TEST: SmartShift Toggle")
-        session.executeSmartShiftToggle()
-    }
-
-    @objc private func testDPIUpClicked() {
-        guard let session = currentSession else { return }
-        LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .info, message: ">>> TEST: DPI Cycle Up")
-        session.executeDPICycle(direction: .up)
-    }
-
-    @objc private func testDPIDownClicked() {
-        guard let session = currentSession else { return }
-        LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .info, message: ">>> TEST: DPI Cycle Down")
-        session.executeDPICycle(direction: .down)
-    }
-
-    @objc private func deviceSelectorChanged() {
-        let sessions = LogitechHIDManager.shared.activeSessions
-        let idx = deviceSelector?.indexOfSelectedItem ?? 0
-        if idx < sessions.count {
-            currentSession = sessions[idx]
+    @objc private func featureActionClicked(_ sender: NSButton) {
+        guard let session = currentSession, let featureId = selectedFeatureId else { return }
+        guard let featureIdx = session.debugFeatureIndex[featureId] else {
+            LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .warning,
+                                      message: "Feature 0x\(String(format: "%04X", featureId)) not indexed")
+            return
         }
-        refreshDeviceInfo()
-        refreshReceiverDevices()
-        refreshFeatureTable()
-        refreshControls()
-    }
+        let functionId = UInt8(sender.tag)
+        var params = [UInt8](repeating: 0, count: 16)
 
-    private func refreshAll() {
-        let sessions = LogitechHIDManager.shared.activeSessions
-
-        // 更新设备选择器
-        deviceSelector?.removeAllItems()
-        for s in sessions {
-            let label = "\(s.deviceInfo.name) (\(s.transport) \(String(format: "0x%04X/0x%04X", s.usagePage, s.usage)))"
-            deviceSelector?.addItem(withTitle: label)
-        }
-
-        // 选择第一个 HID++ candidate, 或保持当前选择
-        if currentSession == nil || !sessions.contains(where: { $0 === currentSession }) {
-            currentSession = sessions.first(where: { $0.isHIDPPCandidate }) ?? sessions.first
-            if let cs = currentSession, let idx = sessions.firstIndex(where: { $0 === cs }) {
-                deviceSelector?.selectItem(at: idx)
+        let actions = HIDPPFeatureActions.actions(for: featureId)
+        if let action = actions.first(where: { $0.functionId == functionId }) {
+            switch action.paramType {
+            case .none: break
+            case .index:
+                params[0] = UInt8(indexStepper?.integerValue ?? 0)
+            case .hex:
+                if let hexStr = paramInputField?.stringValue, !hexStr.isEmpty {
+                    let bytes = hexStr.split(separator: " ").compactMap { UInt8($0, radix: 16) }
+                    for (i, b) in bytes.prefix(16).enumerated() { params[i] = b }
+                } else {
+                    for (i, b) in action.defaultParams.prefix(16).enumerated() { params[i] = b }
+                }
             }
         }
+        sendDebugPacket(session: session, featureIndex: featureIdx, functionId: functionId, params: params)
+    }
 
+    @objc private func toggleDivertClicked() {
+        guard let session = currentSession, let cid = selectedControlCID else { return }
+        session.toggleDivert(cid: cid)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.refreshControls()
+            self?.updateContextActions()
+        }
+    }
+
+    @objc private func queryReportingClicked() {
+        guard let session = currentSession, let cid = selectedControlCID else { return }
+        guard let reprogIdx = session.debugFeatureIndex[0x1B04] else { return }
+        let params: [UInt8] = [UInt8(cid >> 8), UInt8(cid & 0xFF)] + [UInt8](repeating: 0, count: 14)
+        sendDebugPacket(session: session, featureIndex: reprogIdx, functionId: 2, params: params)
+    }
+
+    private func sendDebugPacket(session: LogitechDeviceSession, featureIndex: UInt8, functionId: UInt8, params: [UInt8]) {
+        var report = [UInt8](repeating: 0, count: 20)
+        report[0] = 0x11
+        report[1] = session.debugDeviceIndex
+        report[2] = featureIndex
+        report[3] = (functionId << 4) | 0x01
+        for (i, p) in params.prefix(16).enumerated() { report[4 + i] = p }
+
+        let hex = report.map { String(format: "%02X", $0) }.joined(separator: " ")
+        LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .tx, message: "TX: \(hex)", rawBytes: report)
+
+        let result = IOHIDDeviceSetReport(session.hidDevice, kIOHIDReportTypeOutput, CFIndex(report[0]), report, report.count)
+        if result != kIOReturnSuccess {
+            LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .error,
+                                      message: "IOHIDDeviceSetReport failed: \(String(format: "0x%08X", result))")
+        }
+    }
+
+    // MARK: - Log Actions
+
+    @objc private func filterChipClicked(_ sender: NSButton) {
+        let chipOrder: [LogEntryType] = [.tx, .rx, .error, .buttonEvent, .warning, .info]
+        guard sender.tag >= 0, sender.tag < chipOrder.count else { return }
+        let type = chipOrder[sender.tag]
+        if logTypeFilter.contains(type) {
+            logTypeFilter.remove(type)
+            sender.layer?.opacity = 0.3
+        } else {
+            logTypeFilter.insert(type)
+            sender.layer?.opacity = 1.0
+        }
+        logTableView?.reloadData()
+    }
+
+    @objc private func logRowClicked(_ sender: Any?) {
+        let row = logTableView.clickedRow
+        let filtered = filteredLogEntries()
+        guard row >= 0, row < filtered.count else { return }
+        let bufferIdx = filtered[row].0
+        LogitechHIDDebugPanel.logBuffer[bufferIdx].isExpanded.toggle()
+        logTableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
+        logTableView.reloadData(forRowIndexes: IndexSet(integer: row), columnIndexes: IndexSet(integer: 0))
+    }
+
+    @objc private func exportLogClicked() {
+        guard let win = window else { return }
+        let panel = NSSavePanel()
+        let dateStr: String = {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM-dd-HHmmss"
+            return fmt.string(from: Date())
+        }()
+        panel.nameFieldStringValue = "hidpp-debug-\(dateStr).log"
+        panel.beginSheetModal(for: win) { response in
+            guard response == .OK, let url = panel.url else { return }
+            var output = ""
+            for entry in LogitechHIDDebugPanel.logBuffer {
+                let dev = entry.deviceName.isEmpty ? "" : "[\(entry.deviceName)] "
+                output += "[\(entry.timestamp)] \(dev)[\(entry.type.rawValue)] \(entry.message)\n"
+                if let decoded = entry.decoded { output += "  > \(decoded)\n" }
+                if let raw = entry.rawBytes {
+                    output += "  HEX: \(raw.map { String(format: "%02X", $0) }.joined(separator: " "))\n"
+                }
+            }
+            try? output.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
+    @objc private func sendRawClicked() {
+        guard let session = currentSession else { return }
+        guard session.debugDeviceOpened else {
+            LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .warning, message: "Device not opened")
+            return
+        }
+        let hexStr = rawInputField.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !hexStr.isEmpty else { return }
+        let bytes = hexStr.split(separator: " ").compactMap { UInt8($0, radix: 16) }
+        guard !bytes.isEmpty else {
+            LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .warning, message: "Invalid hex input")
+            return
+        }
+
+        let isLong = reportTypeControl.selectedSegment == 1
+        let reportLen = isLong ? 20 : 7
+        var report = [UInt8](repeating: 0, count: reportLen)
+        report[0] = isLong ? 0x11 : 0x10
+        let srcBytes: [UInt8] = (bytes.first == 0x10 || bytes.first == 0x11) ? Array(bytes.dropFirst()) : bytes
+        for (i, b) in srcBytes.prefix(reportLen - 1).enumerated() { report[1 + i] = b }
+
+        let hex = report.map { String(format: "%02X", $0) }.joined(separator: " ")
+        LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .tx, message: "TX: \(hex)", rawBytes: report)
+
+        let result = IOHIDDeviceSetReport(session.hidDevice, kIOHIDReportTypeOutput, CFIndex(report[0]), report, report.count)
+        if result != kIOReturnSuccess {
+            LogitechHIDDebugPanel.log(device: session.deviceInfo.name, type: .error,
+                                      message: "IOHIDDeviceSetReport failed: \(String(format: "0x%08X", result))")
+        }
+    }
+
+    private func filteredLogEntries() -> [(Int, LogEntry)] {
+        return LogitechHIDDebugPanel.logBuffer.enumerated().filter { logTypeFilter.contains($0.element.type) }
+    }
+
+    // MARK: - Refresh
+
+    private func refreshAll() {
+        refreshSidebar()
         refreshDeviceInfo()
-        refreshReceiverDevices()
         refreshFeatureTable()
         refreshControls()
+        updateContextActions()
+        logTableView?.reloadData()
+    }
+
+    private func refreshRightPanels() {
+        refreshDeviceInfo()
+        refreshFeatureTable()
+        refreshControls()
+        updateContextActions()
+    }
+
+    private func refreshRightPanelsLoading() {
+        featureRows.removeAll()
+        controlRows.removeAll()
+        featureTableView?.reloadData()
+        controlsTableView?.reloadData()
+        updateHeaderLabel(tag: 100, text: "FEATURES (...)")
+        updateHeaderLabel(tag: 101, text: "CONTROLS (...)")
+        updateContextActions()
+    }
+
+    private func refreshSidebar() {
+        let sessions = LogitechHIDManager.shared.activeSessions
+        deviceNodes = sessions
+            .filter { $0.debugConnectionMode != "unsupported" }
+            .map { DeviceNode(session: $0) }
+        outlineView?.reloadData()
+        for node in deviceNodes where node.isReceiver { outlineView?.expandItem(node) }
+        // If current session disconnected, select first remaining device and clear selection state
+        if let cs = currentSession, !sessions.contains(where: { $0 === cs }) {
+            currentSession = deviceNodes.first?.session
+            selectedFeatureId = nil
+            selectedControlCID = nil
+        }
+        if currentSession == nil {
+            currentSession = deviceNodes.first?.session
+            selectedFeatureId = nil
+            selectedControlCID = nil
+        }
     }
 
     private func refreshDeviceInfo() {
-        deviceInfoRows.removeAll()
         guard let s = currentSession else {
-            deviceInfoRows.append(("Status", "No HID++ device found", "Connect a Logitech BLE mouse"))
-            deviceInfoTable?.reloadData()
+            for pair in deviceInfoLabels { pair.value.stringValue = "--" }
+            for pair in moreInfoLabels { pair.value.stringValue = "--" }
             return
         }
-
-        let usagePageName: String
-        switch s.usagePage {
-        case 0x0001: usagePageName = "Generic Desktop"
-        case 0xFF00: usagePageName = "Vendor-Specific (Logitech)"
-        case 0xFF43: usagePageName = "Vendor-Specific (Logitech Alt)"
-        default: usagePageName = "Unknown"
-        }
-
-        let usageName: String
-        switch s.usage {
-        case 0x0001: usageName = "Pointer"
-        case 0x0002: usageName = "Mouse"
-        case 0x0006: usageName = "Keyboard"
-        default: usageName = "0x\(String(format: "%04X", s.usage))"
-        }
-
-        deviceInfoRows = [
-            ("Product", s.deviceInfo.name, "IOKit kIOHIDProductKey"),
-            ("Vendor ID", String(format: "0x%04X (%d)", s.deviceInfo.vendorId, s.deviceInfo.vendorId), "Logitech = 0x046D"),
-            ("Product ID", String(format: "0x%04X (%d)", s.deviceInfo.productId, s.deviceInfo.productId), "Device model identifier"),
-            ("Usage Page", String(format: "0x%04X", s.usagePage), usagePageName),
-            ("Usage", String(format: "0x%04X", s.usage), usageName),
-            ("Transport", s.transport, s.debugIsBLE ? "Bluetooth Low Energy" : "USB"),
-            ("Connection Mode", s.debugConnectionMode, "BLE Direct / Receiver (Unifying-Bolt) / Unsupported"),
-            ("Device Index", String(format: "0x%02X", s.debugDeviceIndex), s.debugIsBLE ? "0xFF = BLE direct" : "Target slot (click row below to switch)"),
-            ("Device Opened", s.debugDeviceOpened ? "YES" : "NO", "IOHIDDeviceOpen result"),
-            ("HID++ Candidate", s.isHIDPPCandidate ? "YES" : "NO", "Eligible for HID++ protocol"),
-            ("Init Complete", s.debugReprogInitComplete ? "YES" : "NO", "Feature discovery + divert done"),
-            ("Diverted CIDs", s.debugDivertedCIDs.map { String(format: "0x%04X", $0) }.joined(separator: ", "),
-             s.debugDivertedCIDs.isEmpty ? "No buttons diverted" : "\(s.debugDivertedCIDs.count) buttons diverted"),
+        let vals: [String] = [
+            String(format: "0x%04X", s.deviceInfo.vendorId),
+            String(format: "0x%04X", s.deviceInfo.productId),
+            s.debugFeatureIndex.isEmpty ? "--" : "4.x",
+            s.transport,
+            String(format: "0x%02X", s.debugDeviceIndex),
+            s.debugConnectionMode,
+            s.debugDeviceOpened ? "\u{2713}" : "\u{2717}",
         ]
-        deviceInfoTable?.reloadData()
-    }
-
-    private func refreshReceiverDevices() {
-        receiverDeviceRows.removeAll()
-        let isReceiver = currentSession?.debugConnectionMode.contains("Receiver") ?? false
-
-        // 非 receiver: 隐藏右侧面板
-        if !isReceiver {
-            receiverSection?.isHidden = true
-            topSplit?.adjustSubviews()
-            receiverDevicesTable?.reloadData()
-            return
+        for (i, val) in vals.enumerated() where i < deviceInfoLabels.count {
+            deviceInfoLabels[i].value.stringValue = val
         }
-
-        // Receiver: 显示右侧面板
-        receiverSection?.isHidden = false
-        topSplit?.adjustSubviews()
-
-        guard let s = currentSession else { receiverDevicesTable?.reloadData(); return }
-        let devices = s.debugReceiverPairedDevices
-        let targetSlot = s.debugDeviceIndex
-        if devices.isEmpty {
-            receiverDeviceRows.append((0, "--", "Enumerating...", "--", "--", "--", ""))
-        } else {
-            for dev in devices {
-                let isTarget = dev.slot == targetSlot
-                let status = dev.isConnected ? "Online" : "Offline"
-                let name = dev.name.isEmpty ? "--" : dev.name
-                let typeName = dev.deviceTypeName
-                let pid = dev.wirelessPID == 0 ? "--" : String(format: "0x%04X", dev.wirelessPID)
-                let proto = dev.protocolVersion
-                var note = dev.lastError ?? ""
-                if isTarget { note = note.isEmpty ? "TARGETED" : "TARGETED | \(note)" }
-                receiverDeviceRows.append((dev.slot, status, name, typeName, pid, proto, note))
-            }
+        let moreVals: [String] = [
+            String(format: "0x%04X", s.usagePage),
+            String(format: "0x%04X", s.usage),
+            s.isHIDPPCandidate ? "Yes" : "No",
+            s.debugReprogInitComplete ? "Yes" : "No",
+            "\(s.debugDivertedCIDs.count)",
+        ]
+        for (i, val) in moreVals.enumerated() where i < moreInfoLabels.count {
+            moreInfoLabels[i].value.stringValue = val
         }
-        receiverDevicesTable?.reloadData()
     }
 
     private func refreshFeatureTable() {
-        featureRows.removeAll()
-        guard let s = currentSession else { featureTable?.reloadData(); return }
-
-        for (featId, idx) in s.debugFeatureIndex.sorted(by: { $0.value < $1.value }) {
-            let (name, purpose) = HIDPPInfo.featureNames[featId] ?? ("Unknown", "Feature ID \(String(format: "0x%04X", featId))")
-            featureRows.append((
-                String(format: "0x%02X", idx),
-                String(format: "0x%04X", featId),
-                name,
-                purpose
-            ))
+        guard let s = currentSession else {
+            featureRows.removeAll()
+            featureTableView?.reloadData()
+            return
         }
-        if featureRows.isEmpty {
-            featureRows.append(("--", "--", "No features discovered", "Feature discovery may have failed"))
+        featureRows = s.debugFeatureIndex.sorted(by: { $0.value < $1.value }).map { (featureId, index) in
+            let name = HIDPPInfo.featureNames[featureId]?.0 ?? "Unknown"
+            return (index: String(format: "0x%02X", index), featureId: featureId,
+                    featureIdHex: String(format: "0x%04X", featureId), name: name)
         }
-        featureTable?.reloadData()
+        featureTableView?.reloadData()
+        updateHeaderLabel(tag: 100, text: "FEATURES (\(featureRows.count))")
     }
 
     private func refreshControls() {
-        controlRows.removeAll()
-        guard let s = currentSession else { controlsTable?.reloadData(); return }
-
-        for (i, c) in s.debugDiscoveredControls.enumerated() {
-            let name = LogitechCIDRegistry.name(forCID: c.cid)
-
-            // Reporting 状态 (从 GetControlReporting function 2 查询)
-            let reporting: String
-            if c.reportingQueried {
-                var parts: [String] = []
-                if c.reportingFlags & 0x01 != 0 { parts.append("tmpDvrt") }
-                if c.reportingFlags & 0x02 != 0 { parts.append("pstDvrt") }
-                if c.reportingFlags & 0x04 != 0 { parts.append("tmpRemap") }
-                if c.reportingFlags & 0x08 != 0 { parts.append("pstRemap") }
-                reporting = parts.isEmpty ? "none" : parts.joined(separator: ",")
-            } else {
-                reporting = "..."
-            }
-
-            // Target CID (remap 目标)
-            let target: String
-            if c.reportingQueried && c.targetCID != 0 && c.targetCID != c.cid {
-                target = "\(String(format: "0x%04X", c.targetCID)) \(LogitechCIDRegistry.name(forCID: c.targetCID))"
-            } else {
-                target = "--"
-            }
-
-            controlRows.append((
-                i,
-                String(format: "0x%04X", c.cid),
-                name,
-                String(format: "0x%04X", c.taskId),
-                HIDPPInfo.flagsDescription(c.flags),
-                reporting,
-                target
-            ))
+        guard let s = currentSession else {
+            controlRows.removeAll()
+            controlsTableView?.reloadData()
+            return
         }
-        if controlRows.isEmpty {
-            controlRows.append((0, "--", "No controls discovered", "--", "--", "--", "--"))
-        }
-        controlsTable?.reloadData()
+        controlRows = s.debugDiscoveredControls
+        controlsTableView?.reloadData()
+        updateHeaderLabel(tag: 101, text: "CONTROLS (\(controlRows.count))")
     }
 
-    // MARK: - Log
-
-    private func appendLogEntry(_ entry: LogEntry) {
-        guard logTypeFilter.contains(entry.type) else { return }
-        guard let tv = logTextView else { return }
-
-        let color: NSColor
-        switch entry.type {
-        case .tx:          color = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
-        case .rx:          color = NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
-        case .error:       color = NSColor(calibratedRed: 1.0, green: 0.3, blue: 0.3, alpha: 1.0)
-        case .buttonEvent: color = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
-        case .warning:     color = NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.2, alpha: 1.0)
-        case .info:        color = NSColor(calibratedWhite: 0.75, alpha: 1.0)
+    private func updateHeaderLabel(tag: Int, text: String) {
+        func find(in view: NSView) -> NSTextField? {
+            if let tf = view as? NSTextField, tf.tag == tag { return tf }
+            for sub in view.subviews { if let f = find(in: sub) { return f } }
+            return nil
         }
-
-        let font = NSFont.userFixedPitchFont(ofSize: 11)!
-        let line = "[\(entry.timestamp)] \(entry.message)\n"
-        tv.textStorage?.append(NSAttributedString(string: line, attributes: [.font: font, .foregroundColor: color]))
-
-        if let decoded = entry.decoded {
-            let decodedColor = color.withAlphaComponent(0.7)
-            tv.textStorage?.append(NSAttributedString(string: "  -> \(decoded)\n", attributes: [.font: font, .foregroundColor: decodedColor]))
-        }
-
-        tv.scrollToEndOfDocument(nil)
+        if let cv = window?.contentView, let lbl = find(in: cv) { lbl.stringValue = text }
     }
 
     // MARK: - Observers
 
     private func startObserving() {
+        stopObserving()
         logObserver = NotificationCenter.default.addObserver(
             forName: LogitechHIDDebugPanel.logNotification, object: nil, queue: .main
-        ) { [weak self] n in
-            if let entry = n.userInfo?["entry"] as? LogEntry { self?.appendLogEntry(entry) }
-            // Auto-refresh controls when button events or divert changes happen
-            if let entry = n.userInfo?["entry"] as? LogEntry,
-               entry.type == .buttonEvent || entry.message.contains("divert=") {
-                self?.refreshControls()
+        ) { [weak self] notification in
+            guard let self = self else { return }
+            self.logTableView?.reloadData()
+            // Auto-scroll only if user is near the bottom
+            if let sv = self.logTableView?.enclosingScrollView {
+                let visibleH = sv.contentView.bounds.height
+                let contentH = self.logTableView?.frame.height ?? 0
+                let scrollY = sv.contentView.bounds.origin.y
+                let isNearBottom = (contentH - scrollY - visibleH) < 40
+                if isNearBottom {
+                    let count = self.filteredLogEntries().count
+                    if count > 0 { self.logTableView?.scrollRowToVisible(count - 1) }
+                }
+            }
+            if let entry = notification.object as? LogEntry,
+               entry.type == .buttonEvent || entry.message.contains("divert") {
+                self.refreshControls()
             }
         }
         sessionObserver = NotificationCenter.default.addObserver(
             forName: LogitechHIDManager.sessionChangedNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.refreshAll()
-        }
+        ) { [weak self] _ in self?.refreshAll() }
     }
 
     private func stopObserving() {
-        if let o = logObserver { NotificationCenter.default.removeObserver(o) }
-        if let o = sessionObserver { NotificationCenter.default.removeObserver(o) }
-        logObserver = nil; sessionObserver = nil
+        if let o = logObserver { NotificationCenter.default.removeObserver(o); logObserver = nil }
+        if let o = sessionObserver { NotificationCenter.default.removeObserver(o); sessionObserver = nil }
+    }
+
+    // MARK: - Helpers
+
+    private func makeLabel(text: String, fontSize: CGFloat, weight: NSFont.Weight = .regular, color: NSColor = .labelColor) -> NSTextField {
+        let l = NSTextField(labelWithString: text)
+        l.font = NSFont.systemFont(ofSize: fontSize, weight: weight)
+        l.textColor = color
+        l.backgroundColor = .clear
+        l.isBezeled = false
+        l.isEditable = false
+        l.isSelectable = false
+        return l
+    }
+
+    private func makeSectionHeader(_ title: String) -> NSTextField {
+        return makeLabel(text: title, fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
+    }
+
+    private func makeActionBtn(title: String, action: Selector,
+                               color: NSColor = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)) -> NSButton {
+        let btn = NSButton(title: title, target: self, action: action)
+        btn.isBordered = false
+        btn.wantsLayer = true
+        btn.layer?.backgroundColor = color.withAlphaComponent(0.15).cgColor
+        btn.layer?.borderColor = color.withAlphaComponent(0.3).cgColor
+        btn.layer?.borderWidth = 1
+        btn.layer?.cornerRadius = 4
+        btn.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        if #available(macOS 10.14, *) { btn.contentTintColor = .labelColor }
+        return btn
+    }
+
+    private func makeSep() -> NSView {
+        let v = NSView()
+        v.wantsLayer = true
+        v.layer?.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.1).cgColor
+        return v
+    }
+
+    private func makeSectionBg() -> NSView {
+        let v = NSView()
+        v.wantsLayer = true
+        v.layer?.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.05).cgColor
+        v.layer?.cornerRadius = 6
+        return v
+    }
+
+    private func makeLogBg() -> NSView {
+        let v = NSView()
+        v.wantsLayer = true
+        v.layer?.backgroundColor = NSColor(calibratedRed: 0, green: 0, blue: 0, alpha: 0.4).cgColor
+        v.layer?.cornerRadius = 6
+        return v
+    }
+
+    private func logColor(for type: LogEntryType) -> NSColor {
+        switch type {
+        case .tx: return NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+        case .rx: return NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
+        case .error: return NSColor(calibratedRed: 1.0, green: 0.3, blue: 0.3, alpha: 1.0)
+        case .buttonEvent: return NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
+        case .warning: return NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.2, alpha: 1.0)
+        case .info: return NSColor(calibratedWhite: 0.75, alpha: 1.0)
+        }
     }
 }
 
-// MARK: - NSTableViewDelegate & DataSource
+// MARK: - NSOutlineViewDataSource & Delegate
 
-extension LogitechHIDDebugPanel: NSTableViewDelegate, NSTableViewDataSource {
+extension LogitechHIDDebugPanel: NSOutlineViewDataSource {
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        if item == nil { return deviceNodes.count }
+        if let node = item as? DeviceNode, node.isReceiver {
+            return node.session.debugReceiverPairedDevices.count
+        }
+        return 0
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        if item == nil { return deviceNodes[index] }
+        if let node = item as? DeviceNode, node.isReceiver {
+            let paired = node.session.debugReceiverPairedDevices[index]
+            return SlotNode(session: node.session, slot: paired.slot)
+        }
+        return NSNull()
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
+        return (item as? DeviceNode)?.isReceiver ?? false
+    }
+}
+
+extension LogitechHIDDebugPanel: NSOutlineViewDelegate {
+    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+        let cellId = NSUserInterfaceItemIdentifier("DeviceCell")
+        let cell = outlineView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField
+            ?? NSTextField(labelWithString: "")
+        cell.identifier = cellId
+        cell.font = NSFont.systemFont(ofSize: 11)
+        cell.backgroundColor = .clear
+        cell.isBezeled = false
+        cell.isEditable = false
+
+        if let node = item as? DeviceNode {
+            let prefix = node.isReceiver ? "[R]" : "[M]"
+            let attr = NSMutableAttributedString(string: "\(prefix) \(node.session.deviceInfo.name) ",
+                                                  attributes: [.foregroundColor: NSColor.labelColor,
+                                                               .font: NSFont.systemFont(ofSize: 11)])
+            let dot = NSAttributedString(string: "\u{25CF}",
+                                          attributes: [.foregroundColor: NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0),
+                                                       .font: NSFont.systemFont(ofSize: 8)])
+            attr.append(dot)
+            cell.attributedStringValue = attr
+        } else if let slot = item as? SlotNode {
+            let paired = slot.session.debugReceiverPairedDevices
+            let idx = Int(slot.slot) - 1
+            guard idx >= 0, idx < paired.count else {
+                cell.stringValue = "Slot \(slot.slot): --"
+                cell.textColor = .tertiaryLabelColor
+                return cell
+            }
+            let dev = paired[idx]
+            if dev.isConnected {
+                cell.stringValue = dev.name.isEmpty ? "Slot \(dev.slot)" : dev.name
+                cell.textColor = .labelColor
+            } else {
+                cell.stringValue = "Slot \(dev.slot): empty"
+                cell.textColor = .tertiaryLabelColor
+            }
+        }
+        return cell
+    }
+}
+
+// MARK: - NSTableViewDataSource & Delegate
+
+extension LogitechHIDDebugPanel: NSTableViewDataSource {
     func numberOfRows(in tableView: NSTableView) -> Int {
         switch tableView.tag {
-        case 1: return deviceInfoRows.count
-        case 2: return featureRows.count
-        case 3: return controlRows.count
-        case 4: return receiverDeviceRows.count
+        case 200: return featureRows.count
+        case 201: return controlRows.count
+        case 300: return filteredLogEntries().count
         default: return 0
         }
     }
+}
 
+extension LogitechHIDDebugPanel: NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        guard let colId = tableColumn?.identifier.rawValue else { return nil }
-        let cellId = NSUserInterfaceItemIdentifier("Cell_\(colId)")
-
-        let cell: NSTextField
-        if let existing = tableView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField {
-            cell = existing
-        } else {
-            cell = NSTextField(labelWithString: "")
-            cell.identifier = cellId
-            cell.font = NSFont.userFixedPitchFont(ofSize: 11)!
-            cell.lineBreakMode = .byTruncatingTail
-        }
-
         switch tableView.tag {
-        case 1: // Device Info
-            let r = deviceInfoRows[row]
-            switch colId {
-            case "1_Property": cell.stringValue = r.0
-            case "1_Value": cell.stringValue = r.1
-            case "1_Annotation":
-                cell.stringValue = r.2
-                cell.textColor = NSColor.secondaryLabelColor
-            default: break
+        case 200: return featureCell(tableColumn: tableColumn, row: row)
+        case 201: return controlCell(tableColumn: tableColumn, row: row)
+        case 300: return logCell(row: row)
+        default: return nil
+        }
+    }
+
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        if tableView.tag == 300 {
+            let filtered = filteredLogEntries()
+            guard row < filtered.count else { return 18 }
+            let entry = filtered[row].1
+            if entry.isExpanded {
+                var lines = 1
+                if entry.rawBytes != nil { lines += 1 }
+                if entry.decoded != nil { lines += 1 }
+                return CGFloat(lines) * 16 + 4
             }
-        case 2: // Feature Table
-            let r = featureRows[row]
-            switch colId {
-            case "2_Index": cell.stringValue = r.0
-            case "2_Feature ID": cell.stringValue = r.1
-            case "2_Name": cell.stringValue = r.2
-            case "2_Purpose":
-                cell.stringValue = r.3
-                cell.textColor = NSColor.secondaryLabelColor
-            default: break
-            }
-        case 3: // Controls
-            let r = controlRows[row]
-            switch colId {
-            case "3_Idx": cell.stringValue = "\(r.0)"
-            case "3_CID": cell.stringValue = r.1
-            case "3_Name": cell.stringValue = r.2
-            case "3_TaskID": cell.stringValue = r.3
-            case "3_Flags": cell.stringValue = r.4
-            case "3_Reporting":
-                cell.stringValue = r.5
-                if r.5.contains("Dvrt") || r.5.contains("Remap") {
-                    cell.textColor = NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
-                } else if r.5 == "none" {
-                    cell.textColor = NSColor.secondaryLabelColor
-                }
-            case "3_Target":
-                cell.stringValue = r.6
-                cell.textColor = r.6 == "--" ? NSColor.secondaryLabelColor : NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
-            default: break
-            }
-        case 4: // Receiver Devices
-            let r = receiverDeviceRows[row]
-            let isTargeted = r.6.contains("TARGETED")
-            switch colId {
-            case "4_Slot":
-                cell.stringValue = r.0 == 0 ? "--" : "\(r.0)"
-                if isTargeted { cell.textColor = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0) }
-            case "4_Status":
-                cell.stringValue = r.1
-                if r.1 == "Online" {
-                    cell.textColor = isTargeted
-                        ? NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
-                        : NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
-                } else {
-                    cell.textColor = NSColor.secondaryLabelColor
-                }
-            case "4_Name":
-                cell.stringValue = r.2
-                if isTargeted { cell.textColor = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0) }
-            case "4_Type": cell.stringValue = r.3
-            case "4_PID": cell.stringValue = r.4
-            case "4_Proto": cell.stringValue = r.5
-            case "4_Note":
-                cell.stringValue = r.6
-                cell.textColor = isTargeted
-                    ? NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
-                    : NSColor.secondaryLabelColor
-            default: break
-            }
+        }
+        return tableView.tag == 300 ? 18 : 20
+    }
+
+    private func featureCell(tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        guard row < featureRows.count else { return nil }
+        let item = featureRows[row]
+        let cellId = NSUserInterfaceItemIdentifier("fCell")
+        let cell = featureTableView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField
+            ?? NSTextField(labelWithString: "")
+        cell.identifier = cellId
+        cell.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        cell.backgroundColor = .clear
+        cell.isBezeled = false
+        cell.isEditable = false
+        cell.textColor = .labelColor
+
+        switch tableColumn?.identifier.rawValue {
+        case "fIdx": cell.stringValue = item.index
+        case "fId": cell.stringValue = item.featureIdHex
+        case "fName":
+            cell.stringValue = item.name
+            cell.textColor = NSColor(calibratedRed: 0.5, green: 0.7, blue: 1.0, alpha: 1.0)
         default: break
         }
-
-        if !colId.contains("Annotation") && !colId.contains("Purpose") && !colId.contains("Reporting") && !colId.contains("Target") && !colId.contains("Status") && !colId.contains("Note") {
-            cell.textColor = NSColor.labelColor
-        }
-        cell.font = NSFont.userFixedPitchFont(ofSize: 11)!
         return cell
     }
 
-    // MARK: - Receiver Slot Selection
+    private func controlCell(tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        guard row < controlRows.count else { return nil }
+        let ctrl = controlRows[row]
+        let cellId = NSUserInterfaceItemIdentifier("cCell")
+        let cell = controlsTableView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField
+            ?? NSTextField(labelWithString: "")
+        cell.identifier = cellId
+        cell.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        cell.backgroundColor = .clear
+        cell.isBezeled = false
+        cell.isEditable = false
+        cell.textColor = .labelColor
 
-    func tableViewSelectionDidChange(_ notification: Notification) {
-        guard let table = notification.object as? NSTableView, table.tag == 4 else { return }
-        let row = table.selectedRow
-        guard row >= 0, row < receiverDeviceRows.count else { return }
-        let slot = receiverDeviceRows[row].0
-        guard slot >= 1, slot <= 6 else { return }
+        let isDiverted = ctrl.reportingFlags & 0x01 != 0
+        let isRemapped = ctrl.targetCID != 0
 
-        currentSession?.setTargetSlot(slot: slot)
-        LogitechHIDDebugPanel.log("[DebugPanel] Targeted slot \(slot)")
-        refreshDeviceInfo()
-        refreshReceiverDevices()
-        refreshFeatureTable()
-        refreshControls()
+        switch tableColumn?.identifier.rawValue {
+        case "cCid": cell.stringValue = String(format: "0x%04X", ctrl.cid)
+        case "cName": cell.stringValue = LogitechCIDRegistry.name(forCID: ctrl.cid)
+        case "cFlags":
+            cell.stringValue = HIDPPInfo.flagsDescription(ctrl.flags)
+            cell.textColor = .secondaryLabelColor
+            cell.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+        case "cStatus":
+            if isDiverted {
+                cell.stringValue = "DVRT"
+                cell.textColor = NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.0, alpha: 0.8)
+            } else if isRemapped {
+                cell.stringValue = "REMAP"
+                cell.textColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 0.8)
+            } else {
+                cell.stringValue = "\u{25CF}"
+                cell.textColor = NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
+            }
+        default: break
+        }
+        return cell
+    }
+
+    private func logCell(row: Int) -> NSView? {
+        let filtered = filteredLogEntries()
+        guard row < filtered.count else { return nil }
+        let entry = filtered[row].1
+
+        let cellId = NSUserInterfaceItemIdentifier("logCell")
+        let cell = logTableView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField
+            ?? NSTextField(labelWithString: "")
+        cell.identifier = cellId
+        cell.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        cell.backgroundColor = .clear
+        cell.isBezeled = false
+        cell.isEditable = false
+        cell.isSelectable = true
+        cell.maximumNumberOfLines = 0
+        cell.cell?.wraps = true
+
+        let color = logColor(for: entry.type)
+        let arrow = entry.isExpanded ? "\u{25BE}" : "\u{25B8}"
+        var text = "\(arrow) [\(entry.timestamp)] \(entry.message)"
+        if entry.isExpanded {
+            if let raw = entry.rawBytes {
+                text += "\n  HEX: \(raw.map { String(format: "%02X", $0) }.joined(separator: " "))"
+            }
+            if let decoded = entry.decoded { text += "\n  \(decoded)" }
+        }
+        cell.attributedStringValue = NSAttributedString(string: text, attributes: [
+            .foregroundColor: color,
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
+        ])
+        return cell
     }
 }
