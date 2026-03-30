@@ -594,10 +594,15 @@ class LogitechHIDDebugPanel: NSObject {
         self.contextActionsContainer = ctxC
 
         let placeholder = makeLabel(text: "Select a feature\nor control", fontSize: 10, color: .tertiaryLabelColor)
-        placeholder.frame = NSRect(x: L.pad, y: L.pad, width: L.actionsWidth - L.pad * 2, height: 40)
+        placeholder.translatesAutoresizingMaskIntoConstraints = false
         placeholder.alignment = .center
         placeholder.maximumNumberOfLines = 2
         ctxC.addSubview(placeholder)
+        NSLayoutConstraint.activate([
+            placeholder.leadingAnchor.constraint(equalTo: ctxC.leadingAnchor, constant: L.pad),
+            placeholder.trailingAnchor.constraint(equalTo: ctxC.trailingAnchor, constant: -L.pad),
+            placeholder.topAnchor.constraint(equalTo: ctxC.topAnchor, constant: L.pad),
+        ])
 
         let sep = makeSep()
         sep.translatesAutoresizingMaskIntoConstraints = false
@@ -922,10 +927,15 @@ class LogitechHIDDebugPanel: NSObject {
             }
         } else {
             let ph = makeLabel(text: "Select a feature\nor control", fontSize: 10, color: .tertiaryLabelColor)
-            ph.frame = NSRect(x: L.pad, y: L.pad, width: w, height: 40)
+            ph.translatesAutoresizingMaskIntoConstraints = false
             ph.alignment = .center
             ph.maximumNumberOfLines = 2
             container.addSubview(ph)
+            NSLayoutConstraint.activate([
+                ph.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: L.pad),
+                ph.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -L.pad),
+                ph.topAnchor.constraint(equalTo: container.topAnchor, constant: L.pad),
+            ])
         }
     }
 
