@@ -373,7 +373,7 @@ class LogitechHIDDebugPanel: NSObject {
         split.addSubview(logContainer)
     }
 
-    // MARK: - Build Sidebar (Auto Layout)
+    // MARK: - Build Sidebar (Auto Layout + NSSplitView for draggable device info)
 
     private func buildSidebar(in sidebar: NSView) {
         let bg = makeSectionBg()
@@ -384,12 +384,33 @@ class LogitechHIDDebugPanel: NSObject {
         header.translatesAutoresizingMaskIntoConstraints = false
         sidebar.addSubview(header)
 
-        let treeScroll = NSScrollView()
-        treeScroll.translatesAutoresizingMaskIntoConstraints = false
-        treeScroll.hasVerticalScroller = true
-        treeScroll.borderType = .noBorder
-        treeScroll.drawsBackground = false
-        sidebar.addSubview(treeScroll)
+        // Draggable split between device tree and device info
+        let sidebarSplit = TopFirstSplitView()
+        sidebarSplit.isVertical = false
+        sidebarSplit.dividerStyle = .thin
+        sidebarSplit.translatesAutoresizingMaskIntoConstraints = false
+        sidebar.addSubview(sidebarSplit)
+
+        NSLayoutConstraint.activate([
+            bg.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
+            bg.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
+            bg.topAnchor.constraint(equalTo: sidebar.topAnchor),
+            bg.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
+
+            header.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: L.pad),
+            header.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -L.pad),
+            header.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: L.pad),
+            header.heightAnchor.constraint(equalToConstant: L.sectionHdrH),
+
+            sidebarSplit.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
+            sidebarSplit.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
+            sidebarSplit.topAnchor.constraint(equalTo: header.bottomAnchor),
+            sidebarSplit.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
+        ])
+
+        // Top: device tree
+        let treeScroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 200))
+        configureDarkScroll(treeScroll)
 
         let outline = NSOutlineView()
         outline.headerView = nil
@@ -407,46 +428,12 @@ class LogitechHIDDebugPanel: NSObject {
         outline.action = #selector(outlineViewClicked(_:))
         treeScroll.documentView = outline
         self.outlineView = outline
+        sidebarSplit.addSubview(treeScroll)
 
-        let sep = makeSep()
-        sep.translatesAutoresizingMaskIntoConstraints = false
-        sidebar.addSubview(sep)
+        // Bottom: device info (taller default, draggable)
+        let infoScroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 250))
+        configureDarkScroll(infoScroll)
 
-        let infoScroll = NSScrollView()
-        infoScroll.translatesAutoresizingMaskIntoConstraints = false
-        infoScroll.hasVerticalScroller = true
-        infoScroll.borderType = .noBorder
-        infoScroll.drawsBackground = false
-        sidebar.addSubview(infoScroll)
-
-        NSLayoutConstraint.activate([
-            bg.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
-            bg.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
-            bg.topAnchor.constraint(equalTo: sidebar.topAnchor),
-            bg.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
-
-            header.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: L.pad),
-            header.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -L.pad),
-            header.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: L.pad),
-            header.heightAnchor.constraint(equalToConstant: L.sectionHdrH),
-
-            treeScroll.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
-            treeScroll.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
-            treeScroll.topAnchor.constraint(equalTo: header.bottomAnchor),
-            treeScroll.bottomAnchor.constraint(equalTo: sep.topAnchor),
-
-            sep.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: L.pad),
-            sep.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -L.pad),
-            sep.heightAnchor.constraint(equalToConstant: 1),
-            sep.bottomAnchor.constraint(equalTo: infoScroll.topAnchor),
-
-            infoScroll.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
-            infoScroll.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
-            infoScroll.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
-            infoScroll.heightAnchor.constraint(equalToConstant: L.devInfoH),
-        ])
-
-        // Device info content (manual layout inside scroll document view)
         let allKeys = ["VID", "PID", "Protocol", "Transport", "Dev Index", "Conn Mode", "Opened",
                         "UsagePage", "Usage", "HID++ Cand", "Init Done", "Dvrt CIDs"]
         let contentH: CGFloat = CGFloat(allKeys.count) * 16 + L.pad
@@ -470,6 +457,7 @@ class LogitechHIDDebugPanel: NSObject {
             iy += 16
         }
         infoScroll.documentView = infoDoc
+        sidebarSplit.addSubview(infoScroll)
     }
 
     @objc private func outlineViewClicked(_ sender: Any?) {
@@ -544,9 +532,7 @@ class LogitechHIDDebugPanel: NSObject {
 
         let sv = NSScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
-        sv.hasVerticalScroller = true
-        sv.borderType = .noBorder
-        sv.drawsBackground = false
+        configureDarkScroll(sv)
         parent.addSubview(sv)
 
         NSLayoutConstraint.activate([
@@ -678,9 +664,7 @@ class LogitechHIDDebugPanel: NSObject {
 
         let sv = NSScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
-        sv.hasVerticalScroller = true
-        sv.borderType = .noBorder
-        sv.drawsBackground = false
+        configureDarkScroll(sv)
         parent.addSubview(sv)
 
         let table = NSTableView()
@@ -1308,6 +1292,14 @@ class LogitechHIDDebugPanel: NSObject {
         btn.font = NSFont.systemFont(ofSize: 11, weight: .medium)
         if #available(macOS 10.14, *) { btn.contentTintColor = .labelColor }
         return btn
+    }
+
+    private func configureDarkScroll(_ sv: NSScrollView) {
+        sv.scrollerStyle = .overlay
+        sv.scrollerKnobStyle = .light
+        sv.hasVerticalScroller = true
+        sv.borderType = .noBorder
+        sv.drawsBackground = false
     }
 
     private func makeSep() -> NSView {
