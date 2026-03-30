@@ -110,10 +110,9 @@ class ToastPanel: NSObject {
     // MARK: - Build Window
 
     private func buildWindow() -> NSPanel {
-        let contentWidth = LayoutMetrics.panelWidth
-        let baseContentHeight = calculatedContentHeight(topInset: LayoutMetrics.topPadding)
+        // Initial height — will be adjusted by Auto Layout via bottom constraint
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: baseContentHeight),
+            contentRect: NSRect(x: 0, y: 0, width: LayoutMetrics.panelWidth, height: 600),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -127,11 +126,7 @@ class ToastPanel: NSObject {
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
 
-        let topInset = resolvedTopInset(for: panel)
-        let contentHeight = calculatedContentHeight(topInset: topInset)
-        panel.setContentSize(NSSize(width: contentWidth, height: contentHeight))
-
-        let effectView = NSVisualEffectView(frame: NSRect(origin: .zero, size: NSSize(width: contentWidth, height: contentHeight)))
+        let effectView = NSVisualEffectView(frame: panel.contentView!.bounds)
         effectView.autoresizingMask = [.width, .height]
         effectView.state = .active
         effectView.blendingMode = .behindWindow
@@ -144,247 +139,219 @@ class ToastPanel: NSObject {
         }
         panel.contentView = effectView
 
-        buildContent(in: effectView, width: contentWidth, height: contentHeight, topInset: topInset)
+        let topInset = resolvedTopInset(for: panel)
+        buildContent(in: effectView, topInset: topInset)
+
+        // Let constraints determine the ideal height, then resize window
+        effectView.layoutSubtreeIfNeeded()
+        let fittingSize = effectView.fittingSize
+        if fittingSize.height > 0 {
+            panel.setContentSize(NSSize(width: LayoutMetrics.panelWidth, height: fittingSize.height))
+        }
         panel.center()
 
         return panel
     }
 
-    private func buildContent(in container: NSView, width: CGFloat, height: CGFloat, topInset: CGFloat) {
-        let contentWidth = width - LayoutMetrics.horizontalMargin * 2
-        let contentView = ToastPanelContentView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        contentView.autoresizingMask = [.width, .height]
-        container.addSubview(contentView)
+    private func buildContent(in container: NSView, topInset: CGFloat) {
+        let M = LayoutMetrics.self
+        let cw = M.panelWidth - M.horizontalMargin * 2  // content width
 
-        var y = topInset
+        // All views use Auto Layout
+        func pin(_ v: NSView) { v.translatesAutoresizingMaskIntoConstraints = false; container.addSubview(v) }
+        func h(_ v: NSView, _ height: CGFloat) { v.heightAnchor.constraint(equalToConstant: height).isActive = true }
+        func lr(_ v: NSView) {
+            v.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin).isActive = true
+            v.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -M.horizontalMargin).isActive = true
+        }
 
+        // --- Header ---
         let titleLabel = makeLabel(text: NSLocalizedString("Toast Debug", comment: "Toast debug panel title"), fontSize: 18, weight: .semibold, color: .white)
-        titleLabel.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: contentWidth, height: LayoutMetrics.titleHeight)
-        contentView.addSubview(titleLabel)
-        y += LayoutMetrics.titleHeight + 2
+        pin(titleLabel); lr(titleLabel); h(titleLabel, M.titleHeight)
+        titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset).isActive = true
 
         let subtitleLabel = makeLabel(text: NSLocalizedString("Component testing & configuration", comment: "Toast debug panel subtitle"), fontSize: 12, weight: .regular, color: .secondaryLabelColor)
-        subtitleLabel.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: contentWidth, height: LayoutMetrics.subtitleHeight)
-        contentView.addSubview(subtitleLabel)
-        y += LayoutMetrics.subtitleHeight + LayoutMetrics.sectionSpacing
+        pin(subtitleLabel); lr(subtitleLabel); h(subtitleLabel, M.subtitleHeight)
+        subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2).isActive = true
 
-        y = placeSectionHeader(in: contentView, title: NSLocalizedString("CONFIGURATION", comment: "Toast debug section header"), y: y, width: contentWidth)
+        // --- CONFIGURATION ---
+        let cfgHeader = makeLabel(text: NSLocalizedString("CONFIGURATION", comment: "Toast debug section header"), fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
+        pin(cfgHeader); lr(cfgHeader); h(cfgHeader, 14)
+        cfgHeader.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: M.sectionSpacing).isActive = true
 
+        // Max Simultaneous row
         let maxCountRow = makeLabel(text: NSLocalizedString("Max Simultaneous", comment: "Toast debug max count label"), fontSize: 12, weight: .regular, color: .labelColor)
-        maxCountRow.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: LayoutMetrics.labelColumnWidth, height: LayoutMetrics.rowHeight)
-        contentView.addSubview(maxCountRow)
+        pin(maxCountRow); h(maxCountRow, M.rowHeight)
+        maxCountRow.topAnchor.constraint(equalTo: cfgHeader.bottomAnchor, constant: 8).isActive = true
+        maxCountRow.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin).isActive = true
+        maxCountRow.widthAnchor.constraint(equalToConstant: M.labelColumnWidth).isActive = true
 
-        maxCountSlider = NSSlider(frame: NSRect(x: LayoutMetrics.valueColumnX, y: y, width: 150, height: LayoutMetrics.rowHeight))
-        maxCountSlider.minValue = 1
-        maxCountSlider.maxValue = 8
+        maxCountSlider = NSSlider()
+        maxCountSlider.minValue = 1; maxCountSlider.maxValue = 8
         maxCountSlider.integerValue = ToastStorage.shared.maxCount
-        maxCountSlider.target = self
-        maxCountSlider.action = #selector(maxCountChanged)
-        contentView.addSubview(maxCountSlider)
+        maxCountSlider.target = self; maxCountSlider.action = #selector(maxCountChanged)
+        pin(maxCountSlider); h(maxCountSlider, M.rowHeight)
+        maxCountSlider.topAnchor.constraint(equalTo: maxCountRow.topAnchor).isActive = true
+        maxCountSlider.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.valueColumnX).isActive = true
+        maxCountSlider.widthAnchor.constraint(equalToConstant: 150).isActive = true
 
         maxCountLabel = makeLabel(text: "\(ToastStorage.shared.maxCount)", fontSize: 12, weight: .medium, color: .secondaryLabelColor)
-        maxCountLabel.frame = NSRect(x: width - LayoutMetrics.horizontalMargin - 30, y: y, width: 30, height: LayoutMetrics.rowHeight)
         maxCountLabel.alignment = .right
-        contentView.addSubview(maxCountLabel)
-        y += LayoutMetrics.rowHeight + 10
+        pin(maxCountLabel); h(maxCountLabel, M.rowHeight)
+        maxCountLabel.topAnchor.constraint(equalTo: maxCountRow.topAnchor).isActive = true
+        maxCountLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -M.horizontalMargin).isActive = true
+        maxCountLabel.widthAnchor.constraint(equalToConstant: 30).isActive = true
 
+        // Position row
         let posLabel = makeLabel(text: NSLocalizedString("Position", comment: "Toast debug position label"), fontSize: 12, weight: .regular, color: .labelColor)
-        posLabel.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: LayoutMetrics.labelColumnWidth, height: LayoutMetrics.rowHeight)
-        contentView.addSubview(posLabel)
+        pin(posLabel); h(posLabel, M.rowHeight)
+        posLabel.topAnchor.constraint(equalTo: maxCountRow.bottomAnchor, constant: 10).isActive = true
+        posLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin).isActive = true
+        posLabel.widthAnchor.constraint(equalToConstant: M.labelColumnWidth).isActive = true
 
-        positionStatusLabel = makeLabel(
-            text: "",
-            fontSize: 11,
-            weight: .medium,
-            color: .secondaryLabelColor
-        )
-        positionStatusLabel.frame = NSRect(x: LayoutMetrics.valueColumnX, y: y, width: 120, height: LayoutMetrics.rowHeight)
-        contentView.addSubview(positionStatusLabel)
-        refreshPositionStatus()
-        y += LayoutMetrics.rowHeight + 6
+        positionStatusLabel = makeLabel(text: "", fontSize: 11, weight: .medium, color: .secondaryLabelColor)
+        pin(positionStatusLabel); h(positionStatusLabel, M.rowHeight)
+        positionStatusLabel.topAnchor.constraint(equalTo: posLabel.topAnchor).isActive = true
+        positionStatusLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.valueColumnX).isActive = true
+        positionStatusLabel.widthAnchor.constraint(equalToConstant: 120).isActive = true
 
-        let resetBtn = NSButton(frame: NSRect(x: LayoutMetrics.valueColumnX, y: y, width: 86, height: LayoutMetrics.resetButtonHeight))
-        resetBtn.title = NSLocalizedString("Reset", comment: "Toast debug reset position button")
-        resetBtn.bezelStyle = .rounded
-        resetBtn.font = NSFont.systemFont(ofSize: 11)
-        resetBtn.target = self
-        resetBtn.action = #selector(resetPosition)
-        contentView.addSubview(resetBtn)
-        y += LayoutMetrics.resetButtonHeight + LayoutMetrics.sectionSpacing
+        // Reset button
+        let resetBtn = NSButton(title: NSLocalizedString("Reset", comment: "Toast debug reset position button"), target: self, action: #selector(resetPosition))
+        resetBtn.bezelStyle = .rounded; resetBtn.font = NSFont.systemFont(ofSize: 11)
+        pin(resetBtn); h(resetBtn, M.resetButtonHeight)
+        resetBtn.topAnchor.constraint(equalTo: posLabel.bottomAnchor, constant: 6).isActive = true
+        resetBtn.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.valueColumnX).isActive = true
+        resetBtn.widthAnchor.constraint(equalToConstant: 86).isActive = true
 
-        y = placeSectionHeader(in: contentView, title: NSLocalizedString("SEND TOAST", comment: "Toast debug section header"), y: y, width: contentWidth)
+        // --- SEND TOAST ---
+        let sendHeader = makeLabel(text: NSLocalizedString("SEND TOAST", comment: "Toast debug section header"), fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
+        pin(sendHeader); lr(sendHeader); h(sendHeader, 14)
+        sendHeader.topAnchor.constraint(equalTo: resetBtn.bottomAnchor, constant: M.sectionSpacing).isActive = true
 
+        // Duration row
         let durLabel = makeLabel(text: NSLocalizedString("Duration", comment: "Toast debug duration label"), fontSize: 12, weight: .regular, color: .labelColor)
-        durLabel.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: 60, height: LayoutMetrics.rowHeight)
-        contentView.addSubview(durLabel)
+        pin(durLabel); h(durLabel, M.rowHeight)
+        durLabel.topAnchor.constraint(equalTo: sendHeader.bottomAnchor, constant: 8).isActive = true
+        durLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin).isActive = true
+        durLabel.widthAnchor.constraint(equalToConstant: 60).isActive = true
 
-        durationSlider = NSSlider(frame: NSRect(x: LayoutMetrics.horizontalMargin + 80, y: y, width: 240, height: LayoutMetrics.rowHeight))
-        durationSlider.minValue = 0.5
-        durationSlider.maxValue = 10.0
-        durationSlider.doubleValue = 2.5
-        durationSlider.target = self
-        durationSlider.action = #selector(durationChanged)
-        contentView.addSubview(durationSlider)
+        durationSlider = NSSlider()
+        durationSlider.minValue = 0.5; durationSlider.maxValue = 10.0; durationSlider.doubleValue = 2.5
+        durationSlider.target = self; durationSlider.action = #selector(durationChanged)
+        pin(durationSlider); h(durationSlider, M.rowHeight)
+        durationSlider.topAnchor.constraint(equalTo: durLabel.topAnchor).isActive = true
+        durationSlider.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin + 80).isActive = true
+        durationSlider.widthAnchor.constraint(equalToConstant: 240).isActive = true
 
         durationLabel = makeLabel(text: "2.5s", fontSize: 12, weight: .medium, color: .secondaryLabelColor)
-        durationLabel.frame = NSRect(x: width - LayoutMetrics.horizontalMargin - 50, y: y, width: 50, height: LayoutMetrics.rowHeight)
         durationLabel.alignment = .right
-        contentView.addSubview(durationLabel)
-        y += LayoutMetrics.rowHeight + 8
+        pin(durationLabel); h(durationLabel, M.rowHeight)
+        durationLabel.topAnchor.constraint(equalTo: durLabel.topAnchor).isActive = true
+        durationLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -M.horizontalMargin).isActive = true
+        durationLabel.widthAnchor.constraint(equalToConstant: 50).isActive = true
 
-        showsIconCheckbox = NSButton(
-            checkboxWithTitle: NSLocalizedString("Show Icon", comment: "Toast debug show icon checkbox"),
-            target: self,
-            action: #selector(showsIconChanged(_:))
-        )
-        showsIconCheckbox.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: contentWidth, height: LayoutMetrics.rowHeight)
+        // Checkboxes
+        showsIconCheckbox = NSButton(checkboxWithTitle: NSLocalizedString("Show Icon", comment: "Toast debug show icon checkbox"), target: self, action: #selector(showsIconChanged(_:)))
         showsIconCheckbox.font = NSFont.systemFont(ofSize: 12)
         showsIconCheckbox.state = ToastStorage.shared.showsIcon ? .on : .off
-        contentView.addSubview(showsIconCheckbox)
-        y += LayoutMetrics.rowHeight + 8
+        pin(showsIconCheckbox); lr(showsIconCheckbox); h(showsIconCheckbox, M.rowHeight)
+        showsIconCheckbox.topAnchor.constraint(equalTo: durLabel.bottomAnchor, constant: 8).isActive = true
 
         useCustomIconCheckbox = NSButton(checkboxWithTitle: NSLocalizedString("Custom Icon (app icon)", comment: "Toast debug custom icon checkbox"), target: nil, action: nil)
-        useCustomIconCheckbox.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: contentWidth, height: LayoutMetrics.rowHeight)
         useCustomIconCheckbox.font = NSFont.systemFont(ofSize: 12)
-        contentView.addSubview(useCustomIconCheckbox)
-        y += LayoutMetrics.rowHeight + 10
+        pin(useCustomIconCheckbox); lr(useCustomIconCheckbox); h(useCustomIconCheckbox, M.rowHeight)
+        useCustomIconCheckbox.topAnchor.constraint(equalTo: showsIconCheckbox.bottomAnchor, constant: 8).isActive = true
 
-        showsAccentRibbonCheckbox = NSButton(
-            checkboxWithTitle: NSLocalizedString("Ribbon", comment: "Toast debug accent indicator checkbox"),
-            target: self,
-            action: #selector(showsAccentRibbonChanged(_:))
-        )
-        showsAccentRibbonCheckbox.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: contentWidth, height: LayoutMetrics.rowHeight)
+        showsAccentRibbonCheckbox = NSButton(checkboxWithTitle: NSLocalizedString("Ribbon", comment: "Toast debug accent indicator checkbox"), target: self, action: #selector(showsAccentRibbonChanged(_:)))
         showsAccentRibbonCheckbox.font = NSFont.systemFont(ofSize: 12)
         showsAccentRibbonCheckbox.state = ToastStorage.shared.showsAccentIndicator ? .on : .off
-        contentView.addSubview(showsAccentRibbonCheckbox)
-        y += LayoutMetrics.rowHeight + 14
+        pin(showsAccentRibbonCheckbox); lr(showsAccentRibbonCheckbox); h(showsAccentRibbonCheckbox, M.rowHeight)
+        showsAccentRibbonCheckbox.topAnchor.constraint(equalTo: useCustomIconCheckbox.bottomAnchor, constant: 10).isActive = true
 
-        messageField = NSTextField(frame: NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: contentWidth, height: LayoutMetrics.fieldHeight))
+        // Message field
+        messageField = NSTextField()
         messageField.stringValue = NSLocalizedString("Hello, this is a toast message", comment: "Toast debug default message")
         messageField.placeholderString = NSLocalizedString("Enter toast message...", comment: "Toast debug message placeholder")
-        contentView.addSubview(messageField)
-        y += LayoutMetrics.fieldHeight + 10
+        pin(messageField); lr(messageField); h(messageField, M.fieldHeight)
+        messageField.topAnchor.constraint(equalTo: showsAccentRibbonCheckbox.bottomAnchor, constant: 14).isActive = true
 
+        // Style buttons (4 columns)
         let styles: [(String, Toast.Style)] = [
             (NSLocalizedString("ℹ️ Info", comment: "Toast debug style button"), .info),
             (NSLocalizedString("✅ Success", comment: "Toast debug style button"), .success),
             (NSLocalizedString("⚠️ Warning", comment: "Toast debug style button"), .warning),
             (NSLocalizedString("❌ Error", comment: "Toast debug style button"), .error),
         ]
-        let buttonWidth = (contentWidth - CGFloat(styles.count - 1) * 6) / CGFloat(styles.count)
+        let buttonWidth = (cw - CGFloat(styles.count - 1) * 6) / CGFloat(styles.count)
         styleButtons = []
+        var prevStyleBtn: NSButton? = nil
         for (index, (title, _)) in styles.enumerated() {
-            let button = NSButton(
-                frame: NSRect(
-                    x: LayoutMetrics.horizontalMargin + CGFloat(index) * (buttonWidth + 6),
-                    y: y,
-                    width: buttonWidth,
-                    height: LayoutMetrics.buttonHeight
-                )
-            )
-            button.title = title
-            button.bezelStyle = .rounded
-            button.font = NSFont.systemFont(ofSize: 11)
-            button.tag = index
-            button.target = self
-            button.action = #selector(styleSelected(_:))
+            let button = NSButton(title: title, target: self, action: #selector(styleSelected(_:)))
+            button.bezelStyle = .rounded; button.font = NSFont.systemFont(ofSize: 11); button.tag = index
             if index == 0 { button.state = .on }
-            contentView.addSubview(button)
+            pin(button); h(button, M.buttonHeight)
+            button.topAnchor.constraint(equalTo: messageField.bottomAnchor, constant: 10).isActive = true
+            button.widthAnchor.constraint(equalToConstant: buttonWidth).isActive = true
+            if let prev = prevStyleBtn {
+                button.leadingAnchor.constraint(equalTo: prev.trailingAnchor, constant: 6).isActive = true
+            } else {
+                button.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin).isActive = true
+            }
             styleButtons.append(button)
+            prevStyleBtn = button
         }
-        y += LayoutMetrics.buttonHeight + LayoutMetrics.sectionSpacing
+        let styleRow = styleButtons.first!  // reference for next section
 
-        y = placeSectionHeader(in: contentView, title: NSLocalizedString("SCENARIO TESTS", comment: "Toast debug section header"), y: y, width: contentWidth)
+        // --- SCENARIO TESTS ---
+        let testHeader = makeLabel(text: NSLocalizedString("SCENARIO TESTS", comment: "Toast debug section header"), fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
+        pin(testHeader); lr(testHeader); h(testHeader, 14)
+        testHeader.topAnchor.constraint(equalTo: styleRow.bottomAnchor, constant: M.sectionSpacing).isActive = true
 
         let tests: [(String, String, Selector)] = [
-            (NSLocalizedString("🎨 All Styles", comment: "Toast debug quick test title"),
-             NSLocalizedString("Show each style", comment: "Toast debug quick test subtitle"),
-             #selector(testAllStyles)),
-            (NSLocalizedString("📚 Stack Test", comment: "Toast debug quick test title"),
-             NSLocalizedString("Fill to max count", comment: "Toast debug quick test subtitle"),
-             #selector(testStackFill)),
-            (NSLocalizedString("🔁 Overflow", comment: "Toast debug quick test title"),
-             NSLocalizedString("Exceed max, test eviction", comment: "Toast debug quick test subtitle"),
-             #selector(testOverflow)),
-            (NSLocalizedString("🔇 Dedup", comment: "Toast debug quick test title"),
-             NSLocalizedString("Rapid same message", comment: "Toast debug quick test subtitle"),
-             #selector(testDedup)),
-            (NSLocalizedString("📏 Long Text", comment: "Toast debug quick test title"),
-             NSLocalizedString("Truncation test", comment: "Toast debug quick test subtitle"),
-             #selector(testLongText)),
-            (NSLocalizedString("🧹 Dismiss All", comment: "Toast debug quick test title"),
-             NSLocalizedString("Clear all toasts", comment: "Toast debug quick test subtitle"),
-             #selector(testDismissAll)),
+            (NSLocalizedString("🎨 All Styles", comment: ""), NSLocalizedString("Show each style", comment: ""), #selector(testAllStyles)),
+            (NSLocalizedString("📚 Stack Test", comment: ""), NSLocalizedString("Fill to max count", comment: ""), #selector(testStackFill)),
+            (NSLocalizedString("🔁 Overflow", comment: ""), NSLocalizedString("Exceed max, test eviction", comment: ""), #selector(testOverflow)),
+            (NSLocalizedString("🔇 Dedup", comment: ""), NSLocalizedString("Rapid same message", comment: ""), #selector(testDedup)),
+            (NSLocalizedString("📏 Long Text", comment: ""), NSLocalizedString("Truncation test", comment: ""), #selector(testLongText)),
+            (NSLocalizedString("🧹 Dismiss All", comment: ""), NSLocalizedString("Clear all toasts", comment: ""), #selector(testDismissAll)),
         ]
         let gridCols = 2
-        let cellWidth = (contentWidth - LayoutMetrics.gridColumnSpacing) / CGFloat(gridCols)
+        let cellWidth = (cw - M.gridColumnSpacing) / CGFloat(gridCols)
+        var lastRowButtons: [NSButton] = []
         for (index, (title, subtitle, action)) in tests.enumerated() {
-            let column = index % gridCols
+            let col = index % gridCols
             let row = index / gridCols
-            let cellY = y + CGFloat(row) * (LayoutMetrics.gridCellHeight + LayoutMetrics.gridCellSpacing)
-            let button = NSButton(
-                frame: NSRect(
-                    x: LayoutMetrics.horizontalMargin + CGFloat(column) * (cellWidth + LayoutMetrics.gridColumnSpacing),
-                    y: cellY,
-                    width: cellWidth,
-                    height: LayoutMetrics.gridCellHeight
-                )
-            )
-            button.title = "\(title)\n\(subtitle)"
-            button.bezelStyle = .rounded
-            button.font = NSFont.systemFont(ofSize: 11)
-            button.target = self
-            button.action = action
-            contentView.addSubview(button)
+            let button = NSButton(title: "\(title)\n\(subtitle)", target: self, action: action)
+            button.bezelStyle = .rounded; button.font = NSFont.systemFont(ofSize: 11)
+            pin(button)
+            button.widthAnchor.constraint(equalToConstant: cellWidth).isActive = true
+            button.heightAnchor.constraint(equalToConstant: M.gridCellHeight).isActive = true
+            let xOffset = M.horizontalMargin + CGFloat(col) * (cellWidth + M.gridColumnSpacing)
+            button.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: xOffset).isActive = true
+            if row == 0 {
+                button.topAnchor.constraint(equalTo: testHeader.bottomAnchor, constant: 8).isActive = true
+            } else {
+                // Find the button directly above (same column, previous row)
+                let aboveIdx = (row - 1) * gridCols + col
+                if aboveIdx < index {
+                    // Get the button view — we need to track them
+                }
+                // Use row calculation
+                let topOffset: CGFloat = 8 + CGFloat(row) * (M.gridCellHeight + M.gridCellSpacing)
+                button.topAnchor.constraint(equalTo: testHeader.bottomAnchor, constant: topOffset).isActive = true
+            }
+            if row == (tests.count - 1) / gridCols { lastRowButtons.append(button) }
         }
 
-        let rowCount = Int(ceil(Double(tests.count) / Double(gridCols)))
-        y += CGFloat(rowCount) * LayoutMetrics.gridCellHeight
-        y += CGFloat(max(0, rowCount - 1)) * LayoutMetrics.gridCellSpacing
-        y += LayoutMetrics.bottomPadding
-    }
-
-    private func calculatedContentHeight(topInset: CGFloat) -> CGFloat {
-        let sectionHeaderHeight: CGFloat = 14 + 8
-        let headerHeight = topInset
-            + LayoutMetrics.titleHeight + 2
-            + LayoutMetrics.subtitleHeight + LayoutMetrics.sectionSpacing
-        let configurationHeight = sectionHeaderHeight
-            + LayoutMetrics.rowHeight + 10
-            + LayoutMetrics.rowHeight + 6
-            + LayoutMetrics.resetButtonHeight + LayoutMetrics.sectionSpacing
-        let sendToastHeight = sectionHeaderHeight
-            + LayoutMetrics.rowHeight + 8
-            + LayoutMetrics.rowHeight + 8
-            + LayoutMetrics.rowHeight + 10
-            + LayoutMetrics.rowHeight + 14
-            + LayoutMetrics.fieldHeight + 10
-            + LayoutMetrics.buttonHeight + LayoutMetrics.sectionSpacing
-        let quickTestsRowCount: CGFloat = 3
-        let quickTestsHeight = sectionHeaderHeight
-            + quickTestsRowCount * LayoutMetrics.gridCellHeight
-            + (quickTestsRowCount - 1) * LayoutMetrics.gridCellSpacing
-        return headerHeight
-            + configurationHeight
-            + sendToastHeight
-            + quickTestsHeight
-            + LayoutMetrics.bottomPadding
+        // Bottom constraint — last row of test buttons + padding = bottom
+        if let lastBtn = lastRowButtons.first {
+            lastBtn.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -M.bottomPadding).isActive = true
+        }
     }
 
     private func resolvedTopInset(for panel: NSPanel) -> CGFloat {
         let titlebarHeight = panel.frame.height - panel.contentLayoutRect.height
         return max(LayoutMetrics.topPadding, titlebarHeight + 10)
-    }
-
-    // MARK: - Layout Helpers
-
-    private func placeSectionHeader(in parent: NSView, title: String, y: CGFloat, width: CGFloat) -> CGFloat {
-        let headerH: CGFloat = 14
-        let label = makeLabel(text: title, fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
-        label.frame = NSRect(x: LayoutMetrics.horizontalMargin, y: y, width: width, height: headerH)
-        parent.addSubview(label)
-        return y + headerH + 8
     }
 
     private func makeLabel(text: String, fontSize: CGFloat, weight: NSFont.Weight, color: NSColor) -> NSTextField {
@@ -576,11 +543,5 @@ class ToastPanel: NSObject {
             ? NSLocalizedString("Saved", comment: "Toast position saved status")
             : NSLocalizedString("Default", comment: "Toast position default status")
         positionStatusLabel.textColor = hasCustomPosition ? positionStatusActiveColor : .secondaryLabelColor
-    }
-}
-
-private final class ToastPanelContentView: NSView {
-    override var isFlipped: Bool {
-        return true
     }
 }

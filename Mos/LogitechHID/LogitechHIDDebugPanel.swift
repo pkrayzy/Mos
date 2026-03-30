@@ -326,71 +326,70 @@ class LogitechHIDDebugPanel: NSObject {
         return max(L.pad, titlebarH + 4)
     }
 
-    private func buildContent(in container: NSView, topInset: CGFloat) {
-        let contentView = FlippedView(frame: container.bounds)
-        contentView.autoresizingMask = [.width, .height]
-        container.addSubview(contentView)
-
-        let mainX = L.sidebarWidth + L.gap
-        let mainW = container.bounds.width - mainX
-        let bodyH = container.bounds.height - topInset
-
-        buildSidebar(in: contentView, x: 0, y: topInset, width: L.sidebarWidth, height: bodyH)
-
-        // Use NSSplitView for top/log to properly handle resize
-        let splitView = NSSplitView(frame: NSRect(x: mainX, y: topInset, width: mainW, height: bodyH))
-        splitView.isVertical = false
-        splitView.dividerStyle = .thin
-        splitView.autoresizingMask = [.width, .height]
-        contentView.addSubview(splitView)
-
-        let topH = bodyH * L.topRatio
-        let logH = bodyH - topH - 1 // 1px for divider
-
-        let topContainer = FlippedView(frame: NSRect(x: 0, y: 0, width: mainW, height: topH))
-        topContainer.autoresizingMask = [.width, .height]
-        buildTopArea(in: topContainer, x: 0, y: 0, width: mainW, height: topH)
-        splitView.addSubview(topContainer)
-
-        let logContainer = FlippedView(frame: NSRect(x: 0, y: 0, width: mainW, height: logH))
-        logContainer.autoresizingMask = [.width, .height]
-        buildLogArea(in: logContainer, x: 0, y: 0, width: mainW, height: logH)
-        splitView.addSubview(logContainer)
-
-        splitView.adjustSubviews()
-    }
-
-    // Flipped coordinate view: y=0 at top, increases downward
+    // Flipped view for containers with manually-positioned dynamic content
     private final class FlippedView: NSView {
         override var isFlipped: Bool { return true }
     }
+    // Flipped NSSplitView so first subview = top
+    private final class TopFirstSplitView: NSSplitView {
+        override var isFlipped: Bool { return true }
+    }
 
-    // MARK: - Build Sidebar
+    // MARK: - Build Content (Auto Layout)
 
-    private func buildSidebar(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        let container = FlippedView(frame: NSRect(x: x, y: y, width: width, height: height))
-        container.autoresizingMask = [.height]
-        parent.addSubview(container)
+    private func buildContent(in container: NSView, topInset: CGFloat) {
+        // --- Sidebar ---
+        let sidebar = NSView()
+        sidebar.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(sidebar)
+        buildSidebar(in: sidebar)
 
+        // --- Main split: top area / log area ---
+        let split = TopFirstSplitView()
+        split.isVertical = false
+        split.dividerStyle = .thin
+        split.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(split)
+
+        NSLayoutConstraint.activate([
+            sidebar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            sidebar.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
+            sidebar.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            sidebar.widthAnchor.constraint(equalToConstant: L.sidebarWidth),
+
+            split.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: L.gap),
+            split.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
+            split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            split.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
+        // NSSplitView subviews — managed by split, NOT by constraints
+        let topContainer = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 280))
+        buildTopArea(in: topContainer)
+        split.addSubview(topContainer)
+
+        let logContainer = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 420))
+        buildLogArea(in: logContainer)
+        split.addSubview(logContainer)
+    }
+
+    // MARK: - Build Sidebar (Auto Layout)
+
+    private func buildSidebar(in sidebar: NSView) {
         let bg = makeSectionBg()
-        bg.frame = container.bounds
-        bg.autoresizingMask = [.width, .height]
-        container.addSubview(bg)
-
-        var cy: CGFloat = L.pad
+        bg.translatesAutoresizingMaskIntoConstraints = false
+        sidebar.addSubview(bg)
 
         let header = makeSectionHeader("DEVICES")
-        header.frame = NSRect(x: L.pad, y: cy, width: width - L.pad * 2, height: L.sectionHdrH)
-        container.addSubview(header)
-        cy += L.sectionHdrH
+        header.translatesAutoresizingMaskIntoConstraints = false
+        sidebar.addSubview(header)
 
-        // Device tree takes available space between header and device info
-        let treeH = height - cy - L.devInfoH - 1
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: cy, width: width, height: max(treeH, 40)))
-        scrollView.autoresizingMask = [.height]
-        scrollView.hasVerticalScroller = true
-        scrollView.borderType = .noBorder
-        scrollView.drawsBackground = false
+        let treeScroll = NSScrollView()
+        treeScroll.translatesAutoresizingMaskIntoConstraints = false
+        treeScroll.hasVerticalScroller = true
+        treeScroll.borderType = .noBorder
+        treeScroll.drawsBackground = false
+        sidebar.addSubview(treeScroll)
 
         let outline = NSOutlineView()
         outline.headerView = nil
@@ -406,59 +405,71 @@ class LogitechHIDDebugPanel: NSObject {
         outline.dataSource = self
         outline.target = self
         outline.action = #selector(outlineViewClicked(_:))
-        scrollView.documentView = outline
-        container.addSubview(scrollView)
+        treeScroll.documentView = outline
         self.outlineView = outline
 
-        // Device info at the bottom — use a scrollable area
-        let infoY = height - L.devInfoH
         let sep = makeSep()
-        sep.frame = NSRect(x: L.pad, y: infoY - 1, width: width - L.pad * 2, height: 1)
-        sep.autoresizingMask = [.minYMargin]
-        container.addSubview(sep)
+        sep.translatesAutoresizingMaskIntoConstraints = false
+        sidebar.addSubview(sep)
 
-        buildDeviceInfoArea(in: container, y: infoY, width: width, height: L.devInfoH)
-    }
+        let infoScroll = NSScrollView()
+        infoScroll.translatesAutoresizingMaskIntoConstraints = false
+        infoScroll.hasVerticalScroller = true
+        infoScroll.borderType = .noBorder
+        infoScroll.drawsBackground = false
+        sidebar.addSubview(infoScroll)
 
-    private func buildDeviceInfoArea(in parent: NSView, y: CGFloat, width: CGFloat, height: CGFloat) {
-        // Scrollable device info area to handle overflow
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: y, width: width, height: height))
-        scrollView.autoresizingMask = [.minYMargin]
-        scrollView.hasVerticalScroller = true
-        scrollView.borderType = .noBorder
-        scrollView.drawsBackground = false
+        NSLayoutConstraint.activate([
+            bg.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
+            bg.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
+            bg.topAnchor.constraint(equalTo: sidebar.topAnchor),
+            bg.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
 
+            header.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: L.pad),
+            header.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -L.pad),
+            header.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: L.pad),
+            header.heightAnchor.constraint(equalToConstant: L.sectionHdrH),
+
+            treeScroll.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
+            treeScroll.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
+            treeScroll.topAnchor.constraint(equalTo: header.bottomAnchor),
+            treeScroll.bottomAnchor.constraint(equalTo: sep.topAnchor),
+
+            sep.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: L.pad),
+            sep.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -L.pad),
+            sep.heightAnchor.constraint(equalToConstant: 1),
+            sep.bottomAnchor.constraint(equalTo: infoScroll.topAnchor),
+
+            infoScroll.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
+            infoScroll.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
+            infoScroll.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
+            infoScroll.heightAnchor.constraint(equalToConstant: L.devInfoH),
+        ])
+
+        // Device info content (manual layout inside scroll document view)
         let allKeys = ["VID", "PID", "Protocol", "Transport", "Dev Index", "Conn Mode", "Opened",
                         "UsagePage", "Usage", "HID++ Cand", "Init Done", "Dvrt CIDs"]
         let contentH: CGFloat = CGFloat(allKeys.count) * 16 + L.pad
-        let infoContent = FlippedView(frame: NSRect(x: 0, y: 0, width: width, height: contentH))
-
+        let infoDoc = FlippedView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: contentH))
         var iy: CGFloat = L.pad
         let keyW: CGFloat = 65
         let valX: CGFloat = keyW + 4
-
         deviceInfoLabels.removeAll()
         moreInfoLabels.removeAll()
-
         for (i, keyText) in allKeys.enumerated() {
             let kl = makeLabel(text: keyText, fontSize: 9, weight: .medium, color: .tertiaryLabelColor)
             kl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
             kl.frame = NSRect(x: L.pad, y: iy, width: keyW, height: 14)
-            infoContent.addSubview(kl)
+            infoDoc.addSubview(kl)
             let vl = makeLabel(text: "--", fontSize: 9, color: .secondaryLabelColor)
             vl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
-            vl.frame = NSRect(x: valX, y: iy, width: width - valX - L.pad, height: 14)
-            infoContent.addSubview(vl)
-            if i < 7 {
-                deviceInfoLabels.append((key: kl, value: vl))
-            } else {
-                moreInfoLabels.append((key: kl, value: vl))
-            }
+            vl.frame = NSRect(x: valX, y: iy, width: L.sidebarWidth - valX - L.pad, height: 14)
+            infoDoc.addSubview(vl)
+            if i < 7 { deviceInfoLabels.append((key: kl, value: vl)) }
+            else { moreInfoLabels.append((key: kl, value: vl)) }
             iy += 16
         }
-
-        scrollView.documentView = infoContent
-        parent.addSubview(scrollView)
+        infoScroll.documentView = infoDoc
     }
 
     @objc private func outlineViewClicked(_ sender: Any?) {
@@ -483,155 +494,169 @@ class LogitechHIDDebugPanel: NSObject {
         }
     }
 
-    // MARK: - Build Top Area
+    // MARK: - Build Top Area (Auto Layout)
 
-    private func buildTopArea(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        let container = FlippedView(frame: NSRect(x: x, y: y, width: width, height: height))
-        container.autoresizingMask = [.width, .height]
-        parent.addSubview(container)
+    private func buildTopArea(in parent: NSView) {
+        let fCol = NSView()
+        let cCol = NSView()
+        let aCol = NSView()
+        for v in [fCol, cCol, aCol] { v.translatesAutoresizingMaskIntoConstraints = false; parent.addSubview(v) }
 
-        let actionsX = width - L.actionsWidth
-        let tableW = actionsX - L.gap
-        let halfW = (tableW - L.gap) / 2
+        NSLayoutConstraint.activate([
+            // Feature column: left, top, bottom
+            fCol.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            fCol.topAnchor.constraint(equalTo: parent.topAnchor),
+            fCol.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+            // Controls column: after features, same top/bottom, same width
+            cCol.leadingAnchor.constraint(equalTo: fCol.trailingAnchor, constant: L.gap),
+            cCol.topAnchor.constraint(equalTo: parent.topAnchor),
+            cCol.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+            cCol.widthAnchor.constraint(equalTo: fCol.widthAnchor),
+            // Actions column: after controls, right edge, fixed width
+            aCol.leadingAnchor.constraint(equalTo: cCol.trailingAnchor, constant: L.gap),
+            aCol.topAnchor.constraint(equalTo: parent.topAnchor),
+            aCol.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+            aCol.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            aCol.widthAnchor.constraint(equalToConstant: L.actionsWidth),
+        ])
 
-        buildFeatureTable(in: container, x: 0, y: 0, width: halfW, height: height)
-        buildControlsTable(in: container, x: halfW + L.gap, y: 0, width: halfW, height: height)
-        buildActionsPanel(in: container, x: actionsX, y: 0, width: L.actionsWidth, height: height)
+        buildTableColumn(in: fCol, headerTag: 100, headerText: "FEATURES (0)", tableTag: 200,
+                          columns: [("fIdx", 36), ("fId", 50), ("fName", 0)],
+                          action: #selector(featureTableClicked(_:)), isFeature: true)
+        buildTableColumn(in: cCol, headerTag: 101, headerText: "CONTROLS (0)", tableTag: 201,
+                          columns: [("cCid", 50), ("cName", 0), ("cFlags", 40), ("cStatus", 50)],
+                          action: #selector(controlsTableClicked(_:)), isFeature: false)
+        buildActionsPanel(in: aCol)
     }
 
-    private func buildFeatureTable(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+    /// Build a table column section: bg + header + scrollView with table
+    private func buildTableColumn(in parent: NSView, headerTag: Int, headerText: String,
+                                   tableTag: Int, columns: [(String, CGFloat)],
+                                   action: Selector, isFeature: Bool) {
         let bg = makeSectionBg()
-        bg.frame = NSRect(x: x, y: y, width: width, height: height)
-        bg.autoresizingMask = [.width, .height]
+        bg.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(bg)
 
-        let header = makeSectionHeader("FEATURES (0)")
-        header.frame = NSRect(x: x + L.pad, y: y + 4, width: width - L.pad * 2, height: 16)
-        header.tag = 100
+        let header = makeSectionHeader(headerText)
+        header.translatesAutoresizingMaskIntoConstraints = false
+        header.tag = headerTag
         parent.addSubview(header)
 
-        let tableY = y + L.sectionHdrH
-        let sv = NSScrollView(frame: NSRect(x: x, y: tableY, width: width, height: height - L.sectionHdrH))
-        sv.autoresizingMask = [.width, .height]
+        let sv = NSScrollView()
+        sv.translatesAutoresizingMaskIntoConstraints = false
         sv.hasVerticalScroller = true
         sv.borderType = .noBorder
         sv.drawsBackground = false
+        parent.addSubview(sv)
+
+        NSLayoutConstraint.activate([
+            bg.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            bg.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            bg.topAnchor.constraint(equalTo: parent.topAnchor),
+            bg.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+
+            header.leadingAnchor.constraint(equalTo: parent.leadingAnchor, constant: L.pad),
+            header.trailingAnchor.constraint(equalTo: parent.trailingAnchor, constant: -L.pad),
+            header.topAnchor.constraint(equalTo: parent.topAnchor, constant: 4),
+            header.heightAnchor.constraint(equalToConstant: 16),
+
+            sv.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            sv.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            sv.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2),
+            sv.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+        ])
 
         let table = NSTableView()
         table.backgroundColor = .clear
         table.headerView = nil
         table.selectionHighlightStyle = .regular
         table.rowHeight = 20
-        table.tag = 200
+        table.tag = tableTag
         table.delegate = self
         table.dataSource = self
         table.target = self
-        table.action = #selector(featureTableClicked(_:))
+        table.action = action
+        table.columnAutoresizingStyle = isFeature ? .lastColumnOnlyAutoresizingStyle : .uniformColumnAutoresizingStyle
 
-        for (id, w) in [("fIdx", CGFloat(36)), ("fId", CGFloat(50)), ("fName", CGFloat(0))] {
-            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            col.width = w > 0 ? w : 100
-            if w == 0 { col.resizingMask = .autoresizingMask }
-            table.addTableColumn(col)
+        for (id, w) in columns {
+            let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            if w > 0 { c.width = w; c.resizingMask = isFeature ? [] : [] }
+            else { c.width = 100; c.resizingMask = .autoresizingMask }
+            table.addTableColumn(c)
         }
-
         sv.documentView = table
-        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         table.sizeLastColumnToFit()
-        parent.addSubview(sv)
-        self.featureTableView = table
+
+        if isFeature { self.featureTableView = table }
+        else { self.controlsTableView = table }
     }
 
-    private func buildControlsTable(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+    // MARK: - Actions Panel (Auto Layout)
+
+    private func buildActionsPanel(in parent: NSView) {
         let bg = makeSectionBg()
-        bg.frame = NSRect(x: x, y: y, width: width, height: height)
-        bg.autoresizingMask = [.width, .height]
-        parent.addSubview(bg)
-
-        let header = makeSectionHeader("CONTROLS (0)")
-        header.frame = NSRect(x: x + L.pad, y: y + 4, width: width - L.pad * 2, height: 16)
-        header.tag = 101
-        parent.addSubview(header)
-
-        let tableY = y + L.sectionHdrH
-        let sv = NSScrollView(frame: NSRect(x: x, y: tableY, width: width, height: height - L.sectionHdrH))
-        sv.autoresizingMask = [.width, .height]
-        sv.hasVerticalScroller = true
-        sv.borderType = .noBorder
-        sv.drawsBackground = false
-
-        let table = NSTableView()
-        table.backgroundColor = .clear
-        table.headerView = nil
-        table.selectionHighlightStyle = .regular
-        table.rowHeight = 20
-        table.tag = 201
-        table.delegate = self
-        table.dataSource = self
-        table.target = self
-        table.action = #selector(controlsTableClicked(_:))
-
-        for (id, w) in [("cCid", CGFloat(50)), ("cName", CGFloat(0)), ("cFlags", CGFloat(40)), ("cStatus", CGFloat(50))] {
-            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            if w > 0 {
-                col.width = w
-                col.resizingMask = [] // fixed width
-            } else {
-                col.width = 100
-                col.resizingMask = .autoresizingMask
-            }
-            table.addTableColumn(col)
-        }
-
-        sv.documentView = table
-        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
-        table.sizeLastColumnToFit()
-        parent.addSubview(sv)
-        self.controlsTableView = table
-    }
-
-    private func buildActionsPanel(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        let bg = makeSectionBg()
-        bg.frame = NSRect(x: x, y: y, width: width, height: height)
-        bg.autoresizingMask = [.width, .height]
+        bg.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(bg)
 
         let header = makeSectionHeader("ACTIONS")
-        header.frame = NSRect(x: x + L.pad, y: y + 4, width: width - L.pad * 2, height: 16)
+        header.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(header)
 
-        let ctxY = y + L.sectionHdrH
-        let globalH: CGFloat = CGFloat(5) * (L.btnH + L.btnGap) + L.pad * 2
-        let ctxH = height - L.sectionHdrH - globalH - 1
-        let ctxC = FlippedView(frame: NSRect(x: x, y: ctxY, width: width, height: max(ctxH, 60)))
+        let ctxC = FlippedView()
+        ctxC.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(ctxC)
         self.contextActionsContainer = ctxC
 
         let placeholder = makeLabel(text: "Select a feature\nor control", fontSize: 10, color: .tertiaryLabelColor)
-        placeholder.frame = NSRect(x: L.pad, y: L.pad, width: width - L.pad * 2, height: 40)
+        placeholder.frame = NSRect(x: L.pad, y: L.pad, width: L.actionsWidth - L.pad * 2, height: 40)
         placeholder.alignment = .center
         placeholder.maximumNumberOfLines = 2
         ctxC.addSubview(placeholder)
 
         let sep = makeSep()
-        let sepY = ctxY + ctxH
-        sep.frame = NSRect(x: x + L.pad, y: sepY, width: width - L.pad * 2, height: 1)
+        sep.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(sep)
 
-        let globalY = sepY + L.pad
-        let globalC = FlippedView(frame: NSRect(x: x, y: globalY, width: width, height: globalH))
+        let globalC = FlippedView()
+        globalC.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(globalC)
 
-        let btnW = width - L.pad * 2
+        let globalH: CGFloat = CGFloat(5) * L.btnH + CGFloat(4) * L.btnGap + L.pad
+
+        NSLayoutConstraint.activate([
+            bg.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            bg.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            bg.topAnchor.constraint(equalTo: parent.topAnchor),
+            bg.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+
+            header.leadingAnchor.constraint(equalTo: parent.leadingAnchor, constant: L.pad),
+            header.trailingAnchor.constraint(equalTo: parent.trailingAnchor, constant: -L.pad),
+            header.topAnchor.constraint(equalTo: parent.topAnchor, constant: 4),
+            header.heightAnchor.constraint(equalToConstant: 16),
+
+            ctxC.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            ctxC.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            ctxC.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2),
+            ctxC.bottomAnchor.constraint(equalTo: sep.topAnchor),
+
+            sep.leadingAnchor.constraint(equalTo: parent.leadingAnchor, constant: L.pad),
+            sep.trailingAnchor.constraint(equalTo: parent.trailingAnchor, constant: -L.pad),
+            sep.heightAnchor.constraint(equalToConstant: 1),
+
+            globalC.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            globalC.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            globalC.topAnchor.constraint(equalTo: sep.bottomAnchor, constant: L.pad),
+            globalC.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+            globalC.heightAnchor.constraint(equalToConstant: globalH),
+        ])
+
+        let btnW = L.actionsWidth - L.pad * 2
         var by: CGFloat = 0
-        let globalActions: [(String, Selector)] = [
-            ("Re-Discover", #selector(rediscoverClicked)),
-            ("Re-Divert", #selector(redivertClicked)),
-            ("Undivert All", #selector(undivertClicked)),
-            ("Enumerate", #selector(enumerateClicked)),
-            ("Clear Log", #selector(clearLogClicked)),
-        ]
-        for (title, action) in globalActions {
+        for (title, action) in [("Re-Discover", #selector(rediscoverClicked)),
+                                 ("Re-Divert", #selector(redivertClicked)),
+                                 ("Undivert All", #selector(undivertClicked)),
+                                 ("Enumerate", #selector(enumerateClicked)),
+                                 ("Clear Log", #selector(clearLogClicked))] {
             let btn = makeActionBtn(title: title, action: action)
             btn.frame = NSRect(x: L.pad, y: by, width: btnW, height: L.btnH)
             globalC.addSubview(btn)
@@ -639,23 +664,75 @@ class LogitechHIDDebugPanel: NSObject {
         }
     }
 
-    // MARK: - Build Log Area
+    // MARK: - Build Log Area (Auto Layout)
 
-    private func buildLogArea(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+    private func buildLogArea(in parent: NSView) {
         let bg = makeLogBg()
-        bg.frame = NSRect(x: x, y: y, width: width, height: height)
-        bg.autoresizingMask = [.width, .height]
+        bg.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(bg)
 
-        var cy = y + 4
-
-        // Toolbar
-        let toolbar = NSView(frame: NSRect(x: x, y: cy, width: width, height: L.logToolbarH))
-        toolbar.autoresizingMask = [.width]
+        let toolbar = NSView()
+        toolbar.translatesAutoresizingMaskIntoConstraints = false
         parent.addSubview(toolbar)
+        buildLogToolbar(in: toolbar)
 
+        let sv = NSScrollView()
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        sv.hasVerticalScroller = true
+        sv.borderType = .noBorder
+        sv.drawsBackground = false
+        parent.addSubview(sv)
+
+        let table = NSTableView()
+        table.backgroundColor = .clear
+        table.headerView = nil
+        table.selectionHighlightStyle = .none
+        table.rowHeight = 18
+        table.tag = 300
+        table.delegate = self
+        table.dataSource = self
+        table.target = self
+        table.action = #selector(logRowClicked(_:))
+        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        let logCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("log"))
+        logCol.resizingMask = .autoresizingMask
+        table.addTableColumn(logCol)
+        sv.documentView = table
+        table.sizeLastColumnToFit()
+        self.logTableView = table
+
+        let rawBar = NSView()
+        rawBar.translatesAutoresizingMaskIntoConstraints = false
+        parent.addSubview(rawBar)
+        buildRawInputBar(in: rawBar)
+
+        NSLayoutConstraint.activate([
+            bg.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            bg.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            bg.topAnchor.constraint(equalTo: parent.topAnchor),
+            bg.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+
+            toolbar.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            toolbar.topAnchor.constraint(equalTo: parent.topAnchor, constant: 4),
+            toolbar.heightAnchor.constraint(equalToConstant: L.logToolbarH),
+
+            sv.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            sv.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            sv.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            sv.bottomAnchor.constraint(equalTo: rawBar.topAnchor, constant: -4),
+
+            rawBar.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            rawBar.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            rawBar.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+            rawBar.heightAnchor.constraint(equalToConstant: L.rawInputH),
+        ])
+    }
+
+    private func buildLogToolbar(in toolbar: NSView) {
         let logLabel = makeSectionHeader("PROTOCOL LOG")
         logLabel.frame = NSRect(x: L.pad, y: 6, width: 100, height: 16)
+        logLabel.autoresizingMask = []
         toolbar.addSubview(logLabel)
 
         let chipColors: [(LogEntryType, String, NSColor)] = [
@@ -677,73 +754,49 @@ class LogitechHIDDebugPanel: NSObject {
             if #available(macOS 10.14, *) { btn.contentTintColor = color }
             btn.tag = i
             btn.frame = NSRect(x: fx, y: 4, width: 38, height: 20)
+            btn.autoresizingMask = []
             toolbar.addSubview(btn)
             filterButtons[entryType] = btn
             fx += 42
         }
 
         let clearBtn = makeActionBtn(title: "Clear", action: #selector(clearLogClicked))
-        clearBtn.frame = NSRect(x: width - 50, y: 4, width: 42, height: 20)
+        clearBtn.frame = NSRect(x: 0, y: 4, width: 42, height: 20)
         clearBtn.font = NSFont.systemFont(ofSize: 9, weight: .medium)
+        clearBtn.autoresizingMask = [.minXMargin]
         toolbar.addSubview(clearBtn)
+        // Pin to right with constraints
+        clearBtn.translatesAutoresizingMaskIntoConstraints = true
+        clearBtn.autoresizingMask = [.minXMargin]
 
         let exportBtn = makeActionBtn(title: "Export", action: #selector(exportLogClicked))
-        exportBtn.frame = NSRect(x: width - 100, y: 4, width: 46, height: 20)
+        exportBtn.frame = NSRect(x: 0, y: 4, width: 46, height: 20)
         exportBtn.font = NSFont.systemFont(ofSize: 9, weight: .medium)
+        exportBtn.autoresizingMask = [.minXMargin]
         toolbar.addSubview(exportBtn)
 
-        cy += L.logToolbarH
-
-        // Log table
-        let tableH = height - L.logToolbarH - L.rawInputH - 8
-        let sv = NSScrollView(frame: NSRect(x: x, y: cy, width: width, height: tableH))
-        sv.autoresizingMask = [.width, .height]
-        sv.hasVerticalScroller = true
-        sv.borderType = .noBorder
-        sv.drawsBackground = false
-
-        let table = NSTableView()
-        table.backgroundColor = .clear
-        table.headerView = nil
-        table.selectionHighlightStyle = .none
-        table.rowHeight = 18
-        table.tag = 300
-        table.delegate = self
-        table.dataSource = self
-        table.target = self
-        table.action = #selector(logRowClicked(_:))
-        let logCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("log"))
-        logCol.resizingMask = .autoresizingMask
-        table.addTableColumn(logCol)
-        sv.documentView = table
-        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
-        table.sizeLastColumnToFit()
-        parent.addSubview(sv)
-        self.logTableView = table
-
-        cy += tableH + 4
-
-        // Raw input bar
-        buildRawInputBar(in: parent, x: x, y: cy, width: width)
+        // Position clear/export from right using frame + autoresizingMask
+        // Will be repositioned after layout
+        toolbar.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: toolbar, queue: .main) { _ in
+            let w = toolbar.bounds.width
+            clearBtn.frame.origin.x = w - 50
+            exportBtn.frame.origin.x = w - 100
+        }
     }
 
-    private func buildRawInputBar(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat) {
-        let container = FlippedView(frame: NSRect(x: x, y: y, width: width, height: L.rawInputH))
-        container.autoresizingMask = [.width, .minYMargin]
-        parent.addSubview(container)
-
+    private func buildRawInputBar(in container: NSView) {
         let sep = makeSep()
-        sep.frame = NSRect(x: L.pad, y: 0, width: width - L.pad * 2, height: 1)
-        sep.autoresizingMask = [.width]
+        sep.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(sep)
 
         let rawLabel = makeLabel(text: "RAW:", fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
-        rawLabel.frame = NSRect(x: L.pad, y: 6, width: 35, height: 18)
+        rawLabel.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(rawLabel)
 
         let segCtrl = NSSegmentedControl(labels: ["Short 7B", "Long 20B"], trackingMode: .selectOne, target: nil, action: nil)
         segCtrl.selectedSegment = 1
-        segCtrl.frame = NSRect(x: 48, y: 5, width: 120, height: 20)
+        segCtrl.translatesAutoresizingMaskIntoConstraints = false
         segCtrl.font = NSFont.systemFont(ofSize: 9)
         container.addSubview(segCtrl)
         self.reportTypeControl = segCtrl
@@ -751,22 +804,45 @@ class LogitechHIDDebugPanel: NSObject {
         let inputField = NSTextField()
         inputField.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
         inputField.placeholderString = "11 FF 00 01 1B 04 00 ..."
-        inputField.frame = NSRect(x: 174, y: 5, width: width - 174 - 56, height: 20)
+        inputField.translatesAutoresizingMaskIntoConstraints = false
         inputField.wantsLayer = true
         inputField.layer?.cornerRadius = 3
         inputField.textColor = .labelColor
         inputField.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.06)
         inputField.isBezeled = false
-        inputField.autoresizingMask = [.width]
         container.addSubview(inputField)
         self.rawInputField = inputField
 
         let sendBtn = makeActionBtn(title: "Send", action: #selector(sendRawClicked),
                                     color: NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0))
-        sendBtn.frame = NSRect(x: width - 50, y: 5, width: 42, height: 20)
+        sendBtn.translatesAutoresizingMaskIntoConstraints = false
         sendBtn.font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        sendBtn.autoresizingMask = [.minXMargin]
         container.addSubview(sendBtn)
+
+        NSLayoutConstraint.activate([
+            sep.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: L.pad),
+            sep.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -L.pad),
+            sep.topAnchor.constraint(equalTo: container.topAnchor),
+            sep.heightAnchor.constraint(equalToConstant: 1),
+
+            rawLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: L.pad),
+            rawLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            rawLabel.widthAnchor.constraint(equalToConstant: 35),
+
+            segCtrl.leadingAnchor.constraint(equalTo: rawLabel.trailingAnchor, constant: 4),
+            segCtrl.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            segCtrl.widthAnchor.constraint(equalToConstant: 120),
+
+            inputField.leadingAnchor.constraint(equalTo: segCtrl.trailingAnchor, constant: 8),
+            inputField.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            inputField.trailingAnchor.constraint(equalTo: sendBtn.leadingAnchor, constant: -8),
+            inputField.heightAnchor.constraint(equalToConstant: 20),
+
+            sendBtn.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -L.pad),
+            sendBtn.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            sendBtn.widthAnchor.constraint(equalToConstant: 42),
+            sendBtn.heightAnchor.constraint(equalToConstant: 20),
+        ])
     }
 
     // MARK: - Table Click Handlers
@@ -1199,6 +1275,8 @@ class LogitechHIDDebugPanel: NSObject {
     private func stopObserving() {
         if let o = logObserver { NotificationCenter.default.removeObserver(o); logObserver = nil }
         if let o = sessionObserver { NotificationCenter.default.removeObserver(o); sessionObserver = nil }
+        // Layout observers (frame change) are not tracked here — they're tied to the views
+        // and auto-removed when the views are deallocated.
     }
 
     // MARK: - Helpers
