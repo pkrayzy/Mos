@@ -187,8 +187,6 @@ class LogitechHIDDebugPanel: NSObject {
     private var outlineView: NSOutlineView!
     private var deviceInfoLabels: [(key: NSTextField, value: NSTextField)] = []
     private var moreInfoLabels: [(key: NSTextField, value: NSTextField)] = []
-    private var moreInfoContainer: NSView!
-    private var moreInfoExpanded = false
 
     // MARK: - Tables
 
@@ -336,9 +334,6 @@ class LogitechHIDDebugPanel: NSObject {
         let mainX = L.sidebarWidth + L.gap
         let mainW = container.bounds.width - mainX
         let bodyH = container.bounds.height - topInset
-        let topH = bodyH * L.topRatio
-        let logY = topInset + topH + L.gap
-        let logH = bodyH - topH - L.gap
 
         buildSidebar(in: contentView, x: 0, y: topInset, width: L.sidebarWidth, height: bodyH)
 
@@ -349,17 +344,23 @@ class LogitechHIDDebugPanel: NSObject {
         splitView.autoresizingMask = [.width, .height]
         contentView.addSubview(splitView)
 
-        let topContainer = NSView(frame: NSRect(x: 0, y: 0, width: mainW, height: topH))
+        let topH = bodyH * L.topRatio
+        let logH = bodyH - topH - 1 // 1px for divider
+
+        let topContainer = FlippedView(frame: NSRect(x: 0, y: 0, width: mainW, height: topH))
+        topContainer.autoresizingMask = [.width, .height]
         buildTopArea(in: topContainer, x: 0, y: 0, width: mainW, height: topH)
         splitView.addSubview(topContainer)
 
-        let logContainer = NSView(frame: NSRect(x: 0, y: 0, width: mainW, height: logH))
+        let logContainer = FlippedView(frame: NSRect(x: 0, y: 0, width: mainW, height: logH))
+        logContainer.autoresizingMask = [.width, .height]
         buildLogArea(in: logContainer, x: 0, y: 0, width: mainW, height: logH)
         splitView.addSubview(logContainer)
 
         splitView.adjustSubviews()
     }
 
+    // Flipped coordinate view: y=0 at top, increases downward
     private final class FlippedView: NSView {
         override var isFlipped: Bool { return true }
     }
@@ -367,7 +368,7 @@ class LogitechHIDDebugPanel: NSObject {
     // MARK: - Build Sidebar
 
     private func buildSidebar(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        let container = NSView(frame: NSRect(x: x, y: y, width: width, height: height))
+        let container = FlippedView(frame: NSRect(x: x, y: y, width: width, height: height))
         container.autoresizingMask = [.height]
         parent.addSubview(container)
 
@@ -383,7 +384,9 @@ class LogitechHIDDebugPanel: NSObject {
         container.addSubview(header)
         cy += L.sectionHdrH
 
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: cy, width: width, height: height - cy - L.devInfoH - 1))
+        // Device tree takes available space between header and device info
+        let treeH = height - cy - L.devInfoH - 1
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: cy, width: width, height: max(treeH, 40)))
         scrollView.autoresizingMask = [.height]
         scrollView.hasVerticalScroller = true
         scrollView.borderType = .noBorder
@@ -407,70 +410,55 @@ class LogitechHIDDebugPanel: NSObject {
         container.addSubview(scrollView)
         self.outlineView = outline
 
+        // Device info at the bottom — use a scrollable area
+        let infoY = height - L.devInfoH
         let sep = makeSep()
-        sep.frame = NSRect(x: L.pad, y: height - L.devInfoH - 1, width: width - L.pad * 2, height: 1)
+        sep.frame = NSRect(x: L.pad, y: infoY - 1, width: width - L.pad * 2, height: 1)
         sep.autoresizingMask = [.minYMargin]
         container.addSubview(sep)
 
-        buildDeviceInfoArea(in: container, y: height - L.devInfoH, width: width, height: L.devInfoH)
+        buildDeviceInfoArea(in: container, y: infoY, width: width, height: L.devInfoH)
     }
 
     private func buildDeviceInfoArea(in parent: NSView, y: CGFloat, width: CGFloat, height: CGFloat) {
-        let infoContainer = NSView(frame: NSRect(x: 0, y: y, width: width, height: height))
-        infoContainer.autoresizingMask = [.minYMargin]
-        parent.addSubview(infoContainer)
+        // Scrollable device info area to handle overflow
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: y, width: width, height: height))
+        scrollView.autoresizingMask = [.minYMargin]
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
 
-        let keys = ["VID", "PID", "Protocol", "Transport", "Dev Index", "Conn Mode", "Opened"]
+        let allKeys = ["VID", "PID", "Protocol", "Transport", "Dev Index", "Conn Mode", "Opened",
+                        "UsagePage", "Usage", "HID++ Cand", "Init Done", "Dvrt CIDs"]
+        let contentH: CGFloat = CGFloat(allKeys.count) * 16 + L.pad
+        let infoContent = FlippedView(frame: NSRect(x: 0, y: 0, width: width, height: contentH))
+
         var iy: CGFloat = L.pad
         let keyW: CGFloat = 65
         let valX: CGFloat = keyW + 4
 
         deviceInfoLabels.removeAll()
-        for keyText in keys {
+        moreInfoLabels.removeAll()
+
+        for (i, keyText) in allKeys.enumerated() {
             let kl = makeLabel(text: keyText, fontSize: 9, weight: .medium, color: .tertiaryLabelColor)
             kl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
             kl.frame = NSRect(x: L.pad, y: iy, width: keyW, height: 14)
-            infoContainer.addSubview(kl)
+            infoContent.addSubview(kl)
             let vl = makeLabel(text: "--", fontSize: 9, color: .secondaryLabelColor)
             vl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
             vl.frame = NSRect(x: valX, y: iy, width: width - valX - L.pad, height: 14)
-            infoContainer.addSubview(vl)
-            deviceInfoLabels.append((key: kl, value: vl))
+            infoContent.addSubview(vl)
+            if i < 7 {
+                deviceInfoLabels.append((key: kl, value: vl))
+            } else {
+                moreInfoLabels.append((key: kl, value: vl))
+            }
             iy += 16
         }
 
-        let moreBtn = NSButton(title: "More...", target: self, action: #selector(toggleMoreInfo))
-        moreBtn.isBordered = false
-        moreBtn.font = NSFont.systemFont(ofSize: 9, weight: .medium)
-        if #available(macOS 10.14, *) { moreBtn.contentTintColor = NSColor(calibratedRed: 0.4, green: 0.6, blue: 1.0, alpha: 1.0) }
-        moreBtn.frame = NSRect(x: L.pad, y: iy, width: 60, height: 14)
-        infoContainer.addSubview(moreBtn)
-
-        let moreC = NSView(frame: NSRect(x: 0, y: iy + 16, width: width, height: 80))
-        moreC.isHidden = true
-        infoContainer.addSubview(moreC)
-        self.moreInfoContainer = moreC
-
-        let moreKeys = ["UsagePage", "Usage", "HID++ Cand", "Init Done", "Dvrt CIDs"]
-        var my: CGFloat = 0
-        moreInfoLabels.removeAll()
-        for keyText in moreKeys {
-            let kl = makeLabel(text: keyText, fontSize: 9, weight: .medium, color: .tertiaryLabelColor)
-            kl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
-            kl.frame = NSRect(x: L.pad, y: my, width: keyW, height: 14)
-            moreC.addSubview(kl)
-            let vl = makeLabel(text: "--", fontSize: 9, color: .secondaryLabelColor)
-            vl.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
-            vl.frame = NSRect(x: valX, y: my, width: width - valX - L.pad, height: 14)
-            moreC.addSubview(vl)
-            moreInfoLabels.append((key: kl, value: vl))
-            my += 16
-        }
-    }
-
-    @objc private func toggleMoreInfo() {
-        moreInfoExpanded = !moreInfoExpanded
-        moreInfoContainer?.isHidden = !moreInfoExpanded
+        scrollView.documentView = infoContent
+        parent.addSubview(scrollView)
     }
 
     @objc private func outlineViewClicked(_ sender: Any?) {
@@ -498,8 +486,8 @@ class LogitechHIDDebugPanel: NSObject {
     // MARK: - Build Top Area
 
     private func buildTopArea(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        let container = NSView(frame: NSRect(x: x, y: y, width: width, height: height))
-        container.autoresizingMask = [.width]
+        let container = FlippedView(frame: NSRect(x: x, y: y, width: width, height: height))
+        container.autoresizingMask = [.width, .height]
         parent.addSubview(container)
 
         let actionsX = width - L.actionsWidth
@@ -605,7 +593,7 @@ class LogitechHIDDebugPanel: NSObject {
         let ctxY = y + L.sectionHdrH
         let globalH: CGFloat = CGFloat(5) * (L.btnH + L.btnGap) + L.pad * 2
         let ctxH = height - L.sectionHdrH - globalH - 1
-        let ctxC = NSView(frame: NSRect(x: x, y: ctxY, width: width, height: max(ctxH, 60)))
+        let ctxC = FlippedView(frame: NSRect(x: x, y: ctxY, width: width, height: max(ctxH, 60)))
         parent.addSubview(ctxC)
         self.contextActionsContainer = ctxC
 
@@ -621,7 +609,7 @@ class LogitechHIDDebugPanel: NSObject {
         parent.addSubview(sep)
 
         let globalY = sepY + L.pad
-        let globalC = NSView(frame: NSRect(x: x, y: globalY, width: width, height: globalH))
+        let globalC = FlippedView(frame: NSRect(x: x, y: globalY, width: width, height: globalH))
         parent.addSubview(globalC)
 
         let btnW = width - L.pad * 2
@@ -728,7 +716,7 @@ class LogitechHIDDebugPanel: NSObject {
     }
 
     private func buildRawInputBar(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat) {
-        let container = NSView(frame: NSRect(x: x, y: y, width: width, height: L.rawInputH))
+        let container = FlippedView(frame: NSRect(x: x, y: y, width: width, height: L.rawInputH))
         container.autoresizingMask = [.width, .minYMargin]
         parent.addSubview(container)
 
