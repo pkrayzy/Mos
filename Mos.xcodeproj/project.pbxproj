@@ -10,15 +10,14 @@
 		0BE5A292253A1168006D61C0 /* LoginServiceKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0BE5A291253A1168006D61C0 /* LoginServiceKit */; };
 		0BE5A296253A119C006D61C0 /* Charts in Frameworks */ = {isa = PBXBuildFile; productRef = 0BE5A295253A119C006D61C0 /* Charts */; };
 		0BE5A29A2F7A1C5B006D61C0 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0BE5A29B2F7A1C5B006D61C0 /* Sparkle */; };
-		0E590C87FC41F66FF48D518F /* MosTests/ScrollDispatchContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25DD10CB06A5D177E3BD0845 /* MosTests/ScrollDispatchContextTests.swift */; };
-		296126EA068FF77D423ACAA9 /* MosTests/ScrollEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B8B50E951D72C6195DBA3A /* MosTests/ScrollEventTests.swift */; };
-		568F976CF65380A55E73E588 /* MosTests/ScrollHotkeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D69BB23DED610DCD5A0103 /* MosTests/ScrollHotkeyTests.swift */; };
-		754D86BF951F4E0C56F76E8D /* MosTests/ScrollPosterStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCA64306C761E8CA5D0759A /* MosTests/ScrollPosterStateTests.swift */; };
-		9ACEB06D964AE340A82C0792 /* MosTests/ScrollPhaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F59E07FB2E69806EAED5405 /* MosTests/ScrollPhaseTests.swift */; };
-		BF0CC4D63CC0E5FE8FCF6E01 /* MosTests/ScrollFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AFD832EF49533E8168BAA0 /* MosTests/ScrollFilterTests.swift */; };
-		D2776A74B5876330A71B0EC9 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2B295FCD70F0F0CD05E7623 /* Cocoa.framework */; };
-		FE05F3803FB8885AAC70ADC5 /* MosTests/ScrollCoreHotkeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D6CF5441214A14BB8FFEDA5 /* MosTests/ScrollCoreHotkeyTests.swift */; };
-		FECC8D1CC04A0A99B1E1A8EB /* MosTests/InterpolatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D4A7F821E5626C63C45D698 /* MosTests/InterpolatorTests.swift */; };
+		0E590C87FC41F66FF48D518F /* ScrollDispatchContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25DD10CB06A5D177E3BD0845 /* ScrollDispatchContextTests.swift */; };
+		296126EA068FF77D423ACAA9 /* ScrollEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B8B50E951D72C6195DBA3A /* ScrollEventTests.swift */; };
+		568F976CF65380A55E73E588 /* ScrollHotkeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D69BB23DED610DCD5A0103 /* ScrollHotkeyTests.swift */; };
+		754D86BF951F4E0C56F76E8D /* ScrollPosterStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCA64306C761E8CA5D0759A /* ScrollPosterStateTests.swift */; };
+		9ACEB06D964AE340A82C0792 /* ScrollPhaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F59E07FB2E69806EAED5405 /* ScrollPhaseTests.swift */; };
+		BF0CC4D63CC0E5FE8FCF6E01 /* ScrollFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AFD832EF49533E8168BAA0 /* ScrollFilterTests.swift */; };
+		FE05F3803FB8885AAC70ADC5 /* ScrollCoreHotkeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D6CF5441214A14BB8FFEDA5 /* ScrollCoreHotkeyTests.swift */; };
+		FECC8D1CC04A0A99B1E1A8EB /* InterpolatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D4A7F821E5626C63C45D698 /* InterpolatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,20 +33,19 @@
 /* Begin PBXFileReference section */
 		0B2C591D2F7ADB79003D88C9 /* Debug.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Debug.xctestplan; sourceTree = "<group>"; };
 		22142DA01E25344E00E4BFBF /* Mos Debug.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mos Debug.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		25DD10CB06A5D177E3BD0845 /* MosTests/ScrollDispatchContextTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollDispatchContextTests.swift; sourceTree = SOURCE_ROOT; };
-		2D6CF5441214A14BB8FFEDA5 /* MosTests/ScrollCoreHotkeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollCoreHotkeyTests.swift; sourceTree = SOURCE_ROOT; };
-		2F59E07FB2E69806EAED5405 /* MosTests/ScrollPhaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollPhaseTests.swift; sourceTree = SOURCE_ROOT; };
-		31AFD832EF49533E8168BAA0 /* MosTests/ScrollFilterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollFilterTests.swift; sourceTree = SOURCE_ROOT; };
-		9CCA64306C761E8CA5D0759A /* MosTests/ScrollPosterStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollPosterStateTests.swift; sourceTree = SOURCE_ROOT; };
-		9D4A7F821E5626C63C45D698 /* MosTests/InterpolatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/InterpolatorTests.swift; sourceTree = SOURCE_ROOT; };
-		A2B295FCD70F0F0CD05E7623 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		25DD10CB06A5D177E3BD0845 /* ScrollDispatchContextTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollDispatchContextTests.swift; sourceTree = SOURCE_ROOT; };
+		2D6CF5441214A14BB8FFEDA5 /* ScrollCoreHotkeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollCoreHotkeyTests.swift; sourceTree = SOURCE_ROOT; };
+		2F59E07FB2E69806EAED5405 /* ScrollPhaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollPhaseTests.swift; sourceTree = SOURCE_ROOT; };
+		31AFD832EF49533E8168BAA0 /* ScrollFilterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollFilterTests.swift; sourceTree = SOURCE_ROOT; };
+		9CCA64306C761E8CA5D0759A /* ScrollPosterStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollPosterStateTests.swift; sourceTree = SOURCE_ROOT; };
+		9D4A7F821E5626C63C45D698 /* InterpolatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/InterpolatorTests.swift; sourceTree = SOURCE_ROOT; };
 		D3A7FDB8A6001907C9F156D6 /* MosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		E1B8B50E951D72C6195DBA3A /* MosTests/ScrollEventTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollEventTests.swift; sourceTree = SOURCE_ROOT; };
-		E7D69BB23DED610DCD5A0103 /* MosTests/ScrollHotkeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollHotkeyTests.swift; sourceTree = SOURCE_ROOT; };
+		E1B8B50E951D72C6195DBA3A /* ScrollEventTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollEventTests.swift; sourceTree = SOURCE_ROOT; };
+		E7D69BB23DED610DCD5A0103 /* ScrollHotkeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MosTests/ScrollHotkeyTests.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		0BB750CD2E5F6D8C007C402A /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		0BB750CD2E5F6D8C007C402A /* Exceptions for "Mos" folder in "Mos" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -57,7 +55,18 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		0BB750952E5F6D8C007C402A /* Mos */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (0BB750CD2E5F6D8C007C402A /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Mos; sourceTree = "<group>"; };
+		0BB750952E5F6D8C007C402A /* Mos */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0BB750CD2E5F6D8C007C402A /* Exceptions for "Mos" folder in "Mos" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Mos;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,7 +84,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D2776A74B5876330A71B0EC9 /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,14 +94,14 @@
 			isa = PBXGroup;
 			children = (
 				0B2C591D2F7ADB79003D88C9 /* Debug.xctestplan */,
-				9D4A7F821E5626C63C45D698 /* MosTests/InterpolatorTests.swift */,
-				2D6CF5441214A14BB8FFEDA5 /* MosTests/ScrollCoreHotkeyTests.swift */,
-				25DD10CB06A5D177E3BD0845 /* MosTests/ScrollDispatchContextTests.swift */,
-				E1B8B50E951D72C6195DBA3A /* MosTests/ScrollEventTests.swift */,
-				31AFD832EF49533E8168BAA0 /* MosTests/ScrollFilterTests.swift */,
-				E7D69BB23DED610DCD5A0103 /* MosTests/ScrollHotkeyTests.swift */,
-				2F59E07FB2E69806EAED5405 /* MosTests/ScrollPhaseTests.swift */,
-				9CCA64306C761E8CA5D0759A /* MosTests/ScrollPosterStateTests.swift */,
+				9D4A7F821E5626C63C45D698 /* InterpolatorTests.swift */,
+				2D6CF5441214A14BB8FFEDA5 /* ScrollCoreHotkeyTests.swift */,
+				25DD10CB06A5D177E3BD0845 /* ScrollDispatchContextTests.swift */,
+				E1B8B50E951D72C6195DBA3A /* ScrollEventTests.swift */,
+				31AFD832EF49533E8168BAA0 /* ScrollFilterTests.swift */,
+				E7D69BB23DED610DCD5A0103 /* ScrollHotkeyTests.swift */,
+				2F59E07FB2E69806EAED5405 /* ScrollPhaseTests.swift */,
+				9CCA64306C761E8CA5D0759A /* ScrollPosterStateTests.swift */,
 			);
 			path = MosTests;
 			sourceTree = SOURCE_ROOT;
@@ -103,7 +111,6 @@
 			children = (
 				0BB750952E5F6D8C007C402A /* Mos */,
 				22142DA11E25344E00E4BFBF /* Products */,
-				446B5A2833580473CB423B80 /* Frameworks */,
 				09EADA3FFF0D79CC3B1FA601 /* MosTests */,
 			);
 			sourceTree = "<group>";
@@ -115,22 +122,6 @@
 				D3A7FDB8A6001907C9F156D6 /* MosTests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		446B5A2833580473CB423B80 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				AC2A9DCA9B15B7A9A739D15E /* OS X */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		AC2A9DCA9B15B7A9A739D15E /* OS X */ = {
-			isa = PBXGroup;
-			children = (
-				A2B295FCD70F0F0CD05E7623 /* Cocoa.framework */,
-			);
-			name = "OS X";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -270,14 +261,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FECC8D1CC04A0A99B1E1A8EB /* MosTests/InterpolatorTests.swift in Sources */,
-				FE05F3803FB8885AAC70ADC5 /* MosTests/ScrollCoreHotkeyTests.swift in Sources */,
-				0E590C87FC41F66FF48D518F /* MosTests/ScrollDispatchContextTests.swift in Sources */,
-				296126EA068FF77D423ACAA9 /* MosTests/ScrollEventTests.swift in Sources */,
-				BF0CC4D63CC0E5FE8FCF6E01 /* MosTests/ScrollFilterTests.swift in Sources */,
-				568F976CF65380A55E73E588 /* MosTests/ScrollHotkeyTests.swift in Sources */,
-				9ACEB06D964AE340A82C0792 /* MosTests/ScrollPhaseTests.swift in Sources */,
-				754D86BF951F4E0C56F76E8D /* MosTests/ScrollPosterStateTests.swift in Sources */,
+				FECC8D1CC04A0A99B1E1A8EB /* InterpolatorTests.swift in Sources */,
+				FE05F3803FB8885AAC70ADC5 /* ScrollCoreHotkeyTests.swift in Sources */,
+				0E590C87FC41F66FF48D518F /* ScrollDispatchContextTests.swift in Sources */,
+				296126EA068FF77D423ACAA9 /* ScrollEventTests.swift in Sources */,
+				BF0CC4D63CC0E5FE8FCF6E01 /* ScrollFilterTests.swift in Sources */,
+				568F976CF65380A55E73E588 /* ScrollHotkeyTests.swift in Sources */,
+				9ACEB06D964AE340A82C0792 /* ScrollPhaseTests.swift in Sources */,
+				754D86BF951F4E0C56F76E8D /* ScrollPosterStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
