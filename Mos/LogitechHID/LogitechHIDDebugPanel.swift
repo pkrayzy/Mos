@@ -167,7 +167,7 @@ class LogitechHIDDebugPanel: NSObject {
         static let minHeight: CGFloat = 600
         static let sidebarWidth: CGFloat = 180
         static let actionsWidth: CGFloat = 160
-        static let gap: CGFloat = 2
+        static let gap: CGFloat = 8
         static let pad: CGFloat = 8
         static let btnH: CGFloat = 24
         static let btnGap: CGFloat = 4
@@ -333,7 +333,7 @@ class LogitechHIDDebugPanel: NSObject {
     // Flipped NSSplitView so first subview = top
     private final class TopFirstSplitView: NSSplitView {
         override var isFlipped: Bool { return true }
-        override var dividerThickness: CGFloat { return 2 }
+        override var dividerThickness: CGFloat { return 8 }
         override func drawDivider(in rect: NSRect) {
             // Draw nothing — gap between rounded-corner sections is the visual divider
         }
@@ -356,15 +356,15 @@ class LogitechHIDDebugPanel: NSObject {
         container.addSubview(split)
 
         NSLayoutConstraint.activate([
-            sidebar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
+            sidebar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
             sidebar.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
-            sidebar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
+            sidebar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10),
             sidebar.widthAnchor.constraint(equalToConstant: L.sidebarWidth),
 
             split.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: L.gap),
             split.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
-            split.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
-            split.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
+            split.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
+            split.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10),
         ])
 
         // NSSplitView subviews — managed by split, NOT by constraints
@@ -1338,6 +1338,8 @@ class LogitechHIDDebugPanel: NSObject {
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.05).cgColor
         v.layer?.cornerRadius = 6
+        v.layer?.borderWidth = 1
+        v.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.08).cgColor
         return v
     }
 
@@ -1346,6 +1348,8 @@ class LogitechHIDDebugPanel: NSObject {
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedRed: 0, green: 0, blue: 0, alpha: 0.4).cgColor
         v.layer?.cornerRadius = 6
+        v.layer?.borderWidth = 1
+        v.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.08).cgColor
         return v
     }
 
