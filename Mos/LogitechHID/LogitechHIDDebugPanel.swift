@@ -1333,11 +1333,16 @@ class LogitechHIDDebugPanel: NSObject {
         return v
     }
 
+    private var blockCornerRadius: CGFloat {
+        if #available(macOS 26.0, *) { return 10 }
+        return 5
+    }
+
     private func makeSectionBg() -> NSView {
         let v = NSView()
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.05).cgColor
-        v.layer?.cornerRadius = 8
+        v.layer?.cornerRadius = blockCornerRadius
         v.layer?.borderWidth = 1
         v.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.08).cgColor
         return v
@@ -1347,7 +1352,7 @@ class LogitechHIDDebugPanel: NSObject {
         let v = NSView()
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedRed: 0, green: 0, blue: 0, alpha: 0.4).cgColor
-        v.layer?.cornerRadius = 8
+        v.layer?.cornerRadius = blockCornerRadius
         v.layer?.borderWidth = 1
         v.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.08).cgColor
         return v
