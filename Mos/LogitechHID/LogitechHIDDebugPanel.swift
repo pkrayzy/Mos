@@ -502,7 +502,7 @@ class LogitechHIDDebugPanel: NSObject {
     private func buildFeatureTable(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
         let bg = makeSectionBg()
         bg.frame = NSRect(x: x, y: y, width: width, height: height)
-        bg.autoresizingMask = [.width]
+        bg.autoresizingMask = [.width, .height]
         parent.addSubview(bg)
 
         let header = makeSectionHeader("FEATURES (0)")
@@ -536,6 +536,8 @@ class LogitechHIDDebugPanel: NSObject {
         }
 
         sv.documentView = table
+        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        table.sizeLastColumnToFit()
         parent.addSubview(sv)
         self.featureTableView = table
     }
@@ -543,7 +545,7 @@ class LogitechHIDDebugPanel: NSObject {
     private func buildControlsTable(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
         let bg = makeSectionBg()
         bg.frame = NSRect(x: x, y: y, width: width, height: height)
-        bg.autoresizingMask = [.width]
+        bg.autoresizingMask = [.width, .height]
         parent.addSubview(bg)
 
         let header = makeSectionHeader("CONTROLS (0)")
@@ -571,12 +573,19 @@ class LogitechHIDDebugPanel: NSObject {
 
         for (id, w) in [("cCid", CGFloat(50)), ("cName", CGFloat(0)), ("cFlags", CGFloat(40)), ("cStatus", CGFloat(50))] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            col.width = w > 0 ? w : 100
-            if w == 0 { col.resizingMask = .autoresizingMask }
+            if w > 0 {
+                col.width = w
+                col.resizingMask = [] // fixed width
+            } else {
+                col.width = 100
+                col.resizingMask = .autoresizingMask
+            }
             table.addTableColumn(col)
         }
 
         sv.documentView = table
+        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        table.sizeLastColumnToFit()
         parent.addSubview(sv)
         self.controlsTableView = table
     }
@@ -584,6 +593,7 @@ class LogitechHIDDebugPanel: NSObject {
     private func buildActionsPanel(in parent: NSView, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
         let bg = makeSectionBg()
         bg.frame = NSRect(x: x, y: y, width: width, height: height)
+        bg.autoresizingMask = [.width, .height]
         parent.addSubview(bg)
 
         let header = makeSectionHeader("ACTIONS")
@@ -706,6 +716,8 @@ class LogitechHIDDebugPanel: NSObject {
         logCol.resizingMask = .autoresizingMask
         table.addTableColumn(logCol)
         sv.documentView = table
+        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        table.sizeLastColumnToFit()
         parent.addSubview(sv)
         self.logTableView = table
 
