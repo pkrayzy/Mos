@@ -333,6 +333,10 @@ class LogitechHIDDebugPanel: NSObject {
     // Flipped NSSplitView so first subview = top
     private final class TopFirstSplitView: NSSplitView {
         override var isFlipped: Bool { return true }
+        override var dividerThickness: CGFloat { return 2 }
+        override func drawDivider(in rect: NSRect) {
+            // Draw nothing — gap between rounded-corner sections is the visual divider
+        }
     }
 
     // MARK: - Build Content (Auto Layout)
