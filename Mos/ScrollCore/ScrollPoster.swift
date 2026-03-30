@@ -41,6 +41,13 @@ class ScrollPoster {
     // 状态锁和投递上下文
     private var stateLock = os_unfair_lock_s()
     private let dispatchContext = ScrollDispatchContext.shared
+    // CVDisplayLink 恢复机制
+    private var keeper: Timer?
+    private var lastCallbackTime: CFTimeInterval = 0.0
+    private var lastRecreateAttempt: CFTimeInterval = 0.0
+    private let recreateCooldown: CFTimeInterval = 3.0
+    // 主线程访问, 无需锁
+    var isAvailable: Bool { return poster != nil }
 }
 
 // MARK: - 滚动数据更新控制
@@ -148,13 +155,25 @@ extension ScrollPoster {
 extension ScrollPoster {
     // 初始化 CVDisplayLink
     func create() {
-        // 新建一个 CVDisplayLinkSetOutputCallback 来执行循环
-        CVDisplayLinkCreateWithActiveCGDisplays(&poster)
-        if let validPoster = poster {
+        // 清理旧的 CVDisplayLink
+        if let old = poster {
+            if CVDisplayLinkIsRunning(old) {
+                CVDisplayLinkStop(old)
+            }
+            poster = nil
+        }
+        // 创建新的 CVDisplayLink, 检查返回值
+        var newPoster: CVDisplayLink?
+        let result = CVDisplayLinkCreateWithActiveCGDisplays(&newPoster)
+        if result == kCVReturnSuccess, let validPoster = newPoster {
             CVDisplayLinkSetOutputCallback(validPoster, { (displayLink, inNow, inOutputTime, flagsIn, flagsOut, displayLinkContext) -> CVReturn in
                 ScrollPoster.shared.processing()
                 return kCVReturnSuccess
             }, nil)
+            poster = validPoster
+        } else {
+            poster = nil
+            NSLog("ScrollPoster: CVDisplayLink creation failed (%d)", result)
         }
     }
     // 启动事件发送器
@@ -252,6 +271,7 @@ private extension ScrollPoster {
     func processing() {
         var pendingStopPhase: Phase?
         os_unfair_lock_lock(&stateLock)
+        lastCallbackTime = CFAbsoluteTimeGetCurrent()
         // 计算插值
         let frame = (
             y: Interpolator.lerp(src: current.y, dest: buffer.y, trans: duration),
