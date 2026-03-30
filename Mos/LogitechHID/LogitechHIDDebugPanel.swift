@@ -356,15 +356,15 @@ class LogitechHIDDebugPanel: NSObject {
         container.addSubview(split)
 
         NSLayoutConstraint.activate([
-            sidebar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: L.gap),
+            sidebar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
             sidebar.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
-            sidebar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -L.gap),
+            sidebar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
             sidebar.widthAnchor.constraint(equalToConstant: L.sidebarWidth),
 
             split.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: L.gap),
             split.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
-            split.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -L.gap),
-            split.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -L.gap),
+            split.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
+            split.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
         ])
 
         // NSSplitView subviews — managed by split, NOT by constraints
