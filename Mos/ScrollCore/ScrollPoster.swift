@@ -178,9 +178,22 @@ extension ScrollPoster {
     }
     // 启动事件发送器
     func tryStart() {
-        if let validPoster = poster {
-            if !CVDisplayLinkIsRunning(validPoster) {
-                CVDisplayLinkStart(validPoster)
+        guard let validPoster = poster else {
+            if !recreateDisplayLink() {
+                // cooldown 拒绝了重建; 清理陈旧 buffer 防止恢复后滚动跳变
+                reset()
+            }
+            return
+        }
+        if !CVDisplayLinkIsRunning(validPoster) {
+            let result = CVDisplayLinkStart(validPoster)
+            if result == kCVReturnSuccess {
+                // 给 keeper 一个宽限期, 防止误判新启动的 poster 为僵尸
+                os_unfair_lock_lock(&stateLock)
+                lastCallbackTime = CFAbsoluteTimeGetCurrent()
+                os_unfair_lock_unlock(&stateLock)
+            } else {
+                let _ = recreateDisplayLink()
             }
         }
     }
@@ -236,6 +249,52 @@ extension ScrollPoster {
                   diag.skippedSyntheticEvents, diag.updateSnapshotFailures)
         }
 #endif
+    }
+    // 重建 CVDisplayLink (带冷却期)
+    @discardableResult
+    func recreateDisplayLink() -> Bool {
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now - lastRecreateAttempt >= recreateCooldown else { return false }
+        lastRecreateAttempt = now
+        create()
+        if let validPoster = poster {
+            let result = CVDisplayLinkStart(validPoster)
+            if result == kCVReturnSuccess {
+                os_unfair_lock_lock(&stateLock)
+                lastCallbackTime = CFAbsoluteTimeGetCurrent()
+                os_unfair_lock_unlock(&stateLock)
+            } else {
+                NSLog("ScrollPoster: CVDisplayLink start failed after recreate (%d)", result)
+            }
+        }
+        return true
+    }
+    // 守护定时器 (与 Interceptor 的 keeper 模式一致)
+    func startKeeper() {
+        keeper?.invalidate()
+        keeper = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.healthCheck()
+        }
+    }
+    func stopKeeper() {
+        keeper?.invalidate()
+        keeper = nil
+    }
+    private func healthCheck() {
+        guard let validPoster = poster else {
+            recreateDisplayLink()
+            return
+        }
+        if CVDisplayLinkIsRunning(validPoster) {
+            os_unfair_lock_lock(&stateLock)
+            let lastTime = lastCallbackTime
+            os_unfair_lock_unlock(&stateLock)
+            // lastTime > 0 避免首次回调前误判
+            if lastTime > 0 && CFAbsoluteTimeGetCurrent() - lastTime > 2.0 {
+                NSLog("ScrollPoster: zombie CVDisplayLink detected, recreating")
+                recreateDisplayLink()
+            }
+        }
     }
 }
 
