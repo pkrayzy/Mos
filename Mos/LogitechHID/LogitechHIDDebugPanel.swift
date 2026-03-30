@@ -1295,6 +1295,36 @@ class LogitechHIDDebugPanel: NSObject {
         return l
     }
 
+    private func makeCenteredTableCell(in tableView: NSTableView,
+                                       identifier: NSUserInterfaceItemIdentifier,
+                                       font: NSFont) -> NSTableCellView {
+        let cell = tableView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView ?? {
+            let view = NSTableCellView()
+            view.identifier = identifier
+
+            let label = NSTextField(labelWithString: "")
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.backgroundColor = .clear
+            label.isBezeled = false
+            label.isEditable = false
+            label.isSelectable = false
+            view.textField = label
+            view.addSubview(label)
+
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 2),
+                label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -2),
+                label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            ])
+
+            return view
+        }()
+
+        let label = cell.textField ?? NSTextField(labelWithString: "")
+        label.font = font
+        return cell
+    }
+
     private func makeSectionHeader(_ title: String) -> NSTextField {
         return makeLabel(text: title, fontSize: 10, weight: .medium, color: .tertiaryLabelColor)
     }
@@ -1393,13 +1423,8 @@ extension LogitechHIDDebugPanel: NSOutlineViewDataSource {
 extension LogitechHIDDebugPanel: NSOutlineViewDelegate {
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         let cellId = NSUserInterfaceItemIdentifier("DeviceCell")
-        let cell = outlineView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField
-            ?? NSTextField(labelWithString: "")
-        cell.identifier = cellId
-        cell.font = NSFont.systemFont(ofSize: 11)
-        cell.backgroundColor = .clear
-        cell.isBezeled = false
-        cell.isEditable = false
+        let cell = makeCenteredTableCell(in: outlineView, identifier: cellId, font: NSFont.systemFont(ofSize: 11))
+        guard let label = cell.textField else { return cell }
 
         if let node = item as? DeviceNode {
             let prefix = node.isReceiver ? "[R]" : "[M]"
@@ -1410,22 +1435,22 @@ extension LogitechHIDDebugPanel: NSOutlineViewDelegate {
                                           attributes: [.foregroundColor: NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0),
                                                        .font: NSFont.systemFont(ofSize: 8)])
             attr.append(dot)
-            cell.attributedStringValue = attr
+            label.attributedStringValue = attr
         } else if let slot = item as? SlotNode {
             let paired = slot.session.debugReceiverPairedDevices
             let idx = Int(slot.slot) - 1
             guard idx >= 0, idx < paired.count else {
-                cell.stringValue = "Slot \(slot.slot): --"
-                cell.textColor = .tertiaryLabelColor
+                label.stringValue = "Slot \(slot.slot): --"
+                label.textColor = .tertiaryLabelColor
                 return cell
             }
             let dev = paired[idx]
             if dev.isConnected {
-                cell.stringValue = dev.name.isEmpty ? "Slot \(dev.slot)" : dev.name
-                cell.textColor = .labelColor
+                label.stringValue = dev.name.isEmpty ? "Slot \(dev.slot)" : dev.name
+                label.textColor = .labelColor
             } else {
-                cell.stringValue = "Slot \(dev.slot): empty"
-                cell.textColor = .tertiaryLabelColor
+                label.stringValue = "Slot \(dev.slot): empty"
+                label.textColor = .tertiaryLabelColor
             }
         }
         return cell
@@ -1474,21 +1499,20 @@ extension LogitechHIDDebugPanel: NSTableViewDelegate {
         guard row < featureRows.count else { return nil }
         let item = featureRows[row]
         let cellId = NSUserInterfaceItemIdentifier("fCell")
-        let cell = featureTableView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField
-            ?? NSTextField(labelWithString: "")
-        cell.identifier = cellId
-        cell.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        cell.backgroundColor = .clear
-        cell.isBezeled = false
-        cell.isEditable = false
-        cell.textColor = .labelColor
+        let cell = makeCenteredTableCell(
+            in: featureTableView,
+            identifier: cellId,
+            font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        )
+        guard let label = cell.textField else { return cell }
+        label.textColor = .labelColor
 
         switch tableColumn?.identifier.rawValue {
-        case "fIdx": cell.stringValue = item.index
-        case "fId": cell.stringValue = item.featureIdHex
+        case "fIdx": label.stringValue = item.index
+        case "fId": label.stringValue = item.featureIdHex
         case "fName":
-            cell.stringValue = item.name
-            cell.textColor = NSColor(calibratedRed: 0.5, green: 0.7, blue: 1.0, alpha: 1.0)
+            label.stringValue = item.name
+            label.textColor = NSColor(calibratedRed: 0.5, green: 0.7, blue: 1.0, alpha: 1.0)
         default: break
         }
         return cell
@@ -1498,34 +1522,33 @@ extension LogitechHIDDebugPanel: NSTableViewDelegate {
         guard row < controlRows.count else { return nil }
         let ctrl = controlRows[row]
         let cellId = NSUserInterfaceItemIdentifier("cCell")
-        let cell = controlsTableView.makeView(withIdentifier: cellId, owner: nil) as? NSTextField
-            ?? NSTextField(labelWithString: "")
-        cell.identifier = cellId
-        cell.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        cell.backgroundColor = .clear
-        cell.isBezeled = false
-        cell.isEditable = false
-        cell.textColor = .labelColor
+        let cell = makeCenteredTableCell(
+            in: controlsTableView,
+            identifier: cellId,
+            font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        )
+        guard let label = cell.textField else { return cell }
+        label.textColor = .labelColor
 
         let isDiverted = ctrl.reportingFlags & 0x01 != 0
         let isRemapped = ctrl.targetCID != 0
 
         switch tableColumn?.identifier.rawValue {
-        case "cCid": cell.stringValue = String(format: "0x%04X", ctrl.cid)
-        case "cName": cell.stringValue = LogitechCIDRegistry.name(forCID: ctrl.cid)
+        case "cCid": label.stringValue = String(format: "0x%04X", ctrl.cid)
+        case "cName": label.stringValue = LogitechCIDRegistry.name(forCID: ctrl.cid)
         case "cFlags":
-            cell.stringValue = HIDPPInfo.flagsDescription(ctrl.flags)
-            cell.textColor = .secondaryLabelColor
+            label.stringValue = HIDPPInfo.flagsDescription(ctrl.flags)
+            label.textColor = .secondaryLabelColor
         case "cStatus":
             if isDiverted {
-                cell.stringValue = "DVRT"
-                cell.textColor = NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.0, alpha: 0.8)
+                label.stringValue = "DVRT"
+                label.textColor = NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.0, alpha: 0.8)
             } else if isRemapped {
-                cell.stringValue = "REMAP"
-                cell.textColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 0.8)
+                label.stringValue = "REMAP"
+                label.textColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 0.8)
             } else {
-                cell.stringValue = "\u{25CF}"
-                cell.textColor = NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
+                label.stringValue = "\u{25CF}"
+                label.textColor = NSColor(calibratedRed: 0.3, green: 0.8, blue: 0.4, alpha: 1.0)
             }
         default: break
         }
