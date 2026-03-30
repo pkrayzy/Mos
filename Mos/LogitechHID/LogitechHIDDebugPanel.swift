@@ -380,12 +380,7 @@ class LogitechHIDDebugPanel: NSObject {
     // MARK: - Build Sidebar (Auto Layout + NSSplitView for draggable device info)
 
     private func buildSidebar(in sidebar: NSView) {
-        let header = makeSectionHeader("DEVICES")
-        header.translatesAutoresizingMaskIntoConstraints = false
-        sidebar.addSubview(header)
-
         // Draggable split between device tree and device info
-        // Each section has its own rounded bg — visually matches the top 3 columns
         let sidebarSplit = TopFirstSplitView()
         sidebarSplit.isVertical = false
         sidebarSplit.dividerStyle = .thin
@@ -393,27 +388,27 @@ class LogitechHIDDebugPanel: NSObject {
         sidebar.addSubview(sidebarSplit)
 
         NSLayoutConstraint.activate([
-            header.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: L.pad),
-            header.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -L.pad),
-            header.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: L.pad),
-            header.heightAnchor.constraint(equalToConstant: L.sectionHdrH),
-
             sidebarSplit.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
             sidebarSplit.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
-            sidebarSplit.topAnchor.constraint(equalTo: header.bottomAnchor),
+            sidebarSplit.topAnchor.constraint(equalTo: sidebar.topAnchor),
             sidebarSplit.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
         ])
 
-        // Top section: device tree with its own rounded bg
-        let treeContainer = NSView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 200))
+        // Top section: device tree with header inside the rounded block
+        let treeContainer = FlippedView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 200))
         let treeBg = makeSectionBg()
         treeBg.autoresizingMask = [.width, .height]
         treeBg.frame = treeContainer.bounds
         treeContainer.addSubview(treeBg)
 
+        let header = makeSectionHeader("DEVICES")
+        header.frame = NSRect(x: L.pad, y: 4, width: L.sidebarWidth - L.pad * 2, height: 16)
+        header.autoresizingMask = [.width]
+        treeContainer.addSubview(header)
+
         let treeScroll = NSScrollView()
+        treeScroll.frame = NSRect(x: 0, y: L.sectionHdrH, width: L.sidebarWidth, height: 200 - L.sectionHdrH)
         treeScroll.autoresizingMask = [.width, .height]
-        treeScroll.frame = treeContainer.bounds
         configureDarkScroll(treeScroll)
 
         let outline = NSOutlineView()
