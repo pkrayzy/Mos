@@ -176,7 +176,11 @@ class ScrollCore {
         }
 
         if shouldSmoothAny {
-            return nil
+            if ScrollPoster.shared.isAvailable {
+                return nil
+            } else {
+                return Unmanaged.passUnretained(event)
+            }
         } else {
             return Unmanaged.passUnretained(event)
         }
@@ -347,6 +351,7 @@ class ScrollCore {
             )
             // 初始化滚动事件发送器
             ScrollPoster.shared.create()
+            ScrollPoster.shared.startKeeper()
         } catch {
             print("[ScrollCore] Create Interceptor failure: \(error)")
         }
@@ -358,6 +363,7 @@ class ScrollCore {
         isActive = false
         // 停止滚动事件发送器
         ScrollPoster.shared.stop()
+        ScrollPoster.shared.stopKeeper()
         // 停止截取事件
         scrollEventInterceptor?.stop()
         hotkeyEventInterceptor?.stop()

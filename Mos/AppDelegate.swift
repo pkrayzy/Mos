@@ -10,6 +10,8 @@ import Cocoa
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
+    // 防抖定时器: 显示器参数变化通知
+    private var screenChangeTimer: Timer?
 
     // 运行前预处理
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -53,6 +55,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        // 监听显示器参数变化 (热插拔/分辨率/显示器休眠唤醒), 延迟重建 CVDisplayLink
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.screenChangeTimer?.invalidate()
+            self?.screenChangeTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
+                ScrollPoster.shared.recreateDisplayLink()
+            }
+        }
     }
     // 运行后启动滚动处理
     func applicationDidFinishLaunching(_ aNotification: Notification) {
