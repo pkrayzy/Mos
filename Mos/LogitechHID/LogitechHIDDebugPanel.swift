@@ -376,15 +376,12 @@ class LogitechHIDDebugPanel: NSObject {
     // MARK: - Build Sidebar (Auto Layout + NSSplitView for draggable device info)
 
     private func buildSidebar(in sidebar: NSView) {
-        let bg = makeSectionBg()
-        bg.translatesAutoresizingMaskIntoConstraints = false
-        sidebar.addSubview(bg)
-
         let header = makeSectionHeader("DEVICES")
         header.translatesAutoresizingMaskIntoConstraints = false
         sidebar.addSubview(header)
 
         // Draggable split between device tree and device info
+        // Each section has its own rounded bg — visually matches the top 3 columns
         let sidebarSplit = TopFirstSplitView()
         sidebarSplit.isVertical = false
         sidebarSplit.dividerStyle = .thin
@@ -392,11 +389,6 @@ class LogitechHIDDebugPanel: NSObject {
         sidebar.addSubview(sidebarSplit)
 
         NSLayoutConstraint.activate([
-            bg.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
-            bg.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
-            bg.topAnchor.constraint(equalTo: sidebar.topAnchor),
-            bg.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
-
             header.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: L.pad),
             header.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -L.pad),
             header.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: L.pad),
@@ -408,8 +400,16 @@ class LogitechHIDDebugPanel: NSObject {
             sidebarSplit.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor),
         ])
 
-        // Top: device tree
-        let treeScroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 200))
+        // Top section: device tree with its own rounded bg
+        let treeContainer = NSView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 200))
+        let treeBg = makeSectionBg()
+        treeBg.autoresizingMask = [.width, .height]
+        treeBg.frame = treeContainer.bounds
+        treeContainer.addSubview(treeBg)
+
+        let treeScroll = NSScrollView()
+        treeScroll.autoresizingMask = [.width, .height]
+        treeScroll.frame = treeContainer.bounds
         configureDarkScroll(treeScroll)
 
         let outline = NSOutlineView()
@@ -428,10 +428,19 @@ class LogitechHIDDebugPanel: NSObject {
         outline.action = #selector(outlineViewClicked(_:))
         treeScroll.documentView = outline
         self.outlineView = outline
-        sidebarSplit.addSubview(treeScroll)
+        treeContainer.addSubview(treeScroll)
+        sidebarSplit.addSubview(treeContainer)
 
-        // Bottom: device info (taller default, draggable)
-        let infoScroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 250))
+        // Bottom section: device info with its own rounded bg
+        let infoContainer = NSView(frame: NSRect(x: 0, y: 0, width: L.sidebarWidth, height: 250))
+        let infoBg = makeSectionBg()
+        infoBg.autoresizingMask = [.width, .height]
+        infoBg.frame = infoContainer.bounds
+        infoContainer.addSubview(infoBg)
+
+        let infoScroll = NSScrollView()
+        infoScroll.autoresizingMask = [.width, .height]
+        infoScroll.frame = infoContainer.bounds
         configureDarkScroll(infoScroll)
 
         let allKeys = ["VID", "PID", "Protocol", "Transport", "Dev Index", "Conn Mode", "Opened",
@@ -457,7 +466,8 @@ class LogitechHIDDebugPanel: NSObject {
             iy += 16
         }
         infoScroll.documentView = infoDoc
-        sidebarSplit.addSubview(infoScroll)
+        infoContainer.addSubview(infoScroll)
+        sidebarSplit.addSubview(infoContainer)
     }
 
     @objc private func outlineViewClicked(_ sender: Any?) {
