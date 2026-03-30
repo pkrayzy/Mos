@@ -407,7 +407,7 @@ class LogitechHIDDebugPanel: NSObject {
         treeContainer.addSubview(header)
 
         let treeScroll = NSScrollView()
-        treeScroll.frame = NSRect(x: 0, y: L.sectionHdrH, width: L.sidebarWidth, height: 200 - L.sectionHdrH)
+        treeScroll.frame = NSRect(x: 4, y: L.sectionHdrH, width: L.sidebarWidth - 8, height: 200 - L.sectionHdrH - 4)
         treeScroll.autoresizingMask = [.width, .height]
         configureDarkScroll(treeScroll)
 
@@ -555,10 +555,10 @@ class LogitechHIDDebugPanel: NSObject {
             header.topAnchor.constraint(equalTo: parent.topAnchor, constant: 4),
             header.heightAnchor.constraint(equalToConstant: 16),
 
-            sv.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
-            sv.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            sv.leadingAnchor.constraint(equalTo: parent.leadingAnchor, constant: 4),
+            sv.trailingAnchor.constraint(equalTo: parent.trailingAnchor, constant: -4),
             sv.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2),
-            sv.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+            sv.bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: -4),
         ])
 
         let table = NSTableView()
@@ -1516,7 +1516,6 @@ extension LogitechHIDDebugPanel: NSTableViewDelegate {
         case "cFlags":
             cell.stringValue = HIDPPInfo.flagsDescription(ctrl.flags)
             cell.textColor = .secondaryLabelColor
-            cell.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
         case "cStatus":
             if isDiverted {
                 cell.stringValue = "DVRT"
