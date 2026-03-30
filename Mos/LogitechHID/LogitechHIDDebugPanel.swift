@@ -356,15 +356,15 @@ class LogitechHIDDebugPanel: NSObject {
         container.addSubview(split)
 
         NSLayoutConstraint.activate([
-            sidebar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
+            sidebar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
             sidebar.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
-            sidebar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10),
+            sidebar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
             sidebar.widthAnchor.constraint(equalToConstant: L.sidebarWidth),
 
             split.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: L.gap),
             split.topAnchor.constraint(equalTo: container.topAnchor, constant: topInset),
-            split.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
-            split.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10),
+            split.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+            split.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
         ])
 
         // NSSplitView subviews — managed by split, NOT by constraints
@@ -1337,7 +1337,7 @@ class LogitechHIDDebugPanel: NSObject {
         let v = NSView()
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedWhite: 1.0, alpha: 0.05).cgColor
-        v.layer?.cornerRadius = 6
+        v.layer?.cornerRadius = 8
         v.layer?.borderWidth = 1
         v.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.08).cgColor
         return v
@@ -1347,7 +1347,7 @@ class LogitechHIDDebugPanel: NSObject {
         let v = NSView()
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor(calibratedRed: 0, green: 0, blue: 0, alpha: 0.4).cgColor
-        v.layer?.cornerRadius = 6
+        v.layer?.cornerRadius = 8
         v.layer?.borderWidth = 1
         v.layer?.borderColor = NSColor(calibratedWhite: 1.0, alpha: 0.08).cgColor
         return v
