@@ -140,6 +140,15 @@ struct RecordedEvent: Codable, Equatable {
         self.displayComponents = event.displayComponents
     }
 
+    /// 便捷构造 - 直接指定所有字段
+    init(type: EventType, code: UInt16, modifiers: UInt, displayComponents: [String], deviceFilter: DeviceFilter?) {
+        self.type = type
+        self.code = code
+        self.modifiers = modifiers
+        self.displayComponents = displayComponents
+        self.deviceFilter = deviceFilter
+    }
+
     // MARK: - 匹配方法
     /// 检查是否与给定的 CGEvent 匹配
     func matches(_ event: CGEvent) -> Bool {
@@ -188,7 +197,7 @@ struct RecordedEvent: Codable, Equatable {
 /// 按钮绑定 - 将录制的事件与系统快捷键关联
 struct ButtonBinding: Codable, Equatable {
 
-    // MARK: - 数据字段
+    // MARK: - 持久化字段
 
     /// 唯一标识符
     let id: UUID
@@ -197,6 +206,7 @@ struct ButtonBinding: Codable, Equatable {
     let triggerEvent: RecordedEvent
 
     /// 绑定的系统快捷键名称
+    /// 自定义快捷键格式: "custom::<keyCode>:<modifierFlags>"
     let systemShortcutName: String
 
     /// 是否启用
@@ -205,6 +215,20 @@ struct ButtonBinding: Codable, Equatable {
     /// 创建时间
     let createdAt: Date
 
+    // MARK: - 瞬态缓存字段 (不参与编解码)
+
+    /// 缓存的自定义按键码
+    private(set) var cachedCustomCode: UInt16? = nil
+
+    /// 缓存的自定义修饰键标志
+    private(set) var cachedCustomModifiers: UInt64? = nil
+
+    // MARK: - CodingKeys (仅编码持久化字段)
+
+    enum CodingKeys: String, CodingKey {
+        case id, triggerEvent, systemShortcutName, isEnabled, createdAt
+    }
+
     // MARK: - 计算属性
 
     /// 获取系统快捷键对象
@@ -212,20 +236,58 @@ struct ButtonBinding: Codable, Equatable {
         return SystemShortcut.getShortcut(named: systemShortcutName)
     }
 
+    /// 是否为自定义绑定
+    var isCustomBinding: Bool {
+        return systemShortcutName.hasPrefix("custom::")
+    }
+
     // MARK: - 初始化
 
-    init(id: UUID = UUID(), triggerEvent: RecordedEvent, systemShortcutName: String, isEnabled: Bool = true) {
+    init(id: UUID = UUID(), triggerEvent: RecordedEvent, systemShortcutName: String, isEnabled: Bool = true, createdAt: Date = Date()) {
         self.id = id
         self.triggerEvent = triggerEvent
         self.systemShortcutName = systemShortcutName
         self.isEnabled = isEnabled
-        self.createdAt = Date()
+        self.createdAt = createdAt
     }
 
-    // MARK: - Equatable
+    // MARK: - 自定义缓存
+
+    /// 解析 custom:: 格式并填充缓存字段
+    mutating func prepareCustomCache() {
+        guard isCustomBinding else {
+            cachedCustomCode = nil
+            cachedCustomModifiers = nil
+            return
+        }
+        // 解析格式: "custom::<keyCode>:<modifierFlags>"
+        let payload = String(systemShortcutName.dropFirst("custom::".count))
+        let parts = payload.split(separator: ":")
+        guard parts.count == 2,
+              let code = UInt16(parts[0]),
+              let modifiers = UInt64(parts[1]) else {
+            cachedCustomCode = nil
+            cachedCustomModifiers = nil
+            return
+        }
+        // 如果是修饰键, 剥离自引用标志位
+        var finalModifiers = modifiers
+        if KeyCode.modifierKeys.contains(code) {
+            let selfMask = KeyCode.getKeyMask(code).rawValue
+            finalModifiers &= ~selfMask
+        }
+        cachedCustomCode = code
+        cachedCustomModifiers = finalModifiers
+    }
+
+    // MARK: - Equatable (仅比较持久化字段, 忽略瞬态缓存)
 
     static func == (lhs: ButtonBinding, rhs: ButtonBinding) -> Bool {
-        return lhs.id == rhs.id
+        return lhs.id == rhs.id &&
+               lhs.triggerEvent == rhs.triggerEvent &&
+               lhs.systemShortcutName == rhs.systemShortcutName &&
+               lhs.isEnabled == rhs.isEnabled &&
+               lhs.createdAt == rhs.createdAt
     }
 }
 
