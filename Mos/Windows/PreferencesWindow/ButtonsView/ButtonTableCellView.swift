@@ -26,9 +26,6 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     private var currentCustomName: String?
 
     // MARK: - Custom Recording
-    /// 菜单关闭后执行的待定动作 (用于自定义录制的弹窗时序控制)
-    private var pendingMenuCloseAction: (() -> Void)?
-
     private lazy var customRecorder: KeyRecorder = {
         let recorder = KeyRecorder()
         recorder.delegate = self
@@ -281,7 +278,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     // MARK: - Custom Recording Helpers
 
     private func startCustomRecording() {
-        customRecorder.startRecording(from: keyDisplayContainerView, mode: .adaptive)
+        customRecorder.startRecording(from: actionPopUpButton, mode: .adaptive)
     }
 
     /// 显示自定义绑定 (从 custom:: 字符串解析)
@@ -313,9 +310,10 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
 
     /// 快捷键选择回调
     @objc private func shortcutSelected(_ sender: NSMenuItem) {
-        // 自定义录制: 延迟到 menuDidClose 后弹出录制弹窗
+        // 自定义录制: action 在 menuDidClose 之后触发,
+        // 直接 asyncAfter 等待菜单动画和焦点恢复后弹出录制弹窗
         if sender.representedObject as? String == "__custom__" {
-            pendingMenuCloseAction = { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
                 guard let self = self, self.window != nil else { return }
                 self.startCustomRecording()
             }
@@ -375,13 +373,6 @@ extension ButtonTableCellView {
 
     func menuDidClose(_ menu: NSMenu) {
         disableKeyEquivalents(in: menu)
-        // 执行待定的菜单关闭后动作 (如自定义录制弹窗)
-        // 延迟 150ms: 等待 NSPopUpButton 完成菜单收起动画和焦点恢复,
-        // 避免 transient popover 因焦点状态未稳定而立即被关闭
-        if let action = pendingMenuCloseAction {
-            pendingMenuCloseAction = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: action)
-        }
     }
 
     /// 根据当前状态动态调整菜单结构
