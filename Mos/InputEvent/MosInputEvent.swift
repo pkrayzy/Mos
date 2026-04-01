@@ -152,4 +152,20 @@ struct MosInputEvent {
             return true
         }
     }
+
+    /// 事件是否可录制 (adaptive 模式 — 接受所有可用输入)
+    var isRecordableAsAdaptive: Bool {
+        switch type {
+        case .keyboard:
+            // 修饰键: 只在 down 时录制
+            if KeyCode.modifierKeys.contains(code) {
+                return phase == .down
+            }
+            return true
+        case .mouse:
+            // 主鼠标键不允许录制 (左键、右键)
+            if KeyCode.mouseMainKeys.contains(code) { return false }
+            return true
+        }
+    }
 }

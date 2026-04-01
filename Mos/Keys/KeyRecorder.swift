@@ -15,6 +15,8 @@ enum KeyRecordingMode {
     case combination
     /// 单键模式：支持单个按键，包括单独的修饰键 (用于 ScrollingView)
     case singleKey
+    /// 自适应模式：支持所有输入类型，通过时间间隔判断意图 (用于自定义绑定)
+    case adaptive
 }
 
 protocol KeyRecorderDelegate: AnyObject {
@@ -51,6 +53,20 @@ class KeyRecorder: NSObject {
     private let invalidKeyThreshold = 5 // 显示 ESC 提示的阈值
     private var recordingMode: KeyRecordingMode = .combination // 当前录制模式
     private var hidEventObserver: NSObjectProtocol?  // HID++ 事件监听 (录制期间)
+    // Adaptive mode state
+    private enum AdaptiveState {
+        case idle
+        case modifierHeld(modifiers: CGEventFlags)
+        case modifierReleasedWaiting(modifiers: CGEventFlags)
+        case recorded
+    }
+    private var adaptiveState: AdaptiveState = .idle
+    private var adaptiveConfirmTimer: Timer?  // 300ms post-release timer
+    private var holdConfirmTimer: Timer?       // 9.5s fallback timer
+
+    // Adaptive mode constants
+    private static let ADAPTIVE_CONFIRM_DELAY: TimeInterval = 0.3
+    private static let HOLD_CONFIRM_DELAY: TimeInterval = 9.5
     // UI 组件
     private var keyPopover: KeyPopover?
     
@@ -193,10 +209,15 @@ class KeyRecorder: NSObject {
         guard isRecording && !isRecorded else { return }
         let event = notification.object as! CGEvent
 
+        // Adaptive 模式: 使用状态机处理修饰键
+        if recordingMode == .adaptive {
+            handleAdaptiveFlagsChanged(event)
+            return
+        }
+
         // 单键模式：修饰键按下时直接完成录制
         if recordingMode == .singleKey && event.isKeyDown && event.isModifiers {
             NSLog("[EventRecorder] Single key mode: modifier key recorded")
-            // 直接触发录制完成
             NotificationCenter.default.post(
                 name: KeyRecorder.FINISH_NOTI_NAME,
                 object: event
@@ -207,13 +228,111 @@ class KeyRecorder: NSObject {
         // 组合键模式：如果有修饰键被按下，刷新超时定时器给用户更多时间
         let hasActiveModifiers = event.hasModifiers
         if hasActiveModifiers {
-            startTimeoutTimer() // 重新启动定时器
+            startTimeoutTimer()
             NSLog("[EventRecorder] Modifier key pressed, timeout timer refreshed")
         }
         // 实时更新录制界面显示当前已按下的修饰键
         keyPopover?.keyPreview
             .updateForRecording(from: event)
     }
+    // MARK: - Adaptive Mode
+
+    private func handleAdaptiveFlagsChanged(_ event: CGEvent) {
+        let hasActiveModifiers = event.hasModifiers
+
+        if hasActiveModifiers {
+            // 修饰键按下
+            cancelAdaptiveConfirmTimer()
+            startHoldConfirmTimer()
+            startTimeoutTimer() // 刷新全局超时
+            adaptiveState = .modifierHeld(modifiers: event.flags)
+            NSLog("[EventRecorder] Adaptive: modifier held, flags=\(event.flags.rawValue)")
+            // 实时更新显示
+            keyPopover?.keyPreview.updateForRecording(from: event)
+        } else {
+            // 所有修饰键松开
+            switch adaptiveState {
+            case .modifierHeld(let modifiers):
+                // 从按住状态松开 → 启动 300ms 确认定时器
+                adaptiveState = .modifierReleasedWaiting(modifiers: modifiers)
+                startAdaptiveConfirmTimer(modifiers: modifiers)
+                NSLog("[EventRecorder] Adaptive: modifiers released, waiting 300ms for confirmation")
+            default:
+                break
+            }
+        }
+    }
+
+    /// Adaptive 模式下的事件完成处理 (非修饰键/组合键录入时调用)
+    private func handleAdaptiveRecordedEvent(_ event: MosInputEvent) {
+        cancelAdaptiveConfirmTimer()
+        cancelHoldConfirmTimer()
+        adaptiveState = .recorded
+    }
+
+    /// 确认录制当前修饰键组合 (300ms 定时器或 9.5s hold 定时器触发)
+    private func confirmAdaptiveModifiers(_ modifiers: CGEventFlags) {
+        guard isRecording && !isRecorded else { return }
+        cancelAdaptiveConfirmTimer()
+        cancelHoldConfirmTimer()
+        adaptiveState = .recorded
+
+        // 构造 MosInputEvent 并通过 FINISH 通知完成录制
+        let mosEvent = MosInputEvent(
+            type: .keyboard,
+            code: extractPrimaryModifierCode(from: modifiers),
+            modifiers: modifiers,
+            phase: .down,
+            source: .hidPlusPlus,
+            device: nil
+        )
+        NotificationCenter.default.post(
+            name: KeyRecorder.FINISH_NOTI_NAME,
+            object: mosEvent
+        )
+    }
+
+    /// 从 flags 中提取主要修饰键的 keyCode
+    private func extractPrimaryModifierCode(from flags: CGEventFlags) -> UInt16 {
+        if flags.rawValue & CGEventFlags.maskCommand.rawValue != 0 { return KeyCode.commandL }
+        if flags.rawValue & CGEventFlags.maskShift.rawValue != 0 { return KeyCode.shiftL }
+        if flags.rawValue & CGEventFlags.maskAlternate.rawValue != 0 { return KeyCode.optionL }
+        if flags.rawValue & CGEventFlags.maskControl.rawValue != 0 { return KeyCode.controlL }
+        if flags.rawValue & CGEventFlags.maskSecondaryFn.rawValue != 0 { return KeyCode.fnL }
+        return KeyCode.commandL
+    }
+
+    // MARK: - Adaptive Timers
+
+    private func startAdaptiveConfirmTimer(modifiers: CGEventFlags) {
+        cancelAdaptiveConfirmTimer()
+        adaptiveConfirmTimer = Timer.scheduledTimer(withTimeInterval: KeyRecorder.ADAPTIVE_CONFIRM_DELAY, repeats: false) { [weak self] _ in
+            NSLog("[EventRecorder] Adaptive: 300ms confirm timer fired, confirming modifier(s)")
+            self?.confirmAdaptiveModifiers(modifiers)
+        }
+    }
+
+    private func cancelAdaptiveConfirmTimer() {
+        adaptiveConfirmTimer?.invalidate()
+        adaptiveConfirmTimer = nil
+    }
+
+    private func startHoldConfirmTimer() {
+        cancelHoldConfirmTimer()
+        holdConfirmTimer = Timer.scheduledTimer(withTimeInterval: KeyRecorder.HOLD_CONFIRM_DELAY, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            NSLog("[EventRecorder] Adaptive: 9.5s hold timer fired")
+            if case .modifierHeld(let modifiers) = self.adaptiveState {
+                self.confirmAdaptiveModifiers(modifiers)
+            }
+        }
+    }
+
+    private func cancelHoldConfirmTimer() {
+        holdConfirmTimer?.invalidate()
+        holdConfirmTimer = nil
+    }
+
     // 录制取消处理
     @objc private func handleRecordingCancelled(_ notification: NSNotification) {
         guard isRecording && !isRecorded else { return }
@@ -236,10 +355,21 @@ class KeyRecorder: NSObject {
             return
         }
 
+        // Adaptive 模式: 清理定时器和状态
+        if recordingMode == .adaptive {
+            handleAdaptiveRecordedEvent(mosEvent)
+        }
+
         // 检查事件有效性 (根据录制模式)
-        let isValid = recordingMode == .singleKey
-            ? mosEvent.isRecordableAsSingleKey
-            : mosEvent.isRecordable
+        let isValid: Bool
+        switch recordingMode {
+        case .singleKey:
+            isValid = mosEvent.isRecordableAsSingleKey
+        case .combination:
+            isValid = mosEvent.isRecordable
+        case .adaptive:
+            isValid = mosEvent.isRecordableAsAdaptive
+        }
         guard isValid else {
             NSLog("[EventRecorder] Invalid event ignored")
             keyPopover?.keyPreview.shakeWarning()
@@ -277,6 +407,10 @@ class KeyRecorder: NSObject {
         keyPopover = nil
         // 取消超时定时器
         cancelTimeoutTimer()
+        // 清理 adaptive 定时器
+        cancelAdaptiveConfirmTimer()
+        cancelHoldConfirmTimer()
+        adaptiveState = .idle
         // 取消通知和监听
         interceptor?.stop()
         interceptor = nil
