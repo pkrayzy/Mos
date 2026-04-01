@@ -22,6 +22,15 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     // MARK: - Callbacks
     private var onShortcutSelected: ((SystemShortcut.Shortcut?) -> Void)?
     private var onDeleteRequested: (() -> Void)?
+    private var onCustomShortcutRecorded: ((String) -> Void)?
+    private var currentCustomName: String?
+
+    // MARK: - Custom Recording
+    private lazy var customRecorder: KeyRecorder = {
+        let recorder = KeyRecorder()
+        recorder.delegate = self
+        return recorder
+    }()
 
     // MARK: - Data (只用于UI显示)
     private var currentShortcut: SystemShortcut.Shortcut?
@@ -31,12 +40,17 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     func configure(
         with binding: ButtonBinding,
         onShortcutSelected: @escaping (SystemShortcut.Shortcut?) -> Void,
+        onCustomShortcutRecorded: @escaping (String) -> Void,
         onDeleteRequested: @escaping () -> Void
     ) {
         // 保存回调
         self.onShortcutSelected = onShortcutSelected
         self.onDeleteRequested = onDeleteRequested
+        self.onCustomShortcutRecorded = onCustomShortcutRecorded
+        // 清理可能残留的录制状态 (cell 复用时)
+        customRecorder.stopRecording()
         self.currentShortcut = binding.systemShortcut
+        self.currentCustomName = binding.isCustomBinding ? binding.systemShortcutName : nil
 
         // 保存原始背景色（首次或复用时）
         if originalRowBackgroundColor == nil, let rowView = self.superview as? NSTableRowView {
@@ -177,6 +191,8 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         // 设置当前选择
         if let shortcut = currentShortcut {
             selectShortcutInMenu(shortcut)
+        } else if let customName = currentCustomName, customName.hasPrefix("custom::") {
+            displayCustomBinding(customName)
         } else {
             setPlaceholderToUnbound()
         }
@@ -259,10 +275,60 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         setCustomTitle(NSLocalizedString("unbound", comment: ""), image: nil)
     }
 
+    // MARK: - Custom Recording Helpers
+
+    private func startCustomRecording() {
+        customRecorder.startRecording(from: actionPopUpButton, mode: .adaptive)
+    }
+
+    /// 显示自定义绑定 (从 custom:: 字符串解析)
+    private func displayCustomBinding(_ customName: String) {
+        let parts = customName.dropFirst(8).split(separator: ":")
+        guard parts.count == 2,
+              let code = UInt16(parts[0]),
+              let mods = UInt64(parts[1]) else {
+            setPlaceholderToUnbound()
+            return
+        }
+        var components: [String] = []
+        let selfMask = KeyCode.getKeyMask(code).rawValue
+        if mods & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { components.append("⇧") }
+        if mods & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { components.append("⌃") }
+        if mods & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { components.append("⌥") }
+        if mods & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { components.append("⌘") }
+        components.append(KeyCode.keyMap[code] ?? "Key(\(code))")
+
+        let displayTitle = components.joined(separator: "+")
+        var image: NSImage? = nil
+        if #available(macOS 11.0, *) {
+            image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil)
+        }
+        setCustomTitle(displayTitle, image: image)
+    }
+
     // MARK: - Actions
 
     /// 快捷键选择回调
     @objc private func shortcutSelected(_ sender: NSMenuItem) {
+        // 自定义录制: 等菜单关闭后弹出录制弹窗
+        if sender.representedObject as? String == "__custom__" {
+            guard let menu = sender.menu else { return }
+            var observer: NSObjectProtocol?
+            observer = NotificationCenter.default.addObserver(
+                forName: NSMenu.didEndTrackingNotification,
+                object: menu,
+                queue: .main
+            ) { [weak self] _ in
+                NotificationCenter.default.removeObserver(observer!)
+                guard let self = self, self.window != nil else { return }
+                self.startCustomRecording()
+            }
+            return
+        }
+
+        // 清除自定义绑定状态
+        self.currentCustomName = nil
+
         // representedObject 为 nil 时表示用户选择了"未绑定"
         let shortcut = sender.representedObject as? SystemShortcut.Shortcut
 
@@ -329,7 +395,9 @@ extension ButtonTableCellView {
         let firstSeparator = menu.items[1]   // 第一条分割线
         let unboundItem = menu.items[2]      // "未绑定"/"取消绑定"菜单项
 
-        if currentShortcut == nil {
+        let hasBoundAction = currentShortcut != nil || currentCustomName != nil
+
+        if !hasBoundAction {
             // 当前是未绑定状态:隐藏占位符和第一条分割线,显示"未绑定"
             placeholderItem.isHidden = true
             firstSeparator.isHidden = true
@@ -367,5 +435,31 @@ extension ButtonTableCellView {
                 disableKeyEquivalents(in: submenu)
             }
         }
+    }
+}
+
+// MARK: - KeyRecorderDelegate (Custom Recording)
+extension ButtonTableCellView: KeyRecorderDelegate {
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: MosInputEvent, isDuplicate: Bool) {
+        guard !isDuplicate else { return }
+        let code = event.code
+        let modifiers = UInt64(event.modifiers.rawValue)
+        let customName = "custom::\(code):\(modifiers)"
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.66) { [weak self] in
+            guard let self = self else { return }
+            self.currentShortcut = nil
+            self.currentCustomName = customName
+            self.displayCustomBinding(customName)
+            self.onCustomShortcutRecorded?(customName)
+            // 重绘虚线
+            DispatchQueue.main.async {
+                self.setupDashedLine()
+            }
+        }
+    }
+
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool {
+        return true
     }
 }

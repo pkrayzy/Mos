@@ -157,6 +157,20 @@ extension PreferencesButtonsViewController {
         buttonBindings[index] = updatedBinding
         syncViewWithOptions()
     }
+
+    /// 更新按钮绑定 (自定义快捷键)
+    func updateButtonBinding(id: UUID, withCustomName name: String) {
+        guard let index = buttonBindings.firstIndex(where: { $0.id == id }) else { return }
+        let old = buttonBindings[index]
+        buttonBindings[index] = ButtonBinding(
+            id: old.id,
+            triggerEvent: old.triggerEvent,
+            systemShortcutName: name,
+            isEnabled: true,
+            createdAt: old.createdAt
+        )
+        syncViewWithOptions()
+    }
 }
 
 /**
@@ -188,6 +202,9 @@ extension PreferencesButtonsViewController: NSTableViewDelegate, NSTableViewData
                 with: binding,
                 onShortcutSelected: { [weak self] shortcut in
                     self?.updateButtonBinding(id: binding.id, with: shortcut)
+                },
+                onCustomShortcutRecorded: { [weak self] customName in
+                    self?.updateButtonBinding(id: binding.id, withCustomName: customName)
                 },
                 onDeleteRequested: { [weak self] in
                     self?.removeButtonBinding(id: binding.id)
