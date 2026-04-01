@@ -53,8 +53,21 @@ class ShortcutExecutor {
     }
 
     /// 执行系统快捷键 (从名称解析, 支持动态读取系统配置)
-    /// - Parameter shortcutName: 快捷键名称 (如 "minimizeWindow", "mouseLeftClick", "logiSmartShiftToggle")
-    func execute(named shortcutName: String) {
+    /// - Parameters:
+    ///   - shortcutName: 快捷键名称
+    ///   - phase: 事件阶段 (down/up), 默认 .down
+    ///   - binding: 可选的 ButtonBinding (用于访问预解析的 custom cache)
+    func execute(named shortcutName: String, phase: MosInputPhase = .down, binding: ButtonBinding? = nil) {
+        // 自定义绑定: 根据 phase 发送 keyDown/keyUp 或 flagsChanged
+        if let code = binding?.cachedCustomCode {
+            let modifiers = binding?.cachedCustomModifiers ?? 0
+            executeCustom(code: code, modifiers: modifiers, phase: phase)
+            return
+        }
+
+        // 以下预定义类型仅响应 down
+        guard phase == .down else { return }
+
         // 鼠标按键动作
         if shortcutName.hasPrefix("mouse") {
             executeMouseAction(shortcutName)
@@ -79,6 +92,35 @@ class ShortcutExecutor {
         }
 
         execute(shortcut)
+    }
+
+    // MARK: - Custom Binding Execution
+
+    /// 执行自定义绑定 (1:1 down/up 映射)
+    private func executeCustom(code: UInt16, modifiers: UInt64, phase: MosInputPhase) {
+        guard let source = CGEventSource(stateID: .hidSystemState) else { return }
+        let isModifierKey = KeyCode.modifierKeys.contains(code)
+
+        if isModifierKey {
+            // 修饰键: 使用 flagsChanged 事件类型
+            guard let event = CGEvent(source: source) else { return }
+            event.type = .flagsChanged
+            event.setIntegerValueField(.keyboardEventKeycode, value: Int64(code))
+            if phase == .down {
+                // 按下: 设置所有修饰键 flags (自身 + 附加修饰键)
+                let keyMask = KeyCode.getKeyMask(code)
+                event.flags = CGEventFlags(rawValue: modifiers | keyMask.rawValue)
+            } else {
+                // 松开: 清除所有 flags (释放全部修饰键)
+                event.flags = CGEventFlags(rawValue: 0)
+            }
+            event.post(tap: .cghidEventTap)
+        } else {
+            // 普通键: 使用 keyDown/keyUp
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: phase == .down) else { return }
+            event.flags = CGEventFlags(rawValue: modifiers)
+            event.post(tap: .cghidEventTap)
+        }
     }
 
     // MARK: - Mouse Actions

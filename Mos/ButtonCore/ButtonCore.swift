@@ -26,8 +26,10 @@ class ButtonCore {
     let otherDown = CGEventMask(1 << CGEventType.otherMouseDown.rawValue)
     let keyDown = CGEventMask(1 << CGEventType.keyDown.rawValue)
     let flagsChanged = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+    let otherUp = CGEventMask(1 << CGEventType.otherMouseUp.rawValue)
+    let keyUp = CGEventMask(1 << CGEventType.keyUp.rawValue)
     var eventMask: CGEventMask {
-        return leftDown | rightDown | otherDown | keyDown
+        return leftDown | rightDown | otherDown | otherUp | keyDown | keyUp
     }
 
     // MARK: - 按钮事件处理

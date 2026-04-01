@@ -174,7 +174,6 @@ struct RecordedEvent: Codable, Equatable {
         guard event.type == type else { return false }
         switch type {
         case .keyboard:
-            guard event.phase == .down else { return false }
             guard code == event.code else { return false }
         case .mouse:
             guard code == event.code else { return false }
