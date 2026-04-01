@@ -132,6 +132,7 @@ extension Options {
         }
         // 按钮绑定
         buttons.binding = loadButtonsData()
+        ButtonUtils.shared.invalidateCache()
         // 应用
         application.allowlist = UserDefaults.standard.bool(forKey: OptionItem.Application.Allowlist)
         application.applications = loadApplicationsData()
