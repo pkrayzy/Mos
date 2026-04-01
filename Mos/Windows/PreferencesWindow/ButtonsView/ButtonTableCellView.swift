@@ -281,7 +281,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     // MARK: - Custom Recording Helpers
 
     private func startCustomRecording() {
-        customRecorder.startRecording(from: actionPopUpButton, mode: .adaptive)
+        customRecorder.startRecording(from: keyDisplayContainerView, mode: .adaptive)
     }
 
     /// 显示自定义绑定 (从 custom:: 字符串解析)
@@ -376,9 +376,11 @@ extension ButtonTableCellView {
     func menuDidClose(_ menu: NSMenu) {
         disableKeyEquivalents(in: menu)
         // 执行待定的菜单关闭后动作 (如自定义录制弹窗)
+        // 延迟 150ms: 等待 NSPopUpButton 完成菜单收起动画和焦点恢复,
+        // 避免 transient popover 因焦点状态未稳定而立即被关闭
         if let action = pendingMenuCloseAction {
             pendingMenuCloseAction = nil
-            DispatchQueue.main.async(execute: action)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: action)
         }
     }
 
