@@ -26,6 +26,9 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     private var currentCustomName: String?
 
     // MARK: - Custom Recording
+    /// 菜单关闭后执行的待定动作 (用于自定义录制的弹窗时序控制)
+    private var pendingMenuCloseAction: (() -> Void)?
+
     private lazy var customRecorder: KeyRecorder = {
         let recorder = KeyRecorder()
         recorder.delegate = self
@@ -310,16 +313,9 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
 
     /// 快捷键选择回调
     @objc private func shortcutSelected(_ sender: NSMenuItem) {
-        // 自定义录制: 等菜单关闭后弹出录制弹窗
+        // 自定义录制: 延迟到 menuDidClose 后弹出录制弹窗
         if sender.representedObject as? String == "__custom__" {
-            guard let menu = sender.menu else { return }
-            var observer: NSObjectProtocol?
-            observer = NotificationCenter.default.addObserver(
-                forName: NSMenu.didEndTrackingNotification,
-                object: menu,
-                queue: .main
-            ) { [weak self] _ in
-                NotificationCenter.default.removeObserver(observer!)
+            pendingMenuCloseAction = { [weak self] in
                 guard let self = self, self.window != nil else { return }
                 self.startCustomRecording()
             }
@@ -379,6 +375,11 @@ extension ButtonTableCellView {
 
     func menuDidClose(_ menu: NSMenu) {
         disableKeyEquivalents(in: menu)
+        // 执行待定的菜单关闭后动作 (如自定义录制弹窗)
+        if let action = pendingMenuCloseAction {
+            pendingMenuCloseAction = nil
+            DispatchQueue.main.async(execute: action)
+        }
     }
 
     /// 根据当前状态动态调整菜单结构
