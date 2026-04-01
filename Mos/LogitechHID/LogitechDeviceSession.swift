@@ -1561,21 +1561,20 @@ class LogitechDeviceSession {
             code: mosEvent.code, isDown: isDown
         )
 
-        // 匹配 binding, 如果是 logi* 动作则在当前 session 执行 (设备隔离)
+        // 匹配 binding: logi* 动作在当前 session 执行 (设备隔离, 仅 down)
+        // 其余一律走 MosInputProcessor (支持 down/up 和 custom 绑定)
         if isDown {
             let bindings = ButtonUtils.shared.getButtonBindings()
-            if let binding = bindings.first(where: { $0.triggerEvent.matchesMosInput(mosEvent) && $0.isEnabled }) {
-                if binding.systemShortcutName.hasPrefix("logi") {
-                    executeLogiAction(binding.systemShortcutName)
-                } else {
-                    ShortcutExecutor.shared.execute(named: binding.systemShortcutName)
-                }
+            if let binding = bindings.first(where: { $0.triggerEvent.matchesMosInput(mosEvent) && $0.isEnabled }),
+               binding.systemShortcutName.hasPrefix("logi") {
+                // Logi 动作: 在当前 session 执行 (设备隔离, 不注册 activeBindings)
+                executeLogiAction(binding.systemShortcutName)
                 return
             }
         }
-
-        // 未匹配的事件走 MosInputProcessor
-        let _ = MosInputProcessor.shared.process(mosEvent)
+        // 非 logi 绑定 (含 custom::) 和所有 Up 事件: 统一走 MosInputProcessor
+        let result = MosInputProcessor.shared.process(mosEvent)
+        if result == .consumed { return }
 
         // 通知 KeyRecorder
         NotificationCenter.default.post(

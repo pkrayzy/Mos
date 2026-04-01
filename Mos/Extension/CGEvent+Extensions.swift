@@ -143,7 +143,8 @@ extension CGEvent {
     /// 是否为鼠标事件
     var isMouseEvent: Bool {
         switch type {
-            case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            case .leftMouseDown, .rightMouseDown, .otherMouseDown,
+                 .leftMouseUp, .rightMouseUp, .otherMouseUp:
                 return true
             default:
                 return false
