@@ -290,15 +290,30 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
             setPlaceholderToUnbound()
             return
         }
-        var components: [String] = []
-        let selfMask = KeyCode.getKeyMask(code).rawValue
-        if mods & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { components.append("⇧") }
-        if mods & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { components.append("⌃") }
-        if mods & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { components.append("⌥") }
-        if mods & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { components.append("⌘") }
-        components.append(KeyCode.keyMap[code] ?? "Key(\(code))")
 
-        let displayTitle = components.joined(separator: "+")
+        let displayTitle: String
+        if KeyCode.modifierKeys.contains(code) {
+            // 纯修饰键组合: 合并所有 flags, 按固定顺序 (与 modifierString 一致)
+            let allFlags = mods | KeyCode.getKeyMask(code).rawValue
+            var symbols: [String] = []
+            if allFlags & CGEventFlags.maskShift.rawValue != 0 { symbols.append("⇧") }
+            if allFlags & CGEventFlags.maskSecondaryFn.rawValue != 0 { symbols.append("Fn") }
+            if allFlags & CGEventFlags.maskControl.rawValue != 0 { symbols.append("⌃") }
+            if allFlags & CGEventFlags.maskAlternate.rawValue != 0 { symbols.append("⌥") }
+            if allFlags & CGEventFlags.maskCommand.rawValue != 0 { symbols.append("⌘") }
+            displayTitle = symbols.joined(separator: " ")
+        } else {
+            // 修饰键+普通键: 独立符号用 + 拼接
+            var components: [String] = []
+            let selfMask = KeyCode.getKeyMask(code).rawValue
+            if mods & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { components.append("⇧") }
+            if mods & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { components.append("⌃") }
+            if mods & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { components.append("⌥") }
+            if mods & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { components.append("⌘") }
+            components.append(KeyCode.keyMap[code] ?? "Key(\(code))")
+            displayTitle = components.joined(separator: "+")
+        }
+
         var image: NSImage? = nil
         if #available(macOS 11.0, *) {
             image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil)

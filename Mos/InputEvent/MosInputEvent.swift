@@ -90,14 +90,26 @@ struct MosInputEvent {
 
     /// 构造展示用名称组件
     var displayComponents: [String] {
+        // 纯修饰键组合: 合并所有 flags 后按固定顺序构建单字符串,
+        // 与录制过程中 modifierString 的顺序一致 (⇧ Fn ⌃ ⌥ ⌘), 避免视觉跳跃
+        if type == .keyboard && KeyCode.modifierKeys.contains(code) {
+            let allFlags = modifiers.rawValue | KeyCode.getKeyMask(code).rawValue
+            var symbols: [String] = []
+            if allFlags & CGEventFlags.maskShift.rawValue != 0 { symbols.append("⇧") }
+            if allFlags & CGEventFlags.maskSecondaryFn.rawValue != 0 { symbols.append("Fn") }
+            if allFlags & CGEventFlags.maskControl.rawValue != 0 { symbols.append("⌃") }
+            if allFlags & CGEventFlags.maskAlternate.rawValue != 0 { symbols.append("⌥") }
+            if allFlags & CGEventFlags.maskCommand.rawValue != 0 { symbols.append("⌘") }
+            return [symbols.joined(separator: " ")]
+        }
+
+        // 非纯修饰键: 修饰键各自独立 badge + 按键 badge
         var components: [String] = []
-        // 修饰键 (排除自身: 按下 Shift 时 flags 含 .maskShift, 但 keyCode 也是 Shift, 避免重复)
         let selfMask = KeyCode.getKeyMask(code).rawValue
         if modifiers.rawValue & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { components.append("⇧") }
         if modifiers.rawValue & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { components.append("⌃") }
         if modifiers.rawValue & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { components.append("⌥") }
         if modifiers.rawValue & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { components.append("⌘") }
-        // 按键名称
         switch type {
         case .keyboard:
             components.append(KeyCode.keyMap[code] ?? "Key(\(code))")

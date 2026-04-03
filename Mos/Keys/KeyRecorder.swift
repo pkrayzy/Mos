@@ -280,8 +280,9 @@ class KeyRecorder: NSObject {
 
             let isAdding = (currentBits & ~previousBits) != 0
             if isAdding {
-                // 新增修饰键: 立即更新显示
+                // 新增修饰键: 取消 debounce, 清空释放历史 (用户改变了意图), 立即更新显示
                 cancelDisplayDebounceTimer()
+                modifierReleaseTimestamps.removeAll()
                 keyPopover?.keyPreview.updateForRecording(from: event)
             } else {
                 // 释放修饰键但仍有按住: 延迟更新, 避免同时释放时闪烁中间态
