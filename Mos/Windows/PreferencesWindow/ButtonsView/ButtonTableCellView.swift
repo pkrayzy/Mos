@@ -350,14 +350,17 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         return NSImage(size: imageSize, flipped: false) { _ in
             var x: CGFloat = 0
 
-            // 绘制 keyboard 图标
+            // 绘制 keyboard 图标 (用 sourceAtop 合成着色, 适配 Dark/Light 模式)
             if #available(macOS 11.0, *),
                let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil) {
                 let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
                 let configured = symbol.withSymbolConfiguration(config) ?? symbol
                 let symbolSize = configured.size
                 let iconY = (badgeHeight - symbolSize.height) / 2
-                configured.draw(in: NSRect(x: x, y: iconY, width: symbolSize.width, height: symbolSize.height))
+                let iconRect = NSRect(x: x, y: iconY, width: symbolSize.width, height: symbolSize.height)
+                configured.draw(in: iconRect)
+                NSColor.secondaryLabelColor.set()
+                iconRect.fill(using: .sourceAtop)
                 x += symbolSize.width + iconTrailingGap
             }
 
