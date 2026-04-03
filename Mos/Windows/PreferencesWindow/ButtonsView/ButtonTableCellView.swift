@@ -307,12 +307,14 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     /// 将 displayComponents 渲染为 badge 风格的图片 (与 KeyPreview 视觉一致)
     /// 使用 NSImage drawingHandler, 每次绘制时执行, 自动响应 Dark/Light 模式切换
     private func createBadgeImage(from components: [String]) -> NSImage {
-        let font = NSFont.systemFont(ofSize: KeyPreview.FONT_SIZE, weight: .medium)
-        let plusFont = NSFont.systemFont(ofSize: KeyPreview.FONT_SIZE)
-        let badgeHeight = KeyPreview.VIEW_SIZE
-        let cornerRadius: CGFloat = 4
-        let hPadding: CGFloat = 6
-        let plusSpacing: CGFloat = 4
+        // 紧凑尺寸: 适配 PopUpButton 行高, 避免与上下边距紧贴
+        let fontSize: CGFloat = 10
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
+        let plusFont = NSFont.systemFont(ofSize: fontSize)
+        let badgeHeight: CGFloat = 18
+        let cornerRadius: CGFloat = 3
+        let hPadding: CGFloat = 5
+        let plusSpacing: CGFloat = 3
 
         // 预计算每个 badge 和总尺寸
         struct BadgeMetrics {
