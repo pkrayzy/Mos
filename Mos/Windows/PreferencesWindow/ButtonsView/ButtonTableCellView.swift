@@ -307,14 +307,16 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     /// 将 displayComponents 渲染为 badge 风格的图片 (与 KeyPreview 视觉一致)
     /// 使用 NSImage drawingHandler, 每次绘制时执行, 自动响应 Dark/Light 模式切换
     private func createBadgeImage(from components: [String]) -> NSImage {
-        // 紧凑尺寸: 适配 PopUpButton 行高, 避免与上下边距紧贴
-        let fontSize: CGFloat = 10
+        // 紧凑尺寸: 适配 PopUpButton 行高
+        let fontSize: CGFloat = 9
         let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
         let plusFont = NSFont.systemFont(ofSize: fontSize)
-        let badgeHeight: CGFloat = 18
+        let badgeHeight: CGFloat = 17
         let cornerRadius: CGFloat = 3
         let hPadding: CGFloat = 5
         let plusSpacing: CGFloat = 3
+        let iconSize: CGFloat = 11
+        let iconTrailingGap: CGFloat = 4
 
         // 预计算每个 badge 和总尺寸
         struct BadgeMetrics {
@@ -337,9 +339,28 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
             }
         }
 
+        // 前置 keyboard 图标的空间
+        var iconWidth: CGFloat = 0
+        if #available(macOS 11.0, *) {
+            iconWidth = iconSize + iconTrailingGap
+        }
+        totalWidth += iconWidth
+
         let imageSize = NSSize(width: ceil(totalWidth), height: badgeHeight)
         return NSImage(size: imageSize, flipped: false) { _ in
             var x: CGFloat = 0
+
+            // 绘制 keyboard 图标
+            if #available(macOS 11.0, *),
+               let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil) {
+                let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
+                let configured = symbol.withSymbolConfiguration(config) ?? symbol
+                let symbolSize = configured.size
+                let iconY = (badgeHeight - symbolSize.height) / 2
+                configured.draw(in: NSRect(x: x, y: iconY, width: symbolSize.width, height: symbolSize.height))
+                x += symbolSize.width + iconTrailingGap
+            }
+
             let bgColor = Utils.isDarkMode(for: nil)
                 ? NSColor(calibratedWhite: 0.5, alpha: 0.2)
                 : NSColor(calibratedWhite: 0.0, alpha: 0.1)
