@@ -66,6 +66,7 @@ class KeyRecorder: NSObject {
     // 同时释放检测 (类似格斗游戏组合键输入缓冲)
     private var previousAdaptiveFlags: CGEventFlags = []
     private var modifierReleaseTimestamps: [(flags: CGEventFlags, time: TimeInterval)] = []
+    private var displayDebounceTimer: Timer?  // 释放时延迟更新 preview, 避免闪烁中间态
 
     // Adaptive mode constants
     private static let ADAPTIVE_CONFIRM_DELAY: TimeInterval = 0.3
@@ -276,9 +277,19 @@ class KeyRecorder: NSObject {
             }
             adaptiveState = .modifierHeld(modifiers: event.flags)
             NSLog("[EventRecorder] Adaptive: modifier held, flags=\(event.flags.rawValue)")
-            keyPopover?.keyPreview.updateForRecording(from: event)
+
+            let isAdding = (currentBits & ~previousBits) != 0
+            if isAdding {
+                // 新增修饰键: 立即更新显示
+                cancelDisplayDebounceTimer()
+                keyPopover?.keyPreview.updateForRecording(from: event)
+            } else {
+                // 释放修饰键但仍有按住: 延迟更新, 避免同时释放时闪烁中间态
+                scheduleDisplayDebounce(event: event)
+            }
         } else {
             // 所有修饰键松开
+            cancelDisplayDebounceTimer() // 不再需要延迟更新, 最终结果由 confirm 流程显示
             switch adaptiveState {
             case .modifierHeld:
                 cancelHoldConfirmTimer()
@@ -379,6 +390,24 @@ class KeyRecorder: NSObject {
         holdConfirmTimer = nil
     }
 
+    // MARK: - Display Debounce (防止同时释放修饰键时 preview 闪烁中间态)
+
+    private func scheduleDisplayDebounce(event: CGEvent) {
+        cancelDisplayDebounceTimer()
+        // 保留 event 的 flags 用于延迟更新 (CGEvent 是引用类型, 不需要拷贝 flags)
+        let flags = event.flags
+        displayDebounceTimer = Timer.scheduledTimer(withTimeInterval: Self.SIMULTANEOUS_RELEASE_WINDOW, repeats: false) { [weak self] _ in
+            guard let self = self, self.isRecording, !self.isRecorded else { return }
+            // 窗口期内没有更多释放事件, 说明这是一次有意的释放, 更新显示
+            self.keyPopover?.keyPreview.updateForRecording(modifiers: flags)
+        }
+    }
+
+    private func cancelDisplayDebounceTimer() {
+        displayDebounceTimer?.invalidate()
+        displayDebounceTimer = nil
+    }
+
     // 录制取消处理
     @objc private func handleRecordingCancelled(_ notification: NSNotification) {
         guard isRecording && !isRecorded else { return }
@@ -456,6 +485,7 @@ class KeyRecorder: NSObject {
         // 清理 adaptive 状态
         cancelAdaptiveConfirmTimer()
         cancelHoldConfirmTimer()
+        cancelDisplayDebounceTimer()
         adaptiveState = .idle
         previousAdaptiveFlags = []
         modifierReleaseTimestamps.removeAll()

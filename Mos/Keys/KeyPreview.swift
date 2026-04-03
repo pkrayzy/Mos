@@ -78,6 +78,22 @@ class KeyPreview: NSStackView {
         }
     }
 
+    /// 从 CGEventFlags 更新录制显示 (用于 debounce 延迟更新, 此时已无 CGEvent 引用)
+    func updateForRecording(modifiers flags: CGEventFlags) {
+        var components: [String] = []
+        if flags.contains(.maskShift) { components.append("⇧") }
+        if flags.contains(.maskSecondaryFn) { components.append("Fn") }
+        if flags.contains(.maskControl) { components.append("⌃") }
+        if flags.contains(.maskAlternate) { components.append("⌥") }
+        if flags.contains(.maskCommand) { components.append("⌘") }
+        let modString = components.joined(separator: " ")
+        if !modString.isEmpty {
+            update(from: [modString, KeyPreview.WAITING_WORDING], status: .recording)
+        } else {
+            update(from: [KeyPreview.WAITING_WORDING], status: .recording)
+        }
+    }
+
     /// 显示警告反馈(不可录制的按键)
     /// 对WAITING_WORDING对应的keyView执行红色+晃动动画
     func shakeWarning() {
