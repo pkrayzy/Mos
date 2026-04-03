@@ -103,13 +103,18 @@ struct MosInputEvent {
             return [symbols.joined(separator: " ")]
         }
 
-        // 非纯修饰键: 修饰键各自独立 badge + 按键 badge
-        var components: [String] = []
+        // 非纯修饰键: 修饰键合并为单个 badge + 按键 badge
+        // 与录制时 [⌃ ⌥ ⌘]+[?] 的格式一致
+        var modSymbols: [String] = []
         let selfMask = KeyCode.getKeyMask(code).rawValue
-        if modifiers.rawValue & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { components.append("⇧") }
-        if modifiers.rawValue & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { components.append("⌃") }
-        if modifiers.rawValue & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { components.append("⌥") }
-        if modifiers.rawValue & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { components.append("⌘") }
+        if modifiers.rawValue & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { modSymbols.append("⇧") }
+        if modifiers.rawValue & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { modSymbols.append("⌃") }
+        if modifiers.rawValue & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { modSymbols.append("⌥") }
+        if modifiers.rawValue & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { modSymbols.append("⌘") }
+        var components: [String] = []
+        if !modSymbols.isEmpty {
+            components.append(modSymbols.joined(separator: " "))
+        }
         switch type {
         case .keyboard:
             components.append(KeyCode.keyMap[code] ?? "Key(\(code))")
