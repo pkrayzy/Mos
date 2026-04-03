@@ -291,34 +291,91 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
             return
         }
 
-        let displayTitle: String
-        if KeyCode.modifierKeys.contains(code) {
-            // 纯修饰键组合: 合并所有 flags, 按固定顺序 (与 modifierString 一致)
-            let allFlags = mods | KeyCode.getKeyMask(code).rawValue
-            var symbols: [String] = []
-            if allFlags & CGEventFlags.maskShift.rawValue != 0 { symbols.append("⇧") }
-            if allFlags & CGEventFlags.maskSecondaryFn.rawValue != 0 { symbols.append("Fn") }
-            if allFlags & CGEventFlags.maskControl.rawValue != 0 { symbols.append("⌃") }
-            if allFlags & CGEventFlags.maskAlternate.rawValue != 0 { symbols.append("⌥") }
-            if allFlags & CGEventFlags.maskCommand.rawValue != 0 { symbols.append("⌘") }
-            displayTitle = symbols.joined(separator: " ")
-        } else {
-            // 修饰键+普通键: 独立符号用 + 拼接
-            var components: [String] = []
-            let selfMask = KeyCode.getKeyMask(code).rawValue
-            if mods & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { components.append("⇧") }
-            if mods & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { components.append("⌃") }
-            if mods & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { components.append("⌥") }
-            if mods & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { components.append("⌘") }
-            components.append(KeyCode.keyMap[code] ?? "Key(\(code))")
-            displayTitle = components.joined(separator: "+")
+        // 构造 MosInputEvent 以复用 displayComponents 统一格式
+        let mosEvent = MosInputEvent(
+            type: KeyCode.modifierKeys.contains(code) ? .keyboard : (code >= 0x100 ? .mouse : .keyboard),
+            code: code,
+            modifiers: CGEventFlags(rawValue: mods),
+            phase: .down,
+            source: .hidPlusPlus,
+            device: nil
+        )
+        let badgeImage = createBadgeImage(from: mosEvent.displayComponents)
+        setCustomTitle("", image: badgeImage)
+    }
+
+    /// 将 displayComponents 渲染为 badge 风格的图片 (与 KeyPreview 视觉一致)
+    /// 使用 NSImage drawingHandler, 每次绘制时执行, 自动响应 Dark/Light 模式切换
+    private func createBadgeImage(from components: [String]) -> NSImage {
+        let font = NSFont.systemFont(ofSize: KeyPreview.FONT_SIZE, weight: .medium)
+        let plusFont = NSFont.systemFont(ofSize: KeyPreview.FONT_SIZE)
+        let badgeHeight = KeyPreview.VIEW_SIZE
+        let cornerRadius: CGFloat = 4
+        let hPadding: CGFloat = 6
+        let plusSpacing: CGFloat = 4
+
+        // 预计算每个 badge 和总尺寸
+        struct BadgeMetrics {
+            let text: String
+            let textSize: NSSize
+            let badgeWidth: CGFloat
+        }
+        var badges: [BadgeMetrics] = []
+        var totalWidth: CGFloat = 0
+
+        for (i, component) in components.enumerated() {
+            let attrs: [NSAttributedString.Key: Any] = [.font: font]
+            let textSize = (component as NSString).size(withAttributes: attrs)
+            let badgeWidth = max(textSize.width + hPadding * 2, badgeHeight)
+            badges.append(BadgeMetrics(text: component, textSize: textSize, badgeWidth: badgeWidth))
+            totalWidth += badgeWidth
+            if i > 0 {
+                let plusSize = ("+" as NSString).size(withAttributes: [.font: plusFont])
+                totalWidth += plusSpacing * 2 + plusSize.width
+            }
         }
 
-        var image: NSImage? = nil
-        if #available(macOS 11.0, *) {
-            image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil)
+        let imageSize = NSSize(width: ceil(totalWidth), height: badgeHeight)
+        return NSImage(size: imageSize, flipped: false) { _ in
+            var x: CGFloat = 0
+            let bgColor = Utils.isDarkMode(for: nil)
+                ? NSColor(calibratedWhite: 0.5, alpha: 0.2)
+                : NSColor(calibratedWhite: 0.0, alpha: 0.1)
+            let textColor = NSColor.labelColor
+
+            for (i, badge) in badges.enumerated() {
+                // "+" 分隔符
+                if i > 0 {
+                    let plusAttrs: [NSAttributedString.Key: Any] = [
+                        .font: plusFont,
+                        .foregroundColor: NSColor.secondaryLabelColor,
+                    ]
+                    let plusSize = ("+" as NSString).size(withAttributes: plusAttrs)
+                    x += plusSpacing
+                    let plusY = (badgeHeight - plusSize.height) / 2
+                    ("+" as NSString).draw(at: NSPoint(x: x, y: plusY), withAttributes: plusAttrs)
+                    x += plusSize.width + plusSpacing
+                }
+
+                // Badge 背景
+                let badgeRect = NSRect(x: x, y: 0, width: badge.badgeWidth, height: badgeHeight)
+                let path = NSBezierPath(roundedRect: badgeRect, xRadius: cornerRadius, yRadius: cornerRadius)
+                bgColor.setFill()
+                path.fill()
+
+                // Badge 文字
+                let textAttrs: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: textColor,
+                ]
+                let textX = x + (badge.badgeWidth - badge.textSize.width) / 2
+                let textY = (badgeHeight - badge.textSize.height) / 2
+                (badge.text as NSString).draw(at: NSPoint(x: textX, y: textY), withAttributes: textAttrs)
+
+                x += badge.badgeWidth
+            }
+            return true
         }
-        setCustomTitle(displayTitle, image: image)
     }
 
     // MARK: - Actions
