@@ -346,7 +346,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         }
         totalWidth += iconWidth
 
-        let imageSize = NSSize(width: ceil(totalWidth), height: badgeHeight)
+        let imageSize = NSSize(width: ceil(totalWidth) + 6, height: badgeHeight)
         return NSImage(size: imageSize, flipped: false) { _ in
             var x: CGFloat = 0
 
