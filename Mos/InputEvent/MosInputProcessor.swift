@@ -33,6 +33,23 @@ class MosInputProcessor {
         let code: UInt16
     }
 
+    // MARK: - Virtual Modifier Flags
+    /// 当前激活的虚拟修饰键 flags (从 activeBindings 中所有自定义修饰键绑定动态派生)
+    /// ButtonCore 回调读取此值, 注入到 passthrough 的键盘事件中
+    private(set) var activeModifierFlags: UInt64 = 0
+
+    /// 从 activeBindings 表重新计算 activeModifierFlags
+    private func recomputeActiveModifierFlags() {
+        var flags: UInt64 = 0
+        for binding in activeBindings.values {
+            guard let code = binding.cachedCustomCode,
+                  KeyCode.modifierKeys.contains(code) else { continue }
+            let modifiers = binding.cachedCustomModifiers ?? 0
+            flags |= modifiers | KeyCode.getKeyMask(code).rawValue
+        }
+        activeModifierFlags = flags
+    }
+
     /// 处理输入事件
     /// - Parameter event: 统一输入事件
     /// - Returns: .consumed 表示事件已处理, .passthrough 表示未匹配
@@ -42,6 +59,7 @@ class MosInputProcessor {
         if event.phase == .up {
             // Up 事件: 按 (type, code) 查表, 忽略 modifiers (用户可能已松开修饰键)
             if let binding = activeBindings.removeValue(forKey: key) {
+                recomputeActiveModifierFlags()
                 ShortcutExecutor.shared.execute(named: binding.systemShortcutName, phase: .up, binding: binding)
                 return .consumed
             }
@@ -52,8 +70,14 @@ class MosInputProcessor {
         let bindings = ButtonUtils.shared.getButtonBindings()
         for binding in bindings where binding.isEnabled {
             if binding.triggerEvent.matchesMosInput(event) {
+                // 覆写保护: 清理可能被覆写的旧 binding 的状态
+                if activeBindings[key] != nil {
+                    activeBindings.removeValue(forKey: key)
+                    recomputeActiveModifierFlags()
+                }
                 activeBindings[key] = binding
                 ShortcutExecutor.shared.execute(named: binding.systemShortcutName, phase: .down, binding: binding)
+                recomputeActiveModifierFlags()
                 return .consumed
             }
         }

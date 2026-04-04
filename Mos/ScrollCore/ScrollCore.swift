@@ -242,6 +242,11 @@ class ScrollCore {
 
     // MARK: - 热键事件处理 (CGEventTap)
     let hotkeyEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
+        // 跳过 Mos 合成事件, 避免 executeCustom 的 flagsChanged 误触发 dash/toggle/block
+        if event.getIntegerValueField(.eventSourceUserData) == MosEventMarker.syntheticCustom {
+            return nil  // listenOnly tap 返回值无影响
+        }
+
         let keyCode = event.keyCode
         let mouseButton = UInt16(event.getIntegerValueField(.mouseEventButtonNumber))
 

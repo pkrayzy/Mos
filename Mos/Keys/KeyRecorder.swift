@@ -146,6 +146,10 @@ class KeyRecorder: NSObject {
             interceptor = try Interceptor(
                 event: eventMask,
                 handleBy: { (proxy, type, event, refcon) in
+                    // 跳过 Mos 合成事件, 避免 executeCustom 的合成事件干扰录制
+                    if event.getIntegerValueField(.eventSourceUserData) == MosEventMarker.syntheticCustom {
+                        return nil
+                    }
                     let recordedEvent = event
                     switch type {
                     case .flagsChanged:

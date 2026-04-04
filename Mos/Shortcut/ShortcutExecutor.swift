@@ -114,11 +114,15 @@ class ShortcutExecutor {
                 // 松开: 清除所有 flags (释放全部修饰键)
                 event.flags = CGEventFlags(rawValue: 0)
             }
+            // 标记为 Mos 合成事件, 避免被 ScrollCore/ButtonCore/KeyRecorder 误处理
+            event.setIntegerValueField(.eventSourceUserData, value: MosEventMarker.syntheticCustom)
             event.post(tap: .cghidEventTap)
         } else {
             // 普通键: 使用 keyDown/keyUp
             guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: phase == .down) else { return }
             event.flags = CGEventFlags(rawValue: modifiers)
+            // 标记为 Mos 合成事件
+            event.setIntegerValueField(.eventSourceUserData, value: MosEventMarker.syntheticCustom)
             event.post(tap: .cghidEventTap)
         }
     }
