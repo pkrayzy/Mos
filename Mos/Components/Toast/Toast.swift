@@ -48,6 +48,7 @@ struct Toast {
     ///   - duration: 显示时长 (秒), 默认 2.5 秒
     ///   - icon: 自定义图标, 传 nil 则使用样式默认图标
     ///   - showsIcon: 是否显示图标, 传 false 时忽略自定义和默认图标
+    ///   - expandMessage: 是否展开显示完整文案 (不限行数, 自动换行), 默认 false
     ///   - allowDuplicateVisibleMessage: 是否允许在已有相同可见消息存在时继续展示, 默认 false
     static func show(
         _ message: String,
@@ -55,6 +56,7 @@ struct Toast {
         duration: TimeInterval = 2.5,
         icon: NSImage? = nil,
         showsIcon: Bool = true,
+        expandMessage: Bool = false,
         allowDuplicateVisibleMessage: Bool = false
     ) {
         // 始终异步调度到主线程
@@ -67,6 +69,7 @@ struct Toast {
                 duration: duration,
                 icon: icon,
                 showsIcon: showsIcon,
+                expandMessage: expandMessage,
                 allowDuplicateVisibleMessage: allowDuplicateVisibleMessage
             )
         }

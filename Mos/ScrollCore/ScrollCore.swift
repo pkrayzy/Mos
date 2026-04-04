@@ -340,6 +340,9 @@ class ScrollCore {
                 placeAt: .tailAppendEventTap,
                 for: .defaultTap
             )
+            scrollEventInterceptor?.onRestart = {
+                ScrollPoster.shared.stop(.TrackingEnd)
+            }
             hotkeyEventInterceptor = try Interceptor(
                 event: hotkeyEventMask,
                 handleBy: hotkeyEventCallBack,
@@ -373,5 +376,9 @@ class ScrollCore {
         scrollEventInterceptor?.stop()
         hotkeyEventInterceptor?.stop()
         mouseEventInterceptor?.stop()
+        // 显式释放, 避免旧 tap 残留在对象图中
+        scrollEventInterceptor = nil
+        hotkeyEventInterceptor = nil
+        mouseEventInterceptor = nil
     }
 }

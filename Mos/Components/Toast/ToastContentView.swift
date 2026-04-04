@@ -39,7 +39,7 @@ class ToastContentView: NSView {
 
     // MARK: - Initialization
 
-    init(message: String, icon: NSImage?, accentColor: NSColor?, showsAccentIndicator: Bool) {
+    init(message: String, icon: NSImage?, accentColor: NSColor?, showsAccentIndicator: Bool, expandMessage: Bool = false) {
         effectView = NSVisualEffectView()
         iconView = NSImageView()
         messageLabel = NSTextField(labelWithString: "")
@@ -49,7 +49,7 @@ class ToastContentView: NSView {
 
         setupEffectView()
         setupIconView()
-        setupMessageLabel()
+        setupMessageLabel(expandMessage: expandMessage)
         setupAccentIndicator()
         setupLayout()
 
@@ -87,16 +87,21 @@ class ToastContentView: NSView {
         effectView.addSubview(iconView)
     }
 
-    private func setupMessageLabel() {
+    private func setupMessageLabel(expandMessage: Bool = false) {
         messageLabel.font = NSFont.systemFont(ofSize: 13)
         messageLabel.textColor = NSColor.labelColor
         messageLabel.backgroundColor = .clear
         messageLabel.isBezeled = false
         messageLabel.isEditable = false
         messageLabel.isSelectable = false
-        messageLabel.maximumNumberOfLines = 2
-        messageLabel.lineBreakMode = .byTruncatingTail
-        messageLabel.cell?.truncatesLastVisibleLine = true
+        if expandMessage {
+            messageLabel.maximumNumberOfLines = 0
+            messageLabel.lineBreakMode = .byWordWrapping
+        } else {
+            messageLabel.maximumNumberOfLines = 2
+            messageLabel.lineBreakMode = .byTruncatingTail
+            messageLabel.cell?.truncatesLastVisibleLine = true
+        }
         messageLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
         effectView.addSubview(messageLabel)

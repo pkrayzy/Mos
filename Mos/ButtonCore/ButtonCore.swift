@@ -34,6 +34,11 @@ class ButtonCore {
 
     // MARK: - 按钮事件处理
     let buttonEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
+        // Tap 被系统禁用时, 清理活跃绑定状态并直接放行
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            MosInputProcessor.shared.clearActiveBindings()
+            return Unmanaged.passUnretained(event)
+        }
         // 跳过 Mos 合成事件, 避免 executeCustom 发出的事件被重复处理
         if event.getIntegerValueField(.eventSourceUserData) == MosEventMarker.syntheticCustom {
             return Unmanaged.passUnretained(event)
