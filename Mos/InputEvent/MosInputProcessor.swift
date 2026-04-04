@@ -33,6 +33,12 @@ class MosInputProcessor {
         let code: UInt16
     }
 
+    /// 清空所有活跃绑定和虚拟修饰键状态 (ButtonCore disable 时调用, 防止状态残留)
+    func clearActiveBindings() {
+        activeBindings.removeAll()
+        activeModifierFlags = 0
+    }
+
     // MARK: - Virtual Modifier Flags
     /// 当前激活的虚拟修饰键 flags (从 activeBindings 中所有自定义修饰键绑定动态派生)
     /// ButtonCore 回调读取此值, 注入到 passthrough 的键盘事件中

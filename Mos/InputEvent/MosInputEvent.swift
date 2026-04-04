@@ -108,6 +108,7 @@ struct MosInputEvent {
         var modSymbols: [String] = []
         let selfMask = KeyCode.getKeyMask(code).rawValue
         if modifiers.rawValue & CGEventFlags.maskShift.rawValue != 0 && CGEventFlags.maskShift.rawValue & selfMask == 0 { modSymbols.append("⇧") }
+        if modifiers.rawValue & CGEventFlags.maskSecondaryFn.rawValue != 0 && CGEventFlags.maskSecondaryFn.rawValue & selfMask == 0 { modSymbols.append("Fn") }
         if modifiers.rawValue & CGEventFlags.maskControl.rawValue != 0 && CGEventFlags.maskControl.rawValue & selfMask == 0 { modSymbols.append("⌃") }
         if modifiers.rawValue & CGEventFlags.maskAlternate.rawValue != 0 && CGEventFlags.maskAlternate.rawValue & selfMask == 0 { modSymbols.append("⌥") }
         if modifiers.rawValue & CGEventFlags.maskCommand.rawValue != 0 && CGEventFlags.maskCommand.rawValue & selfMask == 0 { modSymbols.append("⌘") }

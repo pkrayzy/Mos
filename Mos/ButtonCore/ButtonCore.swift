@@ -83,6 +83,7 @@ class ButtonCore {
             NSLog("ButtonCore disabled")
             eventInterceptor?.stop()
             eventInterceptor = nil
+            MosInputProcessor.shared.clearActiveBindings()
             isActive = false
         }
     }

@@ -26,7 +26,6 @@ class ShortcutExecutor {
     func execute(code: CGKeyCode, flags: UInt64, preserveFlagsOnKeyUp: Bool = false) {
         // 创建事件源
         guard let source = CGEventSource(stateID: .hidSystemState) else {
-            // NSLog("ShortcutExecutor: Failed to create event source")
             return
         }
 
@@ -48,7 +47,6 @@ class ShortcutExecutor {
     /// 执行系统快捷键 (从SystemShortcut.Shortcut对象)
     /// - Parameter shortcut: SystemShortcut.Shortcut对象
     func execute(_ shortcut: SystemShortcut.Shortcut) {
-        // NSLog("ShortcutExecutor: Executing '\(shortcut.identifier)' (code: \(shortcut.code), modifiers: \(shortcut.modifiers))")
         execute(code: shortcut.code, flags: UInt64(shortcut.modifiers.rawValue), preserveFlagsOnKeyUp: shortcut.preserveFlagsOnKeyUp)
     }
 
