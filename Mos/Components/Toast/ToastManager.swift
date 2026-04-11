@@ -54,7 +54,7 @@ class ToastManager {
         duration: TimeInterval,
         icon: NSImage?,
         showsIcon: Bool,
-        expandMessage: Bool = false,
+        wrapWidth: CGFloat? = nil,
         allowDuplicateVisibleMessage: Bool = false
     ) {
         // 可见集合去重：淡出中的 toast 仍然在屏幕上，因此也参与去重
@@ -82,14 +82,17 @@ class ToastManager {
         }
 
         // 创建新 toast
+        let anchorPoint = resolvedAnchorPoint()
         let resolvedIcon = showsIcon ? (icon ?? ToastContentView.defaultIcon(for: style)) : nil
         let accentColor = ToastContentView.accentColor(for: style)
+        let resolvedWrapWidth = wrapWidth ?? ToastStorage.shared.defaultWrapWidth
         let contentView = ToastContentView(
             message: message,
             icon: resolvedIcon,
             accentColor: accentColor,
             showsAccentIndicator: ToastStorage.shared.showsAccentIndicator,
-            expandMessage: expandMessage
+            wrapWidth: resolvedWrapWidth,
+            singleLineMaxWidth: singleLineMaxWidth(for: anchorPoint)
         )
         let panel = ToastWindow.shared.createPanel(for: contentView)
 
@@ -113,7 +116,6 @@ class ToastManager {
         activeToasts.append(entry)
 
         // 新 toast = depth 0 (最前面, 紧贴锚点)
-        let anchorPoint = resolvedAnchorPoint()
         let origin = ToastWindow.shared.screenOrigin(
             toastSize: panel.frame.size,
             anchorPoint: anchorPoint,
@@ -366,6 +368,15 @@ class ToastManager {
         let defaultPoint = defaultAnchorPoint()
         transientAnchorPoint = defaultPoint
         return defaultPoint
+    }
+
+    private func singleLineMaxWidth(for anchorPoint: NSPoint) -> CGFloat {
+        let screen = screenContaining(point: anchorPoint) ?? screenContainingMouse() ?? NSScreen.main ?? NSScreen.screens.first
+        guard let targetScreen = screen else { return 350 }
+
+        // Leave space for toast padding/icon and avoid touching screen edges.
+        let labelWidth = targetScreen.visibleFrame.width - 120
+        return max(labelWidth, 180)
     }
 
     private func removeToast(id: UInt) {

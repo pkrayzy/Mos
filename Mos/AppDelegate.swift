@@ -123,7 +123,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 WindowManager.shared.showWindow(withIdentifier: WINDOW_IDENTIFIER.introductionWindowController, withTitle: "")
                 // 启动定时器检测权限, 当拥有授权时启动滚动处理
                 Timer.scheduledTimer(
-                    timeInterval: 2.0,
+                    timeInterval: 10.0,
                     target: self,
                     selector: #selector(startWithAccessibilityPermissionsChecker(_:)),
                     userInfo: nil,
@@ -155,8 +155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Toast.show(
             NSLocalizedString("Accessibility permission lost, Mos has been paused", comment: ""),
             style: .warning,
-            duration: 5.0,
-            expandMessage: true
+            duration: 5.0
         )
         // 启动定时器检测权限恢复
         permissionRecoveryTimer?.invalidate()

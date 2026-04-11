@@ -38,6 +38,7 @@ class ToastPanel: NSObject {
     // MARK: - UI Controls (Configuration)
     private var maxCountSlider: NSSlider!
     private var maxCountLabel: NSTextField!
+    private var wrapWidthField: NSTextField!
     private var positionStatusLabel: NSTextField!
 
     // MARK: - UI Controls (Send Toast)
@@ -96,6 +97,7 @@ class ToastPanel: NSObject {
             NSApp.activate(ignoringOtherApps: true)
             applyAccentRibbonPreference()
             applyIconPreference()
+            applyWrapWidthPreference()
             return
         }
         let w = buildWindow()
@@ -105,6 +107,7 @@ class ToastPanel: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         applyAccentRibbonPreference()
         applyIconPreference()
+        applyWrapWidthPreference()
     }
 
     // MARK: - Build Window
@@ -202,10 +205,34 @@ class ToastPanel: NSObject {
         maxCountLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -M.horizontalMargin).isActive = true
         maxCountLabel.widthAnchor.constraint(equalToConstant: 30).isActive = true
 
+        // Wrap Width row
+        let wrapWidthRow = makeLabel(text: NSLocalizedString("Wrap Width", comment: "Toast debug wrap width label"), fontSize: 12, weight: .regular, color: .labelColor)
+        pin(wrapWidthRow); h(wrapWidthRow, M.rowHeight)
+        wrapWidthRow.topAnchor.constraint(equalTo: maxCountRow.bottomAnchor, constant: 10).isActive = true
+        wrapWidthRow.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin).isActive = true
+        wrapWidthRow.widthAnchor.constraint(equalToConstant: M.labelColumnWidth).isActive = true
+
+        wrapWidthField = NSTextField()
+        wrapWidthField.stringValue = formattedWrapWidth(ToastStorage.shared.defaultWrapWidth)
+        wrapWidthField.alignment = .right
+        wrapWidthField.target = self
+        wrapWidthField.action = #selector(defaultWrapWidthChanged(_:))
+        wrapWidthField.cell?.sendsActionOnEndEditing = true
+        pin(wrapWidthField); h(wrapWidthField, M.fieldHeight)
+        wrapWidthField.topAnchor.constraint(equalTo: wrapWidthRow.topAnchor).isActive = true
+        wrapWidthField.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.valueColumnX).isActive = true
+        wrapWidthField.widthAnchor.constraint(equalToConstant: 80).isActive = true
+
+        let wrapWidthHintLabel = makeLabel(text: NSLocalizedString("0 = single line", comment: "Toast debug wrap width hint"), fontSize: 11, weight: .regular, color: .secondaryLabelColor)
+        pin(wrapWidthHintLabel); h(wrapWidthHintLabel, M.rowHeight)
+        wrapWidthHintLabel.topAnchor.constraint(equalTo: wrapWidthRow.topAnchor).isActive = true
+        wrapWidthHintLabel.leadingAnchor.constraint(equalTo: wrapWidthField.trailingAnchor, constant: 8).isActive = true
+        wrapWidthHintLabel.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -M.horizontalMargin).isActive = true
+
         // Position row
         let posLabel = makeLabel(text: NSLocalizedString("Position", comment: "Toast debug position label"), fontSize: 12, weight: .regular, color: .labelColor)
         pin(posLabel); h(posLabel, M.rowHeight)
-        posLabel.topAnchor.constraint(equalTo: maxCountRow.bottomAnchor, constant: 10).isActive = true
+        posLabel.topAnchor.constraint(equalTo: wrapWidthRow.bottomAnchor, constant: 10).isActive = true
         posLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: M.horizontalMargin).isActive = true
         posLabel.widthAnchor.constraint(equalToConstant: M.labelColumnWidth).isActive = true
 
@@ -312,7 +339,7 @@ class ToastPanel: NSObject {
             (NSLocalizedString("📚 Stack Test", comment: ""), NSLocalizedString("Fill to max count", comment: ""), #selector(testStackFill)),
             (NSLocalizedString("🔁 Overflow", comment: ""), NSLocalizedString("Exceed max, test eviction", comment: ""), #selector(testOverflow)),
             (NSLocalizedString("🔇 Dedup", comment: ""), NSLocalizedString("Rapid same message", comment: ""), #selector(testDedup)),
-            (NSLocalizedString("📏 Long Text", comment: ""), NSLocalizedString("Truncation test", comment: ""), #selector(testLongText)),
+            (NSLocalizedString("📏 Long Text", comment: ""), NSLocalizedString("Wrap/truncate preview", comment: "Toast debug quick test subtitle"), #selector(testLongText)),
             (NSLocalizedString("🧹 Dismiss All", comment: ""), NSLocalizedString("Clear all toasts", comment: ""), #selector(testDismissAll)),
         ]
         let gridCols = 2
@@ -372,6 +399,17 @@ class ToastPanel: NSObject {
         maxCountLabel.stringValue = "\(value)"
         ToastStorage.shared.maxCount = value
         ToastManager.shared.applyMaxCountChange()
+    }
+
+    @objc private func defaultWrapWidthChanged(_ sender: NSTextField) {
+        let trimmedValue = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsedValue = Double(trimmedValue) else {
+            applyWrapWidthPreference()
+            return
+        }
+
+        ToastStorage.shared.defaultWrapWidth = CGFloat(parsedValue)
+        applyWrapWidthPreference()
     }
 
     @objc private func resetPosition() {
@@ -494,7 +532,7 @@ class ToastPanel: NSObject {
     @objc private func testLongText() {
         showToast(
             NSLocalizedString(
-                "This is a very long toast message that should be truncated after two lines because nobody wants to read a novel in a toast notification, right? Let's see how this handles.",
+                "This is a very long toast message used to preview wrapping and truncation behavior in the toast notification.",
                 comment: "Toast debug long text test message"
             ),
             style: .warning,
@@ -533,6 +571,18 @@ class ToastPanel: NSObject {
         showsIconCheckbox?.state = showsIcon ? .on : .off
         useCustomIconCheckbox?.isEnabled = showsIcon
         useCustomIconCheckbox?.alphaValue = showsIcon ? 1.0 : 0.5
+    }
+
+    private func applyWrapWidthPreference() {
+        wrapWidthField?.stringValue = formattedWrapWidth(ToastStorage.shared.defaultWrapWidth)
+    }
+
+    private func formattedWrapWidth(_ value: CGFloat) -> String {
+        let roundedValue = value.rounded()
+        if abs(value - roundedValue) < 0.001 {
+            return "\(Int(roundedValue))"
+        }
+        return String(format: "%.1f", value)
     }
 
     private func refreshPositionStatus() {
