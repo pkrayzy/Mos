@@ -8,6 +8,11 @@
 
 import Cocoa
 
+enum ActionExecutionMode {
+    case trigger
+    case stateful
+}
+
 /// 系统快捷键组合存储结构
 /// 使用 快捷键名称 = (修饰键, 主键) 的方式组织
 struct SystemShortcut {
@@ -19,14 +24,24 @@ struct SystemShortcut {
         let identifier: String  // 本地化键名(如 "minimizeWindow")
         let code: UInt16
         let modifiers: NSEvent.ModifierFlags
+        let executionMode: ActionExecutionMode
         let minimumVersion: OperatingSystemVersion?  // 最低系统版本要求(可选)
         let preserveFlagsOnKeyUp: Bool  // KeyUp 时是否保留修饰键 flags (用于 Command+Tab 等需要保持修饰键的快捷键)
         let descriptionKey: String?  // 菜单描述文本的本地化键 (仅 Logi 动作使用)
 
-        init(_ identifier: String, _ code: UInt16, _ modifiers: NSEvent.ModifierFlags, minimumVersion: OperatingSystemVersion? = nil, preserveFlagsOnKeyUp: Bool = false, descriptionKey: String? = nil) {
+        init(
+            _ identifier: String,
+            _ code: UInt16,
+            _ modifiers: NSEvent.ModifierFlags,
+            executionMode: ActionExecutionMode = .trigger,
+            minimumVersion: OperatingSystemVersion? = nil,
+            preserveFlagsOnKeyUp: Bool = false,
+            descriptionKey: String? = nil
+        ) {
             self.identifier = identifier
             self.code = code
             self.modifiers = modifiers
+            self.executionMode = executionMode
             self.minimumVersion = minimumVersion
             self.preserveFlagsOnKeyUp = preserveFlagsOnKeyUp
             self.descriptionKey = descriptionKey
@@ -372,11 +387,11 @@ struct SystemShortcut {
     // 鼠标按键动作 (不是键盘快捷键, 由 ShortcutExecutor 特殊处理)
     // 使用 code=0xFFFF 和空修饰键作为占位, 实际执行逻辑在 ShortcutExecutor 中
 
-    static let mouseLeftClick = Shortcut("mouseLeftClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 0))
-    static let mouseRightClick = Shortcut("mouseRightClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 1))
-    static let mouseMiddleClick = Shortcut("mouseMiddleClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 2))
-    static let mouseBackClick = Shortcut("mouseBackClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 3))
-    static let mouseForwardClick = Shortcut("mouseForwardClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 4))
+    static let mouseLeftClick = Shortcut("mouseLeftClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 0), executionMode: .stateful)
+    static let mouseRightClick = Shortcut("mouseRightClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 1), executionMode: .stateful)
+    static let mouseMiddleClick = Shortcut("mouseMiddleClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 2), executionMode: .stateful)
+    static let mouseBackClick = Shortcut("mouseBackClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 3), executionMode: .stateful)
+    static let mouseForwardClick = Shortcut("mouseForwardClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 4), executionMode: .stateful)
 
     // MARK: - Logi HID++ Actions
     // Logitech 专有动作 (由 ShortcutExecutor 通过 HID++ 协议执行)

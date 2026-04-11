@@ -21,15 +21,15 @@ enum KeyRecordingMode {
 
 protocol KeyRecorderDelegate: AnyObject {
     /// 录制完成回调
-    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: MosInputEvent, isDuplicate: Bool)
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool)
 
     /// 验证录制的事件是否为重复
-    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool
 }
 
 /// 默认实现 (替代 @objc optional 语义)
 extension KeyRecorderDelegate {
-    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool {
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool {
         return true
     }
 }
@@ -202,7 +202,7 @@ class KeyRecorder: NSObject {
                 queue: .main
             ) { [weak self] notification in
                 guard let self = self, self.isRecording, !self.isRecorded else { return }
-                guard let mosEvent = notification.userInfo?["event"] as? MosInputEvent else { return }
+                guard let mosEvent = notification.userInfo?["event"] as? InputEvent else { return }
                 guard mosEvent.phase == .down else { return }
                 NotificationCenter.default.post(
                     name: KeyRecorder.FINISH_NOTI_NAME,
@@ -326,7 +326,7 @@ class KeyRecorder: NSObject {
     }
 
     /// Adaptive 模式下的事件完成处理 (非修饰键/组合键录入时调用)
-    private func handleAdaptiveRecordedEvent(_ event: MosInputEvent) {
+    private func handleAdaptiveRecordedEvent(_ event: InputEvent) {
         cancelAdaptiveConfirmTimer()
         cancelHoldConfirmTimer()
         adaptiveState = .recorded
@@ -339,13 +339,13 @@ class KeyRecorder: NSObject {
         cancelHoldConfirmTimer()
         adaptiveState = .recorded
 
-        // 构造 MosInputEvent 并通过 FINISH 通知完成录制
-        let mosEvent = MosInputEvent(
+        // 构造 InputEvent 并通过 FINISH 通知完成录制
+        let mosEvent = InputEvent(
             type: .keyboard,
             code: extractPrimaryModifierCode(from: modifiers),
             modifiers: modifiers,
             phase: .down,
-            source: .hidPlusPlus,
+            source: .hidPP,
             device: nil
         )
         NotificationCenter.default.post(
@@ -422,14 +422,14 @@ class KeyRecorder: NSObject {
     @objc private func handleRecordedEvent(_ notification: NSNotification) {
         guard isRecording else { return }
 
-        // 统一转换为 MosInputEvent
-        // 注意: 先检查 MosInputEvent (value type), 再检查 CGEvent (CoreFoundation type)
+        // 统一转换为 InputEvent
+        // 注意: 先检查 InputEvent (value type), 再检查 CGEvent (CoreFoundation type)
         // CGEvent 的 as? 对 Any 总是成功, 所以必须后检查
-        let mosEvent: MosInputEvent
-        if let hidEvent = notification.object as? MosInputEvent {
+        let mosEvent: InputEvent
+        if let hidEvent = notification.object as? InputEvent {
             mosEvent = hidEvent
         } else if let cgEvent = notification.object, CFGetTypeID(cgEvent as CFTypeRef) == CGEvent.typeID {
-            mosEvent = MosInputEvent(fromCGEvent: cgEvent as! CGEvent)
+            mosEvent = InputEvent(fromCGEvent: cgEvent as! CGEvent)
         } else {
             NSLog("[EventRecorder] Unknown event type in notification")
             return

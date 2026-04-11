@@ -126,11 +126,23 @@ class MonitorViewController: NSViewController, ChartViewDelegate {
     // MARK: - 监听: 按键
     var buttonEventInterceptor: Interceptor?
     var buttonEventMask: CGEventMask {
-        ButtonCore.shared.leftDown |
-        ButtonCore.shared.rightDown |
-        ButtonCore.shared.otherDown |
-        ButtonCore.shared.keyDown |
-        ButtonCore.shared.flagsChanged
+        let buttonDownEvents =
+            CGEventMask(1 << CGEventType.leftMouseDown.rawValue) |
+            CGEventMask(1 << CGEventType.rightMouseDown.rawValue) |
+            CGEventMask(1 << CGEventType.otherMouseDown.rawValue)
+        let buttonUpEvents =
+            CGEventMask(1 << CGEventType.leftMouseUp.rawValue) |
+            CGEventMask(1 << CGEventType.rightMouseUp.rawValue) |
+            CGEventMask(1 << CGEventType.otherMouseUp.rawValue)
+        let dragEvents =
+            CGEventMask(1 << CGEventType.leftMouseDragged.rawValue) |
+            CGEventMask(1 << CGEventType.rightMouseDragged.rawValue) |
+            CGEventMask(1 << CGEventType.otherMouseDragged.rawValue)
+        let keyboardEvents =
+            CGEventMask(1 << CGEventType.keyDown.rawValue) |
+            CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+        let moveEvents = CGEventMask(1 << CGEventType.mouseMoved.rawValue)
+        return buttonDownEvents | buttonUpEvents | dragEvents | keyboardEvents | moveEvents
     }
     let buttonEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
         // 发送按钮事件通知
@@ -145,8 +157,15 @@ class MonitorViewController: NSViewController, ChartViewDelegate {
     @objc private func updateButtonEventData(notification: NSNotification) {
         let event = notification.object as! CGEvent
 
-        // 添加按钮标识符信息到描述中
-        let logLine = "[\(event.timestampFormatted)] \(event.displayName) keyCode: \(event.keyCode), mouseCode: \(event.mouseCode)"
+        let logLine: String
+        if event.isMouseInteractionEvent {
+            let userData = event.getIntegerValueField(.eventSourceUserData)
+            let deltaX = Int(event.getDoubleValueField(.mouseEventDeltaX))
+            let deltaY = Int(event.getDoubleValueField(.mouseEventDeltaY))
+            logLine = "[\(event.timestampFormatted)] \(event.eventTypeName) button: \(event.mouseCode) delta:(\(deltaX),\(deltaY)) userData: \(userData)"
+        } else {
+            logLine = "[\(event.timestampFormatted)] \(event.eventTypeName) \(event.displayName) keyCode: \(event.keyCode)"
+        }
 
         // 将新事件插入到日志开头，确保新事件在首行
         var logLines = buttonEventLog.isEmpty ? [] : buttonEventLog.components(separatedBy: "\n")

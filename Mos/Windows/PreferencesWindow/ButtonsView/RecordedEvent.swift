@@ -131,8 +131,8 @@ struct RecordedEvent: Codable, Equatable {
         self.deviceFilter = nil
     }
 
-    /// 从 MosInputEvent 构造
-    init(from event: MosInputEvent, deviceFilter: DeviceFilter? = nil) {
+    /// 从 InputEvent 构造
+    init(from event: InputEvent, deviceFilter: DeviceFilter? = nil) {
         self.type = event.type
         self.code = event.code
         self.modifiers = UInt(event.modifiers.rawValue)
@@ -168,8 +168,8 @@ struct RecordedEvent: Codable, Equatable {
                 return code == Int(event.getIntegerValueField(.mouseEventButtonNumber))
         }
     }
-    /// 匹配 MosInputEvent (供 MosInputProcessor 使用)
-    func matchesMosInput(_ event: MosInputEvent) -> Bool {
+    /// 匹配 InputEvent (供 InputProcessor 使用)
+    func matchesInput(_ event: InputEvent) -> Bool {
         guard UInt(event.modifiers.rawValue) == modifiers else { return false }
         guard event.type == type else { return false }
         switch type {
@@ -290,10 +290,10 @@ struct ButtonBinding: Codable, Equatable {
     }
 }
 
-// MARK: - ScrollHotkey + MosInputEvent
+// MARK: - ScrollHotkey + InputEvent
 extension ScrollHotkey {
-    /// 从 MosInputEvent 构造
-    init(from event: MosInputEvent) {
+    /// 从 InputEvent 构造
+    init(from event: InputEvent) {
         self.type = event.type
         self.code = event.code
     }

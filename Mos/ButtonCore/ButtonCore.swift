@@ -36,7 +36,7 @@ class ButtonCore {
     let buttonEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
         // Tap 被系统禁用时, 清理活跃绑定状态并直接放行
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            MosInputProcessor.shared.clearActiveBindings()
+            InputProcessor.shared.clearActiveBindings()
             return Unmanaged.passUnretained(event)
         }
         // 跳过 Mos 合成事件, 避免 executeCustom 发出的事件被重复处理
@@ -45,15 +45,15 @@ class ButtonCore {
         }
 
         // 使用原始 flags 匹配绑定 (不注入虚拟修饰键, 保证匹配准确)
-        let mosEvent = MosInputEvent(fromCGEvent: event)
-        let result = MosInputProcessor.shared.process(mosEvent)
+        let mosEvent = InputEvent(fromCGEvent: event)
+        let result = InputProcessor.shared.process(mosEvent)
         switch result {
         case .consumed:
             return nil
         case .passthrough:
             // 注入虚拟修饰键 flags 到 passthrough 的键盘事件
             // 使长按鼠标侧键(绑定到修饰键) + 键盘按键 = 修饰键+按键
-            let activeFlags = MosInputProcessor.shared.activeModifierFlags
+            let activeFlags = InputProcessor.shared.activeModifierFlags
             if activeFlags != 0 && (type == .keyDown || type == .keyUp) {
                 event.flags = CGEventFlags(rawValue: event.flags.rawValue | activeFlags)
             }
@@ -66,7 +66,6 @@ class ButtonCore {
     // 启用按钮监控
     func enable() {
         if !isActive {
-            NSLog("ButtonCore enabled")
             do {
                 eventInterceptor = try Interceptor(
                     event: eventMask,
@@ -88,7 +87,7 @@ class ButtonCore {
             NSLog("ButtonCore disabled")
             eventInterceptor?.stop()
             eventInterceptor = nil
-            MosInputProcessor.shared.clearActiveBindings()
+            InputProcessor.shared.clearActiveBindings()
             isActive = false
         }
     }

@@ -91,7 +91,7 @@ extension PreferencesButtonsViewController {
         }
     }
     
-    private func addRecordedEvent(_ event: MosInputEvent, isDuplicate: Bool) {
+    private func addRecordedEvent(_ event: InputEvent, isDuplicate: Bool) {
         let recordedEvent = RecordedEvent(from: event)
 
         if isDuplicate {
@@ -243,12 +243,12 @@ extension PreferencesButtonsViewController: NSTableViewDelegate, NSTableViewData
 
 // MARK: - EventRecorderDelegate
 extension PreferencesButtonsViewController: KeyRecorderDelegate {
-    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool {
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool {
         let recordedEvent = RecordedEvent(from: event)
         return !buttonBindings.contains(where: { $0.triggerEvent == recordedEvent })
     }
 
-    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: MosInputEvent, isDuplicate: Bool) {
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.66) { [weak self] in
             self?.addRecordedEvent(event, isDuplicate: isDuplicate)
         }

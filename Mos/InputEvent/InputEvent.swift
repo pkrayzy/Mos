@@ -1,5 +1,5 @@
 //
-//  MosInputEvent.swift
+//  InputEvent.swift
 //  Mos
 //  统一输入事件 - 抽象 CGEventTap 和 HID++ 两种事件源
 //  Created by Mos on 2026/3/16.
@@ -8,27 +8,27 @@
 
 import Cocoa
 
-// MARK: - MosInputPhase
+// MARK: - InputPhase
 /// 事件阶段
-enum MosInputPhase {
+enum InputPhase {
     case down
     case up
 }
 
-// MARK: - MosInputSource
+// MARK: - InputSource
 /// 事件来源 - 携带源头特有的数据
-/// 注意: 因为 cgEvent 关联值包含 CGEvent (非 Codable), MosInputEvent 整体不可序列化
+/// 注意: 因为 cgEvent 关联值包含 CGEvent (非 Codable), InputEvent 整体不可序列化
 /// 只有从中提取的 RecordedEvent 走持久化路径
-enum MosInputSource {
+enum InputSource {
     /// 来自 CGEventTap, 携带原始 CGEvent 用于 pass-through/consume
     case cgEvent(CGEvent)
     /// 来自 Logitech HID++ 协议
-    case hidPlusPlus
+    case hidPP
 }
 
-// MARK: - MosInputDevice
+// MARK: - InputDevice
 /// 设备信息 (可序列化, 用于 DeviceFilter 匹配和 UI 展示)
-struct MosInputDevice: Codable, Equatable {
+struct InputDevice: Codable, Equatable {
     let vendorId: UInt16      // USB Vendor ID (Logitech = 0x046D)
     let productId: UInt16     // USB Product ID
     let name: String          // 人类可读名称 (如 "MX Master 3S")
@@ -40,7 +40,7 @@ struct DeviceFilter: Codable, Equatable {
     let vendorId: UInt16?     // nil = 不限厂商
     let productId: UInt16?    // nil = 不限型号
 
-    func matches(_ device: MosInputDevice?) -> Bool {
+    func matches(_ device: InputDevice?) -> Bool {
         guard let device = device else { return false }
         if let vid = vendorId, vid != device.vendorId { return false }
         if let pid = productId, pid != device.productId { return false }
@@ -48,15 +48,15 @@ struct DeviceFilter: Codable, Equatable {
     }
 }
 
-// MARK: - MosInputEvent
+// MARK: - InputEvent
 /// 统一输入事件 (运行时对象, 不可序列化)
-struct MosInputEvent {
+struct InputEvent {
     let type: EventType           // .keyboard 或 .mouse (复用现有枚举)
     let code: UInt16              // 按键码 / 按钮码
     let modifiers: CGEventFlags   // 修饰键状态
-    let phase: MosInputPhase      // 按下 / 抬起
-    let source: MosInputSource    // 事件来源
-    let device: MosInputDevice?   // 设备信息 (CGEventTap 来源为 nil)
+    let phase: InputPhase      // 按下 / 抬起
+    let source: InputSource    // 事件来源
+    let device: InputDevice?   // 设备信息 (CGEventTap 来源为 nil)
 
     /// 从 CGEvent 构造
     /// 注意: .flagsChanged 事件也属于键盘域 (修饰键按下/抬起), 必须和 keyDown/keyUp 同类处理
@@ -77,7 +77,7 @@ struct MosInputEvent {
 
     /// 从 HID++ 数据构造
     init(type: EventType, code: UInt16, modifiers: CGEventFlags,
-         phase: MosInputPhase, source: MosInputSource, device: MosInputDevice?) {
+         phase: InputPhase, source: InputSource, device: InputDevice?) {
         self.type = type
         self.code = code
         self.modifiers = modifiers

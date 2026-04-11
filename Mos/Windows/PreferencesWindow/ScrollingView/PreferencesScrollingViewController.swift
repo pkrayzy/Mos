@@ -350,7 +350,7 @@ extension PreferencesScrollingViewController {
 
 // MARK: - KeyRecorderDelegate
 extension PreferencesScrollingViewController: KeyRecorderDelegate {
-    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: MosInputEvent, isDuplicate: Bool) {
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool) {
         guard let popup = currentRecordingPopup else { return }
 
         let hotkey = ScrollHotkey(from: event)

@@ -291,13 +291,13 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
             return
         }
 
-        // 构造 MosInputEvent 以复用 displayComponents 统一格式
-        let mosEvent = MosInputEvent(
+        // 构造 InputEvent 以复用 displayComponents 统一格式
+        let mosEvent = InputEvent(
             type: KeyCode.modifierKeys.contains(code) ? .keyboard : (code >= 0x100 ? .mouse : .keyboard),
             code: code,
             modifiers: CGEventFlags(rawValue: mods),
             phase: .down,
-            source: .hidPlusPlus,
+            source: .hidPP,
             device: nil
         )
         let badgeImage = createBadgeImage(from: mosEvent.displayComponents)
@@ -532,7 +532,7 @@ extension ButtonTableCellView {
 
 // MARK: - KeyRecorderDelegate (Custom Recording)
 extension ButtonTableCellView: KeyRecorderDelegate {
-    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: MosInputEvent, isDuplicate: Bool) {
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool) {
         guard !isDuplicate else { return }
         let code = event.code
         let modifiers = UInt64(event.modifiers.rawValue)
@@ -551,7 +551,7 @@ extension ButtonTableCellView: KeyRecorderDelegate {
         }
     }
 
-    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool {
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool {
         return true
     }
 }
