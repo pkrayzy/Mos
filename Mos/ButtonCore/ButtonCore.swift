@@ -53,10 +53,19 @@ class ButtonCore {
         case .consumed:
             return nil
         case .passthrough:
-            // 注入虚拟修饰键 flags 到 passthrough 的键盘事件
-            // 使长按鼠标侧键(绑定到修饰键) + 键盘按键 = 修饰键+按键
+            // 注入虚拟修饰键 flags 到 passthrough 事件
+            // 使长按鼠标侧键(绑定到修饰键) + 键盘/鼠标输入 = 修饰键组合输入
             let activeFlags = InputProcessor.shared.activeModifierFlags
-            if activeFlags != 0 && (type == .keyDown || type == .keyUp) {
+            let supportsVirtualModifiers =
+                type == .keyDown ||
+                type == .keyUp ||
+                type == .leftMouseDown ||
+                type == .leftMouseUp ||
+                type == .rightMouseDown ||
+                type == .rightMouseUp ||
+                type == .otherMouseDown ||
+                type == .otherMouseUp
+            if activeFlags != 0 && supportsVirtualModifiers {
                 event.flags = CGEventFlags(rawValue: event.flags.rawValue | activeFlags)
             }
             return Unmanaged.passUnretained(event)

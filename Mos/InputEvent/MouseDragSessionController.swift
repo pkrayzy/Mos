@@ -121,6 +121,7 @@ final class MouseDragSessionController {
         let physical = Self.physicalTarget(from: event)
         guard let effective = Self.effectiveTarget(physical: physical, synthetic: synthetic) else { return }
         rewrite(event, as: effective)
+        event.flags = InputProcessor.shared.combinedModifierFlags(physicalModifiers: event.flags)
     }
 
     func setTestingMotionTapHooks(start: (() -> Void)? = {}, stop: (() -> Void)? = {}) {

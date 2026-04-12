@@ -9,6 +9,7 @@ final class InputProcessorTests: XCTestCase {
         ButtonUtils.shared.invalidateCache()
         MouseDragSessionController.shared.setTestingMotionTapHooks()
         MouseDragSessionController.shared.clearAllSessions()
+        ShortcutExecutor.shared.setTestingMouseEventObserver()
         InputProcessor.shared.clearActiveBindings()
     }
 
@@ -16,6 +17,7 @@ final class InputProcessorTests: XCTestCase {
         InputProcessor.shared.clearActiveBindings()
         MouseDragSessionController.shared.clearAllSessions()
         MouseDragSessionController.shared.clearTestingMotionTapHooks()
+        ShortcutExecutor.shared.clearTestingMouseEventObserver()
         Options.shared.buttons.binding = []
         ButtonUtils.shared.invalidateCache()
         super.tearDown()
@@ -140,6 +142,75 @@ final class InputProcessorTests: XCTestCase {
         XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 0)
     }
 
+    func testProcess_statefulMouseShortcut_preservesPhysicalModifierFlagsOnSyntheticMouseEvents() {
+        let trigger = RecordedEvent(type: .mouse, code: 3, modifiers: UInt(CGEventFlags.maskShift.rawValue), displayComponents: ["⇧", "🖱4"], deviceFilter: nil)
+        let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
+        Options.shared.buttons.binding = [binding]
+        ButtonUtils.shared.invalidateCache()
+
+        var observedEvents: [(type: CGEventType, flags: CGEventFlags)] = []
+        ShortcutExecutor.shared.setTestingMouseEventObserver { event in
+            observedEvents.append((event.type, event.flags))
+        }
+
+        let downEvent = InputEvent(type: .mouse, code: 3, modifiers: .maskShift,
+                                   phase: .down, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
+
+        let upEvent = InputEvent(type: .mouse, code: 3, modifiers: .maskShift,
+                                 phase: .up, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(upEvent), .consumed)
+
+        XCTAssertEqual(observedEvents.map(\.type), [.leftMouseDown, .leftMouseUp])
+        XCTAssertTrue(observedEvents.allSatisfy { $0.flags.contains(.maskShift) })
+    }
+
+    func testProcess_mouseTriggerWithoutModifiers_matchesWhenAdditionalModifiersHeld() {
+        let trigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
+        let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
+        Options.shared.buttons.binding = [binding]
+        ButtonUtils.shared.invalidateCache()
+
+        var observedTypes: [CGEventType] = []
+        ShortcutExecutor.shared.setTestingMouseEventObserver { event in
+            observedTypes.append(event.type)
+        }
+
+        let downEvent = InputEvent(type: .mouse, code: 3, modifiers: .maskShift,
+                                   phase: .down, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
+
+        let upEvent = InputEvent(type: .mouse, code: 3, modifiers: .maskShift,
+                                 phase: .up, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(upEvent), .consumed)
+
+        XCTAssertEqual(observedTypes, [.leftMouseDown, .leftMouseUp])
+    }
+
+    func testProcess_mouseTriggerPrefersExactModifierBindingOverBaseBinding() {
+        let baseTrigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
+        let exactTrigger = RecordedEvent(type: .mouse, code: 3, modifiers: UInt(CGEventFlags.maskShift.rawValue), displayComponents: ["⇧", "🖱4"], deviceFilter: nil)
+        let baseBinding = ButtonBinding(triggerEvent: baseTrigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
+        let exactBinding = ButtonBinding(triggerEvent: exactTrigger, systemShortcutName: "mouseRightClick", isEnabled: true)
+        Options.shared.buttons.binding = [baseBinding, exactBinding]
+        ButtonUtils.shared.invalidateCache()
+
+        var observedTypes: [CGEventType] = []
+        ShortcutExecutor.shared.setTestingMouseEventObserver { event in
+            observedTypes.append(event.type)
+        }
+
+        let downEvent = InputEvent(type: .mouse, code: 3, modifiers: .maskShift,
+                                   phase: .down, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
+
+        let upEvent = InputEvent(type: .mouse, code: 3, modifiers: .maskShift,
+                                 phase: .up, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(upEvent), .consumed)
+
+        XCTAssertEqual(observedTypes, [.rightMouseDown, .rightMouseUp])
+    }
+
     func testProcess_repeatedDownForSameTrigger_replacesPreviousMouseDragSession() {
         let trigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
         let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
@@ -184,6 +255,31 @@ final class InputProcessorTests: XCTestCase {
         InputProcessor.shared.clearActiveBindings()
         XCTAssertFalse(MouseDragSessionController.shared.isMotionTapRunning)
         XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 0)
+    }
+
+    func testButtonCore_passthroughMouseEvent_appliesVirtualModifierFlags() {
+        let modifierTrigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
+        let modifierBinding = ButtonBinding(triggerEvent: modifierTrigger, systemShortcutName: "custom::56:0", isEnabled: true)
+        Options.shared.buttons.binding = [modifierBinding]
+        ButtonUtils.shared.invalidateCache()
+
+        let modifierDown = InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0),
+                                      phase: .down, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(modifierDown), .consumed)
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, CGEventFlags.maskShift.rawValue)
+
+        let event = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .leftMouseDown,
+            mouseCursorPosition: CGPoint(x: 16, y: 24),
+            mouseButton: .left
+        )!
+
+        let proxy = CGEventTapProxy(bitPattern: 1)!
+        let output = ButtonCore.shared.buttonEventCallBack(proxy, .leftMouseDown, event, nil)
+
+        XCTAssertNotNil(output)
+        XCTAssertTrue(event.flags.contains(.maskShift))
     }
 
     func testCGEventExtensions_otherMouseDraggedIsRecognizedForDiagnostics() {

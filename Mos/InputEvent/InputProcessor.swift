@@ -68,6 +68,12 @@ class InputProcessor {
         activeModifierFlags = flags
     }
 
+    /// 合并当前物理修饰键与虚拟修饰键, 供 synthetic / rewritten 事件复用
+    func combinedModifierFlags(physicalModifiers: CGEventFlags? = nil) -> CGEventFlags {
+        let physicalFlags = physicalModifiers ?? CGEventSource.flagsState(.combinedSessionState)
+        return CGEventFlags(rawValue: physicalFlags.rawValue | activeModifierFlags)
+    }
+
     /// 处理输入事件
     /// - Parameter event: 统一输入事件
     /// - Returns: .consumed 表示事件已处理, .passthrough 表示未匹配
@@ -80,7 +86,8 @@ class InputProcessor {
                 ShortcutExecutor.shared.execute(
                     action: session.action,
                     phase: .up,
-                    mouseSessionID: session.mouseSessionID
+                    mouseSessionID: session.mouseSessionID,
+                    inputModifiers: event.modifiers
                 )
                 recomputeActiveModifierFlags()
                 return .consumed
@@ -89,36 +96,35 @@ class InputProcessor {
         }
 
         // Down 事件: 完整匹配 (type + code + modifiers + deviceFilter)
-        let candidates = ButtonUtils.shared.getButtonBindings(for: event.type, code: event.code)
-        for binding in candidates where binding.isEnabled {
-            guard binding.triggerEvent.matchesInput(event),
-                  let action = ShortcutExecutor.shared.resolveAction(
-                    named: binding.systemShortcutName,
-                    binding: binding
-                  ) else { continue }
+        guard let binding = ButtonUtils.shared.getBestMatchingBinding(for: event),
+              let action = ShortcutExecutor.shared.resolveAction(
+                named: binding.systemShortcutName,
+                binding: binding
+              ) else {
+            return .passthrough
+        }
 
-            if action.executionMode == .trigger {
-                ShortcutExecutor.shared.execute(action: action, phase: .down)
-                return .consumed
-            }
-
-            if let existing = activeBindings.removeValue(forKey: key) {
-                ShortcutExecutor.shared.execute(
-                    action: existing.action,
-                    phase: .up,
-                    mouseSessionID: existing.mouseSessionID
-                )
-            }
-
-            let executionResult = ShortcutExecutor.shared.execute(action: action, phase: .down)
-            activeBindings[key] = ActiveBindingSession(
-                triggerKey: key,
-                action: action,
-                mouseSessionID: executionResult.mouseSessionID
-            )
-            recomputeActiveModifierFlags()
+        if action.executionMode == .trigger {
+            ShortcutExecutor.shared.execute(action: action, phase: .down, inputModifiers: event.modifiers)
             return .consumed
         }
-        return .passthrough
+
+        if let existing = activeBindings.removeValue(forKey: key) {
+            ShortcutExecutor.shared.execute(
+                action: existing.action,
+                phase: .up,
+                mouseSessionID: existing.mouseSessionID,
+                inputModifiers: event.modifiers
+            )
+        }
+
+        let executionResult = ShortcutExecutor.shared.execute(action: action, phase: .down, inputModifiers: event.modifiers)
+        activeBindings[key] = ActiveBindingSession(
+            triggerKey: key,
+            action: action,
+            mouseSessionID: executionResult.mouseSessionID
+        )
+        recomputeActiveModifierFlags()
+        return .consumed
     }
 }

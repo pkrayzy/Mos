@@ -40,6 +40,30 @@ class ButtonUtils {
         return cachedBindingsByTriggerKey[ButtonBindingTriggerKey(type: type, code: code)] ?? []
     }
 
+    func getBestMatchingBinding(
+        for event: InputEvent,
+        where predicate: ((ButtonBinding) -> Bool)? = nil
+    ) -> ButtonBinding? {
+        let candidates = getButtonBindings(for: event.type, code: event.code)
+        var bestBinding: ButtonBinding?
+        var bestPriority = Int.min
+
+        for binding in candidates where binding.isEnabled {
+            if let predicate, !predicate(binding) {
+                continue
+            }
+            guard let priority = binding.triggerEvent.matchPriority(for: event) else {
+                continue
+            }
+            if priority > bestPriority {
+                bestBinding = binding
+                bestPriority = priority
+            }
+        }
+
+        return bestBinding
+    }
+
     /// 标记缓存失效 (绑定变更后调用)
     func invalidateCache() {
         isDirty = true

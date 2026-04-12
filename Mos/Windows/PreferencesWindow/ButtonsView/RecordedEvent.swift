@@ -184,6 +184,29 @@ struct RecordedEvent: Codable, Equatable {
         return true
     }
 
+    /// 匹配优先级:
+    /// - keyboard: 仅接受精确 modifiers 匹配
+    /// - mouse: 允许额外 modifiers 存在, 返回绑定自身 modifiers 数量作为优先级
+    func matchPriority(for event: InputEvent) -> Int? {
+        guard event.type == type else { return nil }
+        guard code == event.code else { return nil }
+        if let filter = deviceFilter, !filter.matches(event.device) {
+            return nil
+        }
+
+        let expectedModifiers = modifiers & UInt(KeyCode.modifiersMask)
+        let actualModifiers = UInt(event.modifiers.rawValue) & UInt(KeyCode.modifiersMask)
+
+        switch type {
+        case .keyboard:
+            guard actualModifiers == expectedModifiers else { return nil }
+        case .mouse:
+            guard actualModifiers & expectedModifiers == expectedModifiers else { return nil }
+        }
+
+        return expectedModifiers.nonzeroBitCount
+    }
+
     /// Equatable
     static func == (lhs: RecordedEvent, rhs: RecordedEvent) -> Bool {
         return lhs.type == rhs.type &&

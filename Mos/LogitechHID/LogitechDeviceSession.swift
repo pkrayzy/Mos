@@ -1564,9 +1564,10 @@ class LogitechDeviceSession {
         // 匹配 binding: logi* 动作在当前 session 执行 (设备隔离, 仅 down)
         // 其余一律走 InputProcessor (支持 down/up 和 custom 绑定)
         if isDown {
-            let bindings = ButtonUtils.shared.getButtonBindings()
-            if let binding = bindings.first(where: { $0.triggerEvent.matchesInput(mosEvent) && $0.isEnabled }),
-               binding.systemShortcutName.hasPrefix("logi") {
+            if let binding = ButtonUtils.shared.getBestMatchingBinding(
+                for: mosEvent,
+                where: { $0.systemShortcutName.hasPrefix("logi") }
+            ) {
                 // Logi 动作: 在当前 session 执行 (设备隔离, 不注册 activeBindings)
                 executeLogiAction(binding.systemShortcutName)
                 return

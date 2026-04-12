@@ -121,4 +121,41 @@ final class MouseDragSessionControllerTests: XCTestCase {
         XCTAssertEqual(event.type, .leftMouseDragged)
         XCTAssertEqual(event.getIntegerValueField(.mouseEventButtonNumber), 0)
     }
+
+    func testRewriteMouseInteractionEvent_appliesVirtualModifierFlags() {
+        Options.shared.buttons.binding = []
+        ButtonUtils.shared.invalidateCache()
+        InputProcessor.shared.clearActiveBindings()
+        MouseDragSessionController.shared.setTestingMotionTapHooks()
+
+        let modifierTrigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
+        let modifierBinding = ButtonBinding(triggerEvent: modifierTrigger, systemShortcutName: "custom::56:0", isEnabled: true)
+        Options.shared.buttons.binding = [modifierBinding]
+        ButtonUtils.shared.invalidateCache()
+
+        let modifierDown = InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0),
+                                      phase: .down, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(modifierDown), .consumed)
+        XCTAssertNotEqual(InputProcessor.shared.activeModifierFlags, 0)
+
+        let controller = MouseDragSessionController(startMotionTap: {}, stopMotionTap: {})
+        _ = controller.beginSession(target: .left)
+
+        let event = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .mouseMoved,
+            mouseCursorPosition: CGPoint(x: 80, y: 44),
+            mouseButton: .left
+        )!
+
+        controller.rewriteMouseInteractionEvent(event)
+
+        XCTAssertEqual(event.type, .leftMouseDragged)
+        XCTAssertTrue(event.flags.contains(.maskShift))
+
+        InputProcessor.shared.clearActiveBindings()
+        MouseDragSessionController.shared.clearTestingMotionTapHooks()
+        Options.shared.buttons.binding = []
+        ButtonUtils.shared.invalidateCache()
+    }
 }
