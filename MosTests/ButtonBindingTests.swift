@@ -7,6 +7,18 @@ private final class ShortcutMenuTestTarget: NSObject {
 
 final class ButtonBindingTests: XCTestCase {
 
+    private func makeResolvedPresentation(
+        shortcut: SystemShortcut.Shortcut? = nil,
+        customBindingName: String? = nil,
+        isRecording: Bool = false
+    ) -> ActionPresentation {
+        ActionDisplayResolver().resolve(
+            shortcut: shortcut,
+            customBindingName: customBindingName,
+            isRecording: isRecording
+        )
+    }
+
     private func makeButtonCell(binding: ButtonBinding) -> ButtonTableCellView {
         let cell = ButtonTableCellView(frame: NSRect(x: 0, y: 0, width: 420, height: 44))
         let keyContainer = NSView(frame: NSRect(x: 0, y: 0, width: 140, height: 44))
@@ -33,6 +45,14 @@ final class ButtonBindingTests: XCTestCase {
 
     private func advanceMainRunLoop(by interval: TimeInterval) {
         RunLoop.main.run(until: Date().addingTimeInterval(interval))
+    }
+
+    private func makeActionPopupButton() -> NSPopUpButton {
+        let actionButton = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 180, height: 28), pullsDown: false)
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "", action: nil, keyEquivalent: ""))
+        actionButton.menu = menu
+        return actionButton
     }
 
     func testPrepareCustomCache_regularKey() {
@@ -169,6 +189,118 @@ final class ButtonBindingTests: XCTestCase {
     func testDisplayShortcut_returnsNilForAmbiguousCustomBindingEquivalent() {
         let modifiers = UInt64(NSEvent.ModifierFlags.command.rawValue)
         XCTAssertNil(SystemShortcut.displayShortcut(matchingBindingName: "custom::34:\(modifiers)"))
+    }
+
+    func testActionDisplayResolver_prioritizesRecordingPromptOverExistingShortcut() {
+        let presentation = makeResolvedPresentation(
+            shortcut: SystemShortcut.screenshotSelection,
+            customBindingName: "custom::1007:0",
+            isRecording: true
+        )
+
+        XCTAssertEqual(presentation.kind, .recordingPrompt)
+        XCTAssertEqual(presentation.title, NSLocalizedString("custom-recording-prompt", comment: ""))
+        XCTAssertTrue(presentation.badgeComponents.isEmpty)
+        XCTAssertNil(presentation.brand)
+    }
+
+    func testActionDisplayResolver_upgradesRecognizedCustomBindingToNamedAction() {
+        let modifiers = UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue)
+        let presentation = makeResolvedPresentation(customBindingName: "custom::21:\(modifiers)")
+
+        XCTAssertEqual(presentation.kind, .namedAction)
+        XCTAssertEqual(presentation.title, SystemShortcut.screenshotSelection.localizedName)
+        XCTAssertEqual(presentation.brand?.name, nil)
+    }
+
+    func testActionDisplayResolver_upgradesSingleLogiCustomBindingToBrandedNamedAction() {
+        let presentation = makeResolvedPresentation(customBindingName: "custom::1007:0")
+
+        XCTAssertEqual(presentation.kind, .namedAction)
+        XCTAssertEqual(presentation.title, "Forward Button")
+        XCTAssertTrue(presentation.badgeComponents.isEmpty)
+        XCTAssertEqual(presentation.brand?.name, BrandTagConfig.logi.name)
+    }
+
+    func testConfiguredButtonCell_showsBrandedNamedDisplayForSingleLogiCustomBinding() {
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "custom::1007:0"
+        )
+
+        let cell = makeButtonCell(binding: binding)
+
+        XCTAssertEqual(cell.actionPopUpButton.menu?.items.first?.title, "Forward Button")
+        XCTAssertNotNil(cell.actionPopUpButton.menu?.items.first?.image)
+    }
+
+    func testActionDisplayResolver_returnsUnboundWhenNoActionExists() {
+        let presentation = makeResolvedPresentation()
+
+        XCTAssertEqual(presentation.kind, .unbound)
+        XCTAssertEqual(presentation.title, NSLocalizedString("unbound", comment: ""))
+    }
+
+    func testActionDisplayRenderer_rendersRecordingPromptWithoutResidualImage() {
+        let popupButton = makeActionPopupButton()
+        let presentation = ActionPresentation(
+            kind: .recordingPrompt,
+            title: NSLocalizedString("custom-recording-prompt", comment: ""),
+            symbolName: nil,
+            badgeComponents: [],
+            brand: nil
+        )
+
+        ActionDisplayRenderer().render(presentation, into: popupButton)
+
+        XCTAssertEqual(popupButton.menu?.items.first?.title, presentation.title)
+        XCTAssertNil(popupButton.menu?.items.first?.image)
+    }
+
+    func testActionDisplayRenderer_prefixesBrandTagForNamedActionSymbol() {
+        let brandedPopup = makeActionPopupButton()
+        let plainPopup = makeActionPopupButton()
+        let branded = ActionPresentation(
+            kind: .namedAction,
+            title: "Forward Button",
+            symbolName: "chevron.forward",
+            badgeComponents: [],
+            brand: .logi
+        )
+        let plain = ActionPresentation(
+            kind: .namedAction,
+            title: "Forward Button",
+            symbolName: "chevron.forward",
+            badgeComponents: [],
+            brand: nil
+        )
+
+        let renderer = ActionDisplayRenderer()
+        renderer.render(branded, into: brandedPopup)
+        renderer.render(plain, into: plainPopup)
+
+        guard let brandedImage = brandedPopup.menu?.items.first?.image,
+              let plainImage = plainPopup.menu?.items.first?.image else {
+            return XCTFail("Expected both render paths to create placeholder images")
+        }
+
+        XCTAssertGreaterThan(brandedImage.size.width, plainImage.size.width)
+    }
+
+    func testActionDisplayRenderer_rendersKeyComboAsBadgeImage() {
+        let popupButton = makeActionPopupButton()
+        let presentation = ActionPresentation(
+            kind: .keyCombo,
+            title: "",
+            symbolName: nil,
+            badgeComponents: ["⇧ ⌘", "4"],
+            brand: nil
+        )
+
+        ActionDisplayRenderer().render(presentation, into: popupButton)
+
+        XCTAssertEqual(popupButton.menu?.items.first?.title, "")
+        XCTAssertNotNil(popupButton.menu?.items.first?.image)
     }
 
     func testBuildShortcutMenu_includesModifierCategoryWithSingleModifierShortcuts() {

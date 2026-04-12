@@ -18,6 +18,8 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     // MARK: - UI Components
     private var keyPreview: KeyPreview!
     private var dashedLineLayer: CAShapeLayer?
+    private let actionDisplayResolver = ActionDisplayResolver()
+    private let actionDisplayRenderer = ActionDisplayRenderer()
 
     // MARK: - Callbacks
     private var onShortcutSelected: ((SystemShortcut.Shortcut?) -> Void)?
@@ -196,114 +198,19 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     
     // MARK: - 私有方法
 
-    /// 在菜单中选中指定的快捷键
-    private func selectShortcutInMenu(_ shortcut: SystemShortcut.Shortcut) {
-        guard let menu = actionPopUpButton.menu else {
-            NSLog("[ButtonTableCellView] 无法获取菜单")
-            return
-        }
-
-        // 在子菜单中查找匹配的快捷键
-        for categoryItem in menu.items {
-            guard let subMenu = categoryItem.submenu else { continue }
-
-            for shortcutItem in subMenu.items {
-                if let itemShortcut = shortcutItem.representedObject as? SystemShortcut.Shortcut,
-                   itemShortcut.identifier == shortcut.identifier {
-                    // 将快捷键的标题和图标复制到占位符,然后选中占位符
-                    setCustomTitle(shortcutItem.title, image: shortcutItem.image)
-                    return
-                }
-            }
-        }
-    }
-
-    /// 手动设置 PopUpButton 的显示标题和图标
-    private func setCustomTitle(_ title: String, image: NSImage?) {
-        guard let menu = actionPopUpButton.menu,
-              let placeholderItem = menu.items.first else {
-            return
-        }
-
-        // 更新占位符的标题为选中的快捷键
-        placeholderItem.title = title
-
-        // 品牌动作: 在图标前添加品牌 tag
-        if let brand = BrandTag.brandForAction(currentShortcut?.identifier ?? "") {
-            placeholderItem.image = BrandTag.createPrefixedImage(brand: brand, original: image)
-        } else if let originalImage = image {
-            placeholderItem.image = createImageWithTrailingSpace(originalImage)
-        } else {
-            placeholderItem.image = nil
-        }
-
-        // 选中占位符项
-        actionPopUpButton.selectItem(at: 0)
-        actionPopUpButton.synchronizeTitleAndSelectedItem()
-    }
-
-    /// 创建带右侧边距的图标 (用于 PopUpButton 显示)
-    private func createImageWithTrailingSpace(_ originalImage: NSImage) -> NSImage {
-        let spacing: CGFloat = 2.0  // 右侧边距
-        let originalSize = originalImage.size
-        let newSize = NSSize(width: originalSize.width + spacing, height: originalSize.height)
-
-        let newImage = NSImage(size: newSize)
-        newImage.lockFocus()
-
-        // 在左侧绘制原始图标,右侧留白
-        originalImage.draw(
-            in: NSRect(x: 0, y: 0, width: originalSize.width, height: originalSize.height),
-            from: NSRect(origin: .zero, size: originalSize),
-            operation: .sourceOver,
-            fraction: 1.0
-        )
-
-        newImage.unlockFocus()
-
-        // template 模式,确保图标能适配系统颜色
-        newImage.isTemplate = originalImage.isTemplate
-
-        return newImage
-    }
-
-    /// 设置占位符为"未绑定"状态
-    private func setPlaceholderToUnbound() {
-        setCustomTitle(NSLocalizedString("unbound", comment: ""), image: nil)
-    }
-
-    private func setPlaceholderToRecordingPrompt() {
-        setCustomTitle(NSLocalizedString("custom-recording-prompt", comment: ""), image: nil)
-    }
-
-    private func resolvedDisplayShortcut() -> SystemShortcut.Shortcut? {
-        if let currentShortcut {
-            return currentShortcut
-        }
-
-        if let currentCustomName {
-            return SystemShortcut.displayShortcut(matchingBindingName: currentCustomName)
-        }
-
-        return nil
-    }
-
     func refreshActionDisplay() {
-        if isCustomRecordingActive {
-            setPlaceholderToRecordingPrompt()
-        } else if let shortcut = resolvedDisplayShortcut() {
-            selectShortcutInMenu(shortcut)
-        } else if let customName = currentCustomName, customName.hasPrefix("custom::") {
-            displayCustomBinding(customName)
-        } else {
-            setPlaceholderToUnbound()
-        }
+        let presentation = actionDisplayResolver.resolve(
+            shortcut: currentShortcut,
+            customBindingName: currentCustomName,
+            isRecording: isCustomRecordingActive
+        )
+        actionDisplayRenderer.render(presentation, into: actionPopUpButton)
     }
 
     func beginCustomShortcutSelection(startRecorder: Bool = true) {
         isCustomRecordingActive = true
         DispatchQueue.main.async { [weak self] in
-            self?.setPlaceholderToRecordingPrompt()
+            self?.refreshActionDisplay()
         }
 
         guard startRecorder else { return }
@@ -318,126 +225,6 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
 
     private func startCustomRecording() {
         customRecorder.startRecording(from: actionPopUpButton, mode: .adaptive)
-    }
-
-    /// 显示自定义绑定 (从 custom:: 字符串解析)
-    private func displayCustomBinding(_ customName: String) {
-        guard let (code, mods) = ButtonBinding.normalizedCustomBindingPayload(from: customName) else {
-            setPlaceholderToUnbound()
-            return
-        }
-
-        // 构造 InputEvent 以复用 displayComponents 统一格式
-        let mosEvent = InputEvent(
-            type: KeyCode.modifierKeys.contains(code) ? .keyboard : (code >= 0x100 ? .mouse : .keyboard),
-            code: code,
-            modifiers: CGEventFlags(rawValue: mods),
-            phase: .down,
-            source: .hidPP,
-            device: nil
-        )
-        let badgeImage = createBadgeImage(from: mosEvent.displayComponents)
-        setCustomTitle("", image: badgeImage)
-    }
-
-    /// 将 displayComponents 渲染为 badge 风格的图片 (与 KeyPreview 视觉一致)
-    /// 使用 NSImage drawingHandler, 每次绘制时执行, 自动响应 Dark/Light 模式切换
-    private func createBadgeImage(from components: [String]) -> NSImage {
-        // 紧凑尺寸: 适配 PopUpButton 行高
-        let fontSize: CGFloat = 9
-        let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
-        let plusFont = NSFont.systemFont(ofSize: fontSize)
-        let badgeHeight: CGFloat = 17
-        let cornerRadius: CGFloat = 3
-        let hPadding: CGFloat = 5
-        let plusSpacing: CGFloat = 3
-        let iconSize: CGFloat = 11
-        let iconTrailingGap: CGFloat = 4
-
-        // 预计算每个 badge 和总尺寸
-        struct BadgeMetrics {
-            let text: String
-            let textSize: NSSize
-            let badgeWidth: CGFloat
-        }
-        var badges: [BadgeMetrics] = []
-        var totalWidth: CGFloat = 0
-
-        for (i, component) in components.enumerated() {
-            let attrs: [NSAttributedString.Key: Any] = [.font: font]
-            let textSize = (component as NSString).size(withAttributes: attrs)
-            let badgeWidth = max(textSize.width + hPadding * 2, badgeHeight)
-            badges.append(BadgeMetrics(text: component, textSize: textSize, badgeWidth: badgeWidth))
-            totalWidth += badgeWidth
-            if i > 0 {
-                let plusSize = ("+" as NSString).size(withAttributes: [.font: plusFont])
-                totalWidth += plusSpacing * 2 + plusSize.width
-            }
-        }
-
-        // 前置 keyboard 图标的空间
-        var iconWidth: CGFloat = 0
-        if #available(macOS 11.0, *) {
-            iconWidth = iconSize + iconTrailingGap
-        }
-        totalWidth += iconWidth
-
-        let imageSize = NSSize(width: ceil(totalWidth) + 6, height: badgeHeight)
-        return NSImage(size: imageSize, flipped: false) { _ in
-            var x: CGFloat = 0
-
-            // 绘制 keyboard 图标 (用 sourceAtop 合成着色, 适配 Dark/Light 模式)
-            if #available(macOS 11.0, *),
-               let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil) {
-                let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
-                let configured = symbol.withSymbolConfiguration(config) ?? symbol
-                let symbolSize = configured.size
-                let iconY = (badgeHeight - symbolSize.height) / 2
-                let iconRect = NSRect(x: x, y: iconY, width: symbolSize.width, height: symbolSize.height)
-                configured.draw(in: iconRect)
-                NSColor.secondaryLabelColor.set()
-                iconRect.fill(using: .sourceAtop)
-                x += symbolSize.width + iconTrailingGap
-            }
-
-            let bgColor = Utils.isDarkMode(for: nil)
-                ? NSColor(calibratedWhite: 0.5, alpha: 0.2)
-                : NSColor(calibratedWhite: 0.0, alpha: 0.1)
-            let textColor = NSColor.labelColor
-
-            for (i, badge) in badges.enumerated() {
-                // "+" 分隔符
-                if i > 0 {
-                    let plusAttrs: [NSAttributedString.Key: Any] = [
-                        .font: plusFont,
-                        .foregroundColor: NSColor.secondaryLabelColor,
-                    ]
-                    let plusSize = ("+" as NSString).size(withAttributes: plusAttrs)
-                    x += plusSpacing
-                    let plusY = (badgeHeight - plusSize.height) / 2
-                    ("+" as NSString).draw(at: NSPoint(x: x, y: plusY), withAttributes: plusAttrs)
-                    x += plusSize.width + plusSpacing
-                }
-
-                // Badge 背景
-                let badgeRect = NSRect(x: x, y: 0, width: badge.badgeWidth, height: badgeHeight)
-                let path = NSBezierPath(roundedRect: badgeRect, xRadius: cornerRadius, yRadius: cornerRadius)
-                bgColor.setFill()
-                path.fill()
-
-                // Badge 文字
-                let textAttrs: [NSAttributedString.Key: Any] = [
-                    .font: font,
-                    .foregroundColor: textColor,
-                ]
-                let textX = x + (badge.badgeWidth - badge.textSize.width) / 2
-                let textY = (badgeHeight - badge.textSize.height) / 2
-                (badge.text as NSString).draw(at: NSPoint(x: textX, y: textY), withAttributes: textAttrs)
-
-                x += badge.badgeWidth
-            }
-            return true
-        }
     }
 
     // MARK: - Actions
@@ -461,13 +248,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         self.currentShortcut = shortcut
 
         // 更新占位符显示
-        if shortcut != nil {
-            // 选择了具体快捷键,复制标题和图标到占位符
-            setCustomTitle(sender.title, image: sender.image)
-        } else {
-            // 选择了"未绑定",设置占位符为未绑定状态
-            setPlaceholderToUnbound()
-        }
+        refreshActionDisplay()
 
         // 通知外部更新(nil 表示清除绑定)
         onShortcutSelected?(shortcut)
@@ -568,7 +349,7 @@ extension ButtonTableCellView: KeyRecorderDelegate {
     func onRecordingStarted(_ recorder: KeyRecorder) {
         isCustomRecordingActive = true
         DispatchQueue.main.async {
-            self.setPlaceholderToRecordingPrompt()
+            self.refreshActionDisplay()
         }
     }
 
