@@ -74,6 +74,7 @@ struct SystemShortcut {
                 case "dictation": return "mic"
                 case "doNotDisturb": return "moon"
                 case "showDesktop": return "rectangle.on.rectangle"
+                case "escapeKey": return "escape"
                 // 应用切换
                 case "switchApp": return "arrow.right.circle"
                 case "switchAppReverse": return "arrow.left.circle"
@@ -137,6 +138,12 @@ struct SystemShortcut {
                 case "mouseMiddleClick": return "computermouse"
                 case "mouseBackClick": return "chevron.backward"
                 case "mouseForwardClick": return "chevron.forward"
+                // 修饰键
+                case "modifierShift": return "shift"
+                case "modifierOption": return "option"
+                case "modifierControl": return "control"
+                case "modifierCommand": return "command"
+                case "modifierFn": return "fn"
                 // Logi
                 case "logiSmartShiftToggle": return "gearshape.2"
                 case "logiDPICycleUp": return "arrow.up.circle"
@@ -210,6 +217,7 @@ struct SystemShortcut {
     static let dictation = Shortcut("dictation", 176, .function)
     static let doNotDisturb = Shortcut("doNotDisturb", 178, .function)
     static let showDesktop = Shortcut("showDesktop", 103, .function)
+    static let escapeKey = Shortcut("escapeKey", KeyCode.escape, [])
 
     // 应用切换
     // preserveFlagsOnKeyUp: 用于确保 KeyUp 时携带 flag, 才能触发 App Switcher
@@ -287,7 +295,7 @@ struct SystemShortcut {
         // 功能键
         "missionControl": missionControl, "appExpose": appExpose,
         "spotlightSys": spotlightSys, "dictation": dictation, "doNotDisturb": doNotDisturb,
-        "showDesktop": showDesktop,
+        "showDesktop": showDesktop, "escapeKey": escapeKey,
         // 应用切换
         "switchApp": switchApp, "switchAppReverse": switchAppReverse,
         // 文档编辑
@@ -317,6 +325,10 @@ struct SystemShortcut {
         "mouseLeftClick": mouseLeftClick, "mouseRightClick": mouseRightClick,
         "mouseMiddleClick": mouseMiddleClick, "mouseBackClick": mouseBackClick,
         "mouseForwardClick": mouseForwardClick,
+        // 修饰键
+        "modifierShift": modifierShift, "modifierOption": modifierOption,
+        "modifierControl": modifierControl, "modifierCommand": modifierCommand,
+        "modifierFn": modifierFn,
         // Logi
         "logiSmartShiftToggle": logiSmartShiftToggle,
         "logiDPICycleUp": logiDPICycleUp, "logiDPICycleDown": logiDPICycleDown,
@@ -355,7 +367,7 @@ struct SystemShortcut {
     /// 按类别分组的快捷键 (有序数组,顺序即菜单显示顺序)
     static let shortcutsByCategory: [(category: String, shortcuts: [Shortcut])] = [
         ("categoryFunctionKeys", [
-            missionControl, appExpose, spotlightSys, dictation, doNotDisturb, showDesktop,
+            missionControl, appExpose, spotlightSys, dictation, doNotDisturb, showDesktop, escapeKey,
             moveSpaceLeft, moveSpaceRight
         ]),
         ("categoryAppsAndWindows", [
@@ -393,6 +405,16 @@ struct SystemShortcut {
     static let mouseBackClick = Shortcut("mouseBackClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 3), executionMode: .stateful)
     static let mouseForwardClick = Shortcut("mouseForwardClick", 0xFFFF, NSEvent.ModifierFlags(rawValue: 4), executionMode: .stateful)
 
+    // MARK: - Modifier Key Actions
+    // 预定义单修饰键动作 (复用 custom modifier 的 stateful 执行语义)
+    // 使用 code=0xFFFD 和空修饰键作为占位, 实际执行逻辑在 ShortcutExecutor 中映射到对应 modifier keyCode
+
+    static let modifierShift = Shortcut("modifierShift", 0xFFFD, NSEvent.ModifierFlags(rawValue: 0), executionMode: .stateful)
+    static let modifierOption = Shortcut("modifierOption", 0xFFFD, NSEvent.ModifierFlags(rawValue: 1), executionMode: .stateful)
+    static let modifierControl = Shortcut("modifierControl", 0xFFFD, NSEvent.ModifierFlags(rawValue: 2), executionMode: .stateful)
+    static let modifierCommand = Shortcut("modifierCommand", 0xFFFD, NSEvent.ModifierFlags(rawValue: 3), executionMode: .stateful)
+    static let modifierFn = Shortcut("modifierFn", 0xFFFD, NSEvent.ModifierFlags(rawValue: 4), executionMode: .stateful)
+
     // MARK: - Logi HID++ Actions
     // Logitech 专有动作 (由 ShortcutExecutor 通过 HID++ 协议执行)
 
@@ -424,6 +446,13 @@ struct SystemShortcut {
         ]
     )
 
+    /// 修饰键动作分类
+    static let modifierKeysCategory: (category: String, shortcuts: [Shortcut]) = (
+        "categoryModifierKeys", [
+            modifierShift, modifierOption, modifierControl, modifierCommand, modifierFn
+        ]
+    )
+
     /// Logi 专有动作分类
     static let logiActionsCategory: (category: String, shortcuts: [Shortcut]) = (
         "categoryLogiActions", [
@@ -449,10 +478,59 @@ struct SystemShortcut {
         case "categoryScreenshot": return "camera.viewfinder"
         case "categoryNavigation": return "arrow.left.and.right"
         case "categoryAccessibility": return "eye"
+        case "categoryModifierKeys": return "command"
         case "categoryMouseButtons": return "computermouse"
         case "categoryLogiActions": return "gear.badge"
         default: return "questionmark.folder"
         }
+    }
+
+    private static let predefinedModifierCodes: [String: UInt16] = [
+        "modifierShift": KeyCode.shiftL,
+        "modifierOption": KeyCode.optionL,
+        "modifierControl": KeyCode.controlL,
+        "modifierCommand": KeyCode.commandL,
+        "modifierFn": KeyCode.fnL,
+    ]
+
+    static func predefinedModifierCode(for identifier: String) -> UInt16? {
+        predefinedModifierCodes[identifier]
+    }
+
+    static func predefinedModifierShortcut(matchingCustomBinding customBindingName: String) -> Shortcut? {
+        guard let (code, modifiers) = ButtonBinding.normalizedCustomBindingPayload(from: customBindingName), modifiers == 0 else {
+            return nil
+        }
+        guard let identifier = predefinedModifierCodes.first(where: { $0.value == code })?.key else {
+            return nil
+        }
+        return getShortcut(named: identifier)
+    }
+
+    static func displayShortcut(matchingBindingName bindingName: String) -> Shortcut? {
+        if let directShortcut = getShortcut(named: bindingName) {
+            return directShortcut
+        }
+
+        if let modifierShortcut = predefinedModifierShortcut(matchingCustomBinding: bindingName) {
+            return modifierShortcut
+        }
+
+        guard let (code, modifiers) = ButtonBinding.normalizedCustomBindingPayload(from: bindingName) else {
+            return nil
+        }
+
+        let matchingShortcuts = allShortcuts.values.filter { shortcut in
+            shortcut.code == code &&
+            shortcut.modifiers.rawValue == modifiers &&
+            shortcut.code < 0xFFFD
+        }
+
+        guard matchingShortcuts.count == 1 else {
+            return nil
+        }
+
+        return matchingShortcuts.first
     }
 }
 

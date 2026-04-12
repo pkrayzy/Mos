@@ -20,8 +20,14 @@ enum KeyRecordingMode {
 }
 
 protocol KeyRecorderDelegate: AnyObject {
+    /// 录制开始回调
+    func onRecordingStarted(_ recorder: KeyRecorder)
+
     /// 录制完成回调
     func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool)
+
+    /// 录制结束回调
+    func onRecordingStopped(_ recorder: KeyRecorder, didRecord: Bool)
 
     /// 验证录制的事件是否为重复
     func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool
@@ -29,6 +35,10 @@ protocol KeyRecorderDelegate: AnyObject {
 
 /// 默认实现 (替代 @objc optional 语义)
 extension KeyRecorderDelegate {
+    func onRecordingStarted(_ recorder: KeyRecorder) {}
+
+    func onRecordingStopped(_ recorder: KeyRecorder, didRecord: Bool) {}
+
     func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool {
         return true
     }
@@ -107,6 +117,7 @@ class KeyRecorder: NSObject {
         guard !isRecording else { return }
         isRecording = true
         recordingMode = mode
+        delegate?.onRecordingStarted(self)
         // Log
         NSLog("[EventRecorder] Starting in \(mode) mode")
         // 确保清理任何存在的录制界面
@@ -480,6 +491,7 @@ class KeyRecorder: NSObject {
     func stopRecording() {
         // Guard: 需要 Recording 才进行后续处理
         guard isRecording else { return }
+        let didRecord = isRecorded
         // Log
         NSLog("[EventRecorder] Stopping")
         // 隐藏录制界面
@@ -504,6 +516,7 @@ class KeyRecorder: NSObject {
             NotificationCenter.default.removeObserver(observer)
             hidEventObserver = nil
         }
+        delegate?.onRecordingStopped(self, didRecord: didRecord)
         // 录制结束: 恢复到只 divert 有绑定的按键
         LogitechHIDManager.shared.restoreDivertToBindings()
         // 重置状态 (添加延迟确保 Popover 结束动画完成, 避免多个 popover 重复出现导致卡住)
@@ -528,4 +541,3 @@ class KeyRecorder: NSObject {
         recordTimeoutTimer = nil
     }
 }
-

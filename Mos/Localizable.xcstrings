@@ -1012,6 +1012,95 @@
         }
       }
     },
+    "categoryModifierKeys" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifikační klávesy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifikatortasten"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Πλήκτρα τροποποίησης"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier Keys"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touches modificatrices"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修飾キー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보조 키"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Клавиши-модификаторы"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Değiştirici Tuşlar"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Клавіші-модифікатори"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修饰键"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修飾鍵"
+          }
+        },
+        "zh-Hant-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修飾鍵"
+          }
+        },
+        "zh-Hant-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修飾鍵"
+          }
+        }
+      }
+    },
     "categoryMouseButtons" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2013,6 +2102,96 @@
         }
       }
     },
+    "custom-recording-prompt" : {
+      "comment" : "Prompt shown on the action button while custom shortcut recording is active",
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stiskněte klávesu…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taste drücken…"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Πατήστε ένα πλήκτρο…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press a key…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur une touche…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーを押してください…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키를 누르세요…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нажмите клавишу…"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir tuşa basın…"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Натисніть клавішу…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按下按键…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按下按鍵…"
+          }
+        },
+        "zh-Hant-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按下按鍵…"
+          }
+        },
+        "zh-Hant-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按下按鍵…"
+          }
+        }
+      }
+    },
     "cut" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2463,6 +2642,25 @@
             "value" : "製作副本"
           }
         }
+      }
+    },
+    "escapeKey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "el" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "uk" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "zh-Hant-HK" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } },
+        "zh-Hant-TW" : { "stringUnit" : { "state" : "translated", "value" : "Escape" } }
       }
     },
     "Duration" : {
@@ -5534,91 +5732,186 @@
         }
       }
     },
+    "modifierCommand" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "el" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "uk" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "zh-Hant-HK" : { "stringUnit" : { "state" : "translated", "value" : "Command" } },
+        "zh-Hant-TW" : { "stringUnit" : { "state" : "translated", "value" : "Command" } }
+      }
+    },
+    "modifierControl" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "el" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "uk" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "zh-Hant-HK" : { "stringUnit" : { "state" : "translated", "value" : "Control" } },
+        "zh-Hant-TW" : { "stringUnit" : { "state" : "translated", "value" : "Control" } }
+      }
+    },
+    "modifierFn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "el" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "uk" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "zh-Hant-HK" : { "stringUnit" : { "state" : "translated", "value" : "Function" } },
+        "zh-Hant-TW" : { "stringUnit" : { "state" : "translated", "value" : "Function" } }
+      }
+    },
+    "modifierOption" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "el" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "uk" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "zh-Hant-HK" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "zh-Hant-TW" : { "stringUnit" : { "state" : "translated", "value" : "Option" } }
+      }
+    },
+    "modifierShift" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "el" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "uk" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "zh-Hant-HK" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } },
+        "zh-Hant-TW" : { "stringUnit" : { "state" : "translated", "value" : "Shift" } }
+      }
+    },
     "mouseLeftClick" : {
       "extractionState" : "manual",
       "localizations" : {
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Levé kliknutí"
+            "value" : "Levé tlačítko"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Linksklick"
+            "value" : "Linke Maustaste"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Αριστερό κλικ"
+            "value" : "Αριστερό κουμπί"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Left Click"
+            "value" : "Left Button"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clic gauche"
+            "value" : "Bouton gauche"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左クリック"
+            "value" : "左ボタン"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "왼쪽 클릭"
+            "value" : "왼쪽 버튼"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Левый клик"
+            "value" : "Левая кнопка"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sol Tıklama"
+            "value" : "Sol Düğme"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Лівий клік"
+            "value" : "Ліва кнопка"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左键点击"
+            "value" : "左键"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左鍵點擊"
+            "value" : "左鍵"
           }
         },
         "zh-Hant-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左鍵點擊"
+            "value" : "左鍵"
           }
         },
         "zh-Hant-TW" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "左鍵點擊"
+            "value" : "左鍵"
           }
         }
       }
@@ -5629,85 +5922,85 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prostřední kliknutí"
+            "value" : "Prostřední tlačítko"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mittelklick"
+            "value" : "Mittlere Maustaste"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Μεσαίο κλικ"
+            "value" : "Μεσαίο κουμπί"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Middle Click"
+            "value" : "Middle Button"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clic milieu"
+            "value" : "Bouton central"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中央クリック"
+            "value" : "中央ボタン"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "가운데 클릭"
+            "value" : "가운데 버튼"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Средний клик"
+            "value" : "Средняя кнопка"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Orta Tıklama"
+            "value" : "Orta Düğme"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Середній клік"
+            "value" : "Середня кнопка"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中键点击"
+            "value" : "中键"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中鍵點擊"
+            "value" : "中鍵"
           }
         },
         "zh-Hant-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中鍵點擊"
+            "value" : "中鍵"
           }
         },
         "zh-Hant-TW" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中鍵點擊"
+            "value" : "中鍵"
           }
         }
       }
@@ -5718,85 +6011,85 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pravé kliknutí"
+            "value" : "Pravé tlačítko"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechtsklick"
+            "value" : "Rechte Maustaste"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δεξί κλικ"
+            "value" : "Δεξί κουμπί"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Right Click"
+            "value" : "Right Button"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clic droit"
+            "value" : "Bouton droit"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右クリック"
+            "value" : "右ボタン"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "오른쪽 클릭"
+            "value" : "오른쪽 버튼"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Правый клик"
+            "value" : "Правая кнопка"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sağ Tıklama"
+            "value" : "Sağ Düğme"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Правий клік"
+            "value" : "Права кнопка"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右键点击"
+            "value" : "右键"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右鍵點擊"
+            "value" : "右鍵"
           }
         },
         "zh-Hant-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右鍵點擊"
+            "value" : "右鍵"
           }
         },
         "zh-Hant-TW" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右鍵點擊"
+            "value" : "右鍵"
           }
         }
       }

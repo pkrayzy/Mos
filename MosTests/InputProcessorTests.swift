@@ -161,6 +161,52 @@ final class InputProcessorTests: XCTestCase {
         XCTAssertEqual(InputProcessor.shared.activeModifierFlags, 0)
     }
 
+    func testProcess_predefinedModifierShortcut_usesStatefulModifierFlow() {
+        let trigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
+        let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "modifierOption", isEnabled: true)
+        Options.shared.buttons.binding = [binding]
+        ButtonUtils.shared.invalidateCache()
+
+        let downEvent = InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0),
+                                   phase: .down, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, CGEventFlags.maskAlternate.rawValue)
+
+        let upEvent = InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0),
+                                 phase: .up, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(upEvent), .consumed)
+        XCTAssertFalse(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, 0)
+    }
+
+    func testResolveAction_predefinedModifierShortcut_mapsToCustomModifierKey() {
+        guard let action = ShortcutExecutor.shared.resolveAction(named: "modifierShift") else {
+            return XCTFail("Expected predefined modifier shortcut to resolve")
+        }
+
+        switch action {
+        case .customKey(let code, let modifiers):
+            XCTAssertEqual(code, KeyCode.shiftL)
+            XCTAssertEqual(modifiers, 0)
+        default:
+            XCTFail("Expected predefined modifier shortcut to reuse custom modifier execution")
+        }
+    }
+
+    func testResolveAction_escapeShortcut_mapsToSystemShortcut() {
+        guard let action = ShortcutExecutor.shared.resolveAction(named: "escapeKey") else {
+            return XCTFail("Expected escape shortcut to resolve")
+        }
+
+        switch action {
+        case .systemShortcut(let identifier):
+            XCTAssertEqual(identifier, "escapeKey")
+        default:
+            XCTFail("Expected escape shortcut to use the system shortcut execution path")
+        }
+    }
+
     func testProcess_mouseSessionRemainsActiveAfterVirtualModifierReleasesUntilMouseUp() {
         let modifierTrigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
         let mouseTrigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)

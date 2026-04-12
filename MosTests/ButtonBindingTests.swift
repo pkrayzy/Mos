@@ -1,7 +1,39 @@
 import XCTest
 @testable import Mos_Debug
 
+private final class ShortcutMenuTestTarget: NSObject {
+    @objc func noop(_ sender: Any?) {}
+}
+
 final class ButtonBindingTests: XCTestCase {
+
+    private func makeButtonCell(binding: ButtonBinding) -> ButtonTableCellView {
+        let cell = ButtonTableCellView(frame: NSRect(x: 0, y: 0, width: 420, height: 44))
+        let keyContainer = NSView(frame: NSRect(x: 0, y: 0, width: 140, height: 44))
+        let actionButton = NSPopUpButton(frame: NSRect(x: 180, y: 8, width: 180, height: 28), pullsDown: false)
+
+        cell.keyDisplayContainerView = keyContainer
+        cell.actionPopUpButton = actionButton
+        cell.addSubview(keyContainer)
+        cell.addSubview(actionButton)
+
+        cell.configure(
+            with: binding,
+            onShortcutSelected: { _ in },
+            onCustomShortcutRecorded: { _ in },
+            onDeleteRequested: {}
+        )
+
+        return cell
+    }
+
+    private func flushMainQueue() {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+    }
+
+    private func advanceMainRunLoop(by interval: TimeInterval) {
+        RunLoop.main.run(until: Date().addingTimeInterval(interval))
+    }
 
     func testPrepareCustomCache_regularKey() {
         var binding = ButtonBinding(
@@ -41,6 +73,22 @@ final class ButtonBindingTests: XCTestCase {
         binding.prepareCustomCache()
         XCTAssertNil(binding.cachedCustomCode)
         XCTAssertNil(binding.cachedCustomModifiers)
+    }
+
+    func testPrepareCustomCache_masksIrrelevantModifierFlags() {
+        let rawModifiers = UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue) | (1 << 24)
+        var binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "custom::21:\(rawModifiers)"
+        )
+
+        binding.prepareCustomCache()
+
+        XCTAssertEqual(binding.cachedCustomCode, 21)
+        XCTAssertEqual(
+            binding.cachedCustomModifiers,
+            UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue)
+        )
     }
 
     func testInit_withCreatedAt_preservesTimestamp() {
@@ -84,5 +132,238 @@ final class ButtonBindingTests: XCTestCase {
         let b = a
         a.prepareCustomCache()
         XCTAssertEqual(a, b)
+    }
+
+    func testPredefinedModifierShortcut_matchesEquivalentCustomBinding() {
+        XCTAssertEqual(
+            SystemShortcut.predefinedModifierShortcut(matchingCustomBinding: "custom::56:0")?.identifier,
+            "modifierShift"
+        )
+        XCTAssertEqual(
+            SystemShortcut.predefinedModifierShortcut(matchingCustomBinding: "custom::56:131072")?.identifier,
+            "modifierShift"
+        )
+        XCTAssertEqual(
+            SystemShortcut.predefinedModifierShortcut(matchingCustomBinding: "custom::58:524288")?.identifier,
+            "modifierOption"
+        )
+        XCTAssertNil(SystemShortcut.predefinedModifierShortcut(matchingCustomBinding: "custom::58:131072"))
+    }
+
+    func testDisplayShortcut_matchesUniqueCustomBindingEquivalent() {
+        let modifiers = UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue)
+        XCTAssertEqual(
+            SystemShortcut.displayShortcut(matchingBindingName: "custom::21:\(modifiers)")?.identifier,
+            "screenshotSelection"
+        )
+    }
+
+    func testDisplayShortcut_matchesUniqueCustomBindingEquivalentWithIrrelevantFlags() {
+        let modifiers = UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue) | (1 << 24)
+        XCTAssertEqual(
+            SystemShortcut.displayShortcut(matchingBindingName: "custom::21:\(modifiers)")?.identifier,
+            "screenshotSelection"
+        )
+    }
+
+    func testDisplayShortcut_returnsNilForAmbiguousCustomBindingEquivalent() {
+        let modifiers = UInt64(NSEvent.ModifierFlags.command.rawValue)
+        XCTAssertNil(SystemShortcut.displayShortcut(matchingBindingName: "custom::34:\(modifiers)"))
+    }
+
+    func testBuildShortcutMenu_includesModifierCategoryWithSingleModifierShortcuts() {
+        let menu = NSMenu()
+        let target = ShortcutMenuTestTarget()
+
+        ShortcutManager.buildShortcutMenu(
+            into: menu,
+            target: target,
+            action: #selector(ShortcutMenuTestTarget.noop(_:))
+        )
+
+        let modifierCategoryName = SystemShortcut.localizedCategoryName(SystemShortcut.modifierKeysCategory.category)
+        let mouseCategoryName = SystemShortcut.localizedCategoryName(SystemShortcut.mouseButtonsCategory.category)
+
+        guard let modifierIndex = menu.items.firstIndex(where: { $0.title == modifierCategoryName }),
+              let mouseIndex = menu.items.firstIndex(where: { $0.title == mouseCategoryName }) else {
+            return XCTFail("Expected modifier and mouse categories to exist in shortcut menu")
+        }
+
+        XCTAssertLessThan(modifierIndex, mouseIndex)
+
+        let modifierItems = menu.items[modifierIndex].submenu?.items.compactMap {
+            ($0.representedObject as? SystemShortcut.Shortcut)?.identifier
+        }
+        XCTAssertEqual(
+            modifierItems,
+            ["modifierShift", "modifierOption", "modifierControl", "modifierCommand", "modifierFn"]
+        )
+    }
+
+    func testBuildShortcutMenu_includesEscapeInFunctionKeysCategory() {
+        let menu = NSMenu()
+        let target = ShortcutMenuTestTarget()
+
+        ShortcutManager.buildShortcutMenu(
+            into: menu,
+            target: target,
+            action: #selector(ShortcutMenuTestTarget.noop(_:))
+        )
+
+        let functionCategoryName = SystemShortcut.localizedCategoryName("categoryFunctionKeys")
+        guard let functionCategoryIndex = menu.items.firstIndex(where: { $0.title == functionCategoryName }) else {
+            return XCTFail("Expected function keys category to exist in shortcut menu")
+        }
+
+        let functionItems = menu.items[functionCategoryIndex].submenu?.items.compactMap {
+            ($0.representedObject as? SystemShortcut.Shortcut)?.identifier
+        } ?? []
+
+        XCTAssertTrue(functionItems.contains("escapeKey"))
+    }
+
+    func testPredefinedModifierShortcut_localizedNamesAreSemanticLabels() {
+        let symbolFallbacks = [
+            "modifierShift": "⇧",
+            "modifierOption": "⌥",
+            "modifierControl": "⌃",
+            "modifierCommand": "⌘",
+            "modifierFn": "Fn",
+        ]
+
+        for (identifier, symbolFallback) in symbolFallbacks {
+            guard let shortcut = SystemShortcut.getShortcut(named: identifier) else {
+                return XCTFail("Expected shortcut \(identifier) to exist")
+            }
+            XCTAssertFalse(shortcut.localizedName.isEmpty)
+            XCTAssertNotEqual(shortcut.localizedName, symbolFallback)
+        }
+    }
+
+    func testEscapeShortcut_localizedNameIsSemanticLabel() {
+        guard let shortcut = SystemShortcut.getShortcut(named: "escapeKey") else {
+            return XCTFail("Expected escape shortcut to exist")
+        }
+
+        XCTAssertEqual(shortcut.localizedName, "Escape")
+    }
+
+    func testConfiguredButtonCell_showsNamedShortcutForEquivalentCustomBinding() {
+        let modifiers = UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue)
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "custom::21:\(modifiers)"
+        )
+
+        let cell = makeButtonCell(binding: binding)
+
+        XCTAssertEqual(cell.actionPopUpButton.menu?.items.first?.title, SystemShortcut.screenshotSelection.localizedName)
+        XCTAssertEqual(cell.actionPopUpButton.titleOfSelectedItem, SystemShortcut.screenshotSelection.localizedName)
+    }
+
+    func testConfiguredButtonCell_preservesDirectNamedShortcutForEquivalentConflictingCombo() {
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "getInfo"
+        )
+
+        let cell = makeButtonCell(binding: binding)
+
+        XCTAssertEqual(cell.actionPopUpButton.menu?.items.first?.title, SystemShortcut.getInfo.localizedName)
+    }
+
+    func testBeginCustomShortcutSelection_showsRecordingPromptWhileAwaitingRecording() {
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "",
+            isEnabled: false
+        )
+        let cell = makeButtonCell(binding: binding)
+
+        cell.beginCustomShortcutSelection(startRecorder: false)
+        flushMainQueue()
+
+        XCTAssertEqual(
+            cell.actionPopUpButton.menu?.items.first?.title,
+            NSLocalizedString("custom-recording-prompt", comment: "")
+        )
+    }
+
+    func testCustomRecordingDidStop_restoresUnboundDisplayWhenNoKeyRecorded() {
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "",
+            isEnabled: false
+        )
+        let cell = makeButtonCell(binding: binding)
+
+        cell.beginCustomShortcutSelection(startRecorder: false)
+        flushMainQueue()
+        cell.onRecordingStopped(KeyRecorder(), didRecord: false)
+        flushMainQueue()
+
+        XCTAssertEqual(cell.actionPopUpButton.menu?.items.first?.title, NSLocalizedString("unbound", comment: ""))
+    }
+
+    func testCustomRecordingDidStop_restoresExistingDisplayWhenNoKeyRecorded() {
+        let modifiers = UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue)
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "custom::21:\(modifiers)"
+        )
+        let cell = makeButtonCell(binding: binding)
+
+        cell.beginCustomShortcutSelection(startRecorder: false)
+        flushMainQueue()
+        cell.onRecordingStopped(KeyRecorder(), didRecord: false)
+        flushMainQueue()
+
+        XCTAssertEqual(cell.actionPopUpButton.menu?.items.first?.title, SystemShortcut.screenshotSelection.localizedName)
+    }
+
+    func testRecordedEquivalentCustomShortcut_updatesSelectedActionDisplayToNamedShortcut() {
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "",
+            isEnabled: false
+        )
+        let cell = makeButtonCell(binding: binding)
+        let event = InputEvent(
+            type: .keyboard,
+            code: 21,
+            modifiers: [.maskCommand, .maskShift],
+            phase: .down,
+            source: .hidPP,
+            device: nil
+        )
+
+        cell.onEventRecorded(KeyRecorder(), didRecordEvent: event, isDuplicate: false)
+        advanceMainRunLoop(by: 0.75)
+
+        XCTAssertEqual(cell.actionPopUpButton.menu?.items.first?.title, SystemShortcut.screenshotSelection.localizedName)
+        XCTAssertEqual(cell.actionPopUpButton.titleOfSelectedItem, SystemShortcut.screenshotSelection.localizedName)
+    }
+
+    func testRecordedEquivalentCustomShortcut_withIrrelevantFlagsStillDisplaysNamedShortcut() {
+        let binding = ButtonBinding(
+            triggerEvent: RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil),
+            systemShortcutName: "",
+            isEnabled: false
+        )
+        let cell = makeButtonCell(binding: binding)
+        let event = InputEvent(
+            type: .keyboard,
+            code: 21,
+            modifiers: CGEventFlags(rawValue: UInt64(NSEvent.ModifierFlags.command.union(.shift).rawValue) | (1 << 24)),
+            phase: .down,
+            source: .hidPP,
+            device: nil
+        )
+
+        cell.onEventRecorded(KeyRecorder(), didRecordEvent: event, isDuplicate: false)
+        advanceMainRunLoop(by: 0.75)
+
+        XCTAssertEqual(cell.actionPopUpButton.menu?.items.first?.title, SystemShortcut.screenshotSelection.localizedName)
+        XCTAssertEqual(cell.actionPopUpButton.titleOfSelectedItem, SystemShortcut.screenshotSelection.localizedName)
     }
 }

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="24506" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="24127" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24506"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24127"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -2655,9 +2655,9 @@ mouseEventWindowUnderMousePointerThatCanHandleThisEvent: 0.0</string>
                                     <constraint firstItem="OpG-lX-zPs" firstAttribute="leading" secondItem="GMF-Nl-CJZ" secondAttribute="leading" id="1I2-nm-b9t"/>
                                     <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="380" id="2AG-cR-IqL"/>
                                     <constraint firstItem="OpG-lX-zPs" firstAttribute="top" secondItem="GMF-Nl-CJZ" secondAttribute="bottom" constant="10" id="3cn-eg-cGh"/>
-                                    <constraint firstItem="sE5-8R-J6L" firstAttribute="centerY" secondItem="HFp-Td-Ujc" secondAttribute="centerY" id="7oQ-p5-VYq"/>
                                     <constraint firstItem="HFp-Td-Ujc" firstAttribute="centerY" secondItem="Was-VF-M63" secondAttribute="centerY" id="5YM-qA-ar8"/>
                                     <constraint firstAttribute="trailing" secondItem="haD-4r-ozY" secondAttribute="trailing" constant="20" symbolic="YES" id="647-1A-97f"/>
+                                    <constraint firstItem="sE5-8R-J6L" firstAttribute="centerY" secondItem="HFp-Td-Ujc" secondAttribute="centerY" id="7oQ-p5-VYq"/>
                                     <constraint firstItem="bb8-Rh-HpB" firstAttribute="leading" secondItem="Was-VF-M63" secondAttribute="trailing" constant="4" id="88Z-Aa-5pa"/>
                                     <constraint firstItem="TZY-Nm-E2J" firstAttribute="trailing" secondItem="GMF-Nl-CJZ" secondAttribute="trailing" id="CC6-cd-IlN"/>
                                     <constraint firstItem="aCb-Q4-94n" firstAttribute="leading" secondItem="OpG-lX-zPs" secondAttribute="trailing" constant="10" id="DIS-gz-b35"/>
@@ -2665,9 +2665,9 @@ mouseEventWindowUnderMousePointerThatCanHandleThisEvent: 0.0</string>
                                     <constraint firstItem="2jT-qX-gdB" firstAttribute="trailing" secondItem="aCb-Q4-94n" secondAttribute="trailing" id="Hdz-21-hgt"/>
                                     <constraint firstAttribute="bottom" secondItem="HFp-Td-Ujc" secondAttribute="bottom" constant="20" id="Jli-2U-mnk"/>
                                     <constraint firstAttribute="trailing" secondItem="HFp-Td-Ujc" secondAttribute="trailing" constant="20" id="LbF-kW-0jf"/>
-                                    <constraint firstItem="HFp-Td-Ujc" firstAttribute="leading" secondItem="sE5-8R-J6L" secondAttribute="trailing" constant="8" id="Pke-CY-S8W"/>
                                     <constraint firstItem="TZY-Nm-E2J" firstAttribute="top" secondItem="OpG-lX-zPs" secondAttribute="bottom" constant="10" id="LfU-Sr-8T1"/>
                                     <constraint firstItem="OpG-lX-zPs" firstAttribute="trailing" secondItem="GMF-Nl-CJZ" secondAttribute="trailing" id="Myb-ad-1sc"/>
+                                    <constraint firstItem="HFp-Td-Ujc" firstAttribute="leading" secondItem="sE5-8R-J6L" secondAttribute="trailing" constant="8" id="Pke-CY-S8W"/>
                                     <constraint firstItem="HFp-Td-Ujc" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="bb8-Rh-HpB" secondAttribute="trailing" constant="8" symbolic="YES" id="RRx-ob-asY"/>
                                     <constraint firstAttribute="trailing" secondItem="5GB-25-6Oj" secondAttribute="trailing" constant="20" id="SVH-Rs-Oah"/>
                                     <constraint firstItem="2jT-qX-gdB" firstAttribute="leading" secondItem="aCb-Q4-94n" secondAttribute="leading" id="TiB-FG-Xlc"/>

@@ -219,6 +219,9 @@ struct RecordedEvent: Codable, Equatable {
 /// 按钮绑定 - 将录制的事件与系统快捷键关联
 struct ButtonBinding: Codable, Equatable {
 
+    static let customBindingRelevantModifierMask: UInt64 =
+        KeyCode.modifiersMask | CGEventFlags.maskSecondaryFn.rawValue
+
     // MARK: - 持久化字段
 
     /// 唯一标识符
@@ -277,29 +280,38 @@ struct ButtonBinding: Codable, Equatable {
 
     /// 解析 custom:: 格式并填充缓存字段
     mutating func prepareCustomCache() {
-        guard isCustomBinding else {
+        guard let payload = Self.normalizedCustomBindingPayload(from: systemShortcutName) else {
             cachedCustomCode = nil
             cachedCustomModifiers = nil
             return
         }
-        // 解析格式: "custom::<keyCode>:<modifierFlags>"
-        let payload = String(systemShortcutName.dropFirst("custom::".count))
+        cachedCustomCode = payload.code
+        cachedCustomModifiers = payload.modifiers
+    }
+
+    static func normalizedCustomBindingName(code: UInt16, modifiers: UInt64) -> String {
+        let payload = normalizeCustomBindingPayload(code: code, modifiers: modifiers)
+        return "custom::\(payload.code):\(payload.modifiers)"
+    }
+
+    static func normalizedCustomBindingPayload(from customBindingName: String) -> (code: UInt16, modifiers: UInt64)? {
+        guard customBindingName.hasPrefix("custom::") else { return nil }
+        let payload = String(customBindingName.dropFirst("custom::".count))
         let parts = payload.split(separator: ":")
         guard parts.count == 2,
               let code = UInt16(parts[0]),
               let modifiers = UInt64(parts[1]) else {
-            cachedCustomCode = nil
-            cachedCustomModifiers = nil
-            return
+            return nil
         }
-        // 如果是修饰键, 剥离自引用标志位
-        var finalModifiers = modifiers
+        return normalizeCustomBindingPayload(code: code, modifiers: modifiers)
+    }
+
+    static func normalizeCustomBindingPayload(code: UInt16, modifiers: UInt64) -> (code: UInt16, modifiers: UInt64) {
+        var normalizedModifiers = modifiers & customBindingRelevantModifierMask
         if KeyCode.modifierKeys.contains(code) {
-            let selfMask = KeyCode.getKeyMask(code).rawValue
-            finalModifiers &= ~selfMask
+            normalizedModifiers &= ~KeyCode.getKeyMask(code).rawValue
         }
-        cachedCustomCode = code
-        cachedCustomModifiers = finalModifiers
+        return (code, normalizedModifiers)
     }
 
     // MARK: - Equatable (仅比较持久化字段, 忽略瞬态缓存)

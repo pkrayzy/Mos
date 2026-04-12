@@ -24,6 +24,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
     private var onDeleteRequested: (() -> Void)?
     private var onCustomShortcutRecorded: ((String) -> Void)?
     private var currentCustomName: String?
+    private var isCustomRecordingActive = false
 
     // MARK: - Custom Recording
     private lazy var customRecorder: KeyRecorder = {
@@ -49,6 +50,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         self.onCustomShortcutRecorded = onCustomShortcutRecorded
         // 清理可能残留的录制状态 (cell 复用时)
         customRecorder.stopRecording()
+        isCustomRecordingActive = false
         self.currentShortcut = binding.systemShortcut
         self.currentCustomName = binding.isCustomBinding ? binding.systemShortcutName : nil
 
@@ -189,13 +191,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         actionPopUpButton.menu = menu
 
         // 设置当前选择
-        if let shortcut = currentShortcut {
-            selectShortcutInMenu(shortcut)
-        } else if let customName = currentCustomName, customName.hasPrefix("custom::") {
-            displayCustomBinding(customName)
-        } else {
-            setPlaceholderToUnbound()
-        }
+        refreshActionDisplay()
     }
     
     // MARK: - 私有方法
@@ -213,7 +209,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
 
             for shortcutItem in subMenu.items {
                 if let itemShortcut = shortcutItem.representedObject as? SystemShortcut.Shortcut,
-                   itemShortcut == shortcut {
+                   itemShortcut.identifier == shortcut.identifier {
                     // 将快捷键的标题和图标复制到占位符,然后选中占位符
                     setCustomTitle(shortcutItem.title, image: shortcutItem.image)
                     return
@@ -243,6 +239,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
 
         // 选中占位符项
         actionPopUpButton.selectItem(at: 0)
+        actionPopUpButton.synchronizeTitleAndSelectedItem()
     }
 
     /// 创建带右侧边距的图标 (用于 PopUpButton 显示)
@@ -275,6 +272,48 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         setCustomTitle(NSLocalizedString("unbound", comment: ""), image: nil)
     }
 
+    private func setPlaceholderToRecordingPrompt() {
+        setCustomTitle(NSLocalizedString("custom-recording-prompt", comment: ""), image: nil)
+    }
+
+    private func resolvedDisplayShortcut() -> SystemShortcut.Shortcut? {
+        if let currentShortcut {
+            return currentShortcut
+        }
+
+        if let currentCustomName {
+            return SystemShortcut.displayShortcut(matchingBindingName: currentCustomName)
+        }
+
+        return nil
+    }
+
+    func refreshActionDisplay() {
+        if isCustomRecordingActive {
+            setPlaceholderToRecordingPrompt()
+        } else if let shortcut = resolvedDisplayShortcut() {
+            selectShortcutInMenu(shortcut)
+        } else if let customName = currentCustomName, customName.hasPrefix("custom::") {
+            displayCustomBinding(customName)
+        } else {
+            setPlaceholderToUnbound()
+        }
+    }
+
+    func beginCustomShortcutSelection(startRecorder: Bool = true) {
+        isCustomRecordingActive = true
+        DispatchQueue.main.async { [weak self] in
+            self?.setPlaceholderToRecordingPrompt()
+        }
+
+        guard startRecorder else { return }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self = self, self.window != nil else { return }
+            self.startCustomRecording()
+        }
+    }
+
     // MARK: - Custom Recording Helpers
 
     private func startCustomRecording() {
@@ -283,10 +322,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
 
     /// 显示自定义绑定 (从 custom:: 字符串解析)
     private func displayCustomBinding(_ customName: String) {
-        let parts = customName.dropFirst(8).split(separator: ":")
-        guard parts.count == 2,
-              let code = UInt16(parts[0]),
-              let mods = UInt64(parts[1]) else {
+        guard let (code, mods) = ButtonBinding.normalizedCustomBindingPayload(from: customName) else {
             setPlaceholderToUnbound()
             return
         }
@@ -411,10 +447,7 @@ class ButtonTableCellView: NSTableCellView, NSMenuDelegate {
         // 自定义录制: action 在 menuDidClose 之后触发,
         // 直接 asyncAfter 等待菜单动画和焦点恢复后弹出录制弹窗
         if sender.representedObject as? String == "__custom__" {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                guard let self = self, self.window != nil else { return }
-                self.startCustomRecording()
-            }
+            beginCustomShortcutSelection()
             return
         }
 
@@ -487,7 +520,7 @@ extension ButtonTableCellView {
         let firstSeparator = menu.items[1]   // 第一条分割线
         let unboundItem = menu.items[2]      // "未绑定"/"取消绑定"菜单项
 
-        let hasBoundAction = currentShortcut != nil || currentCustomName != nil
+        let hasBoundAction = currentShortcut != nil || currentCustomName != nil || isCustomRecordingActive
 
         if !hasBoundAction {
             // 当前是未绑定状态:隐藏占位符和第一条分割线,显示"未绑定"
@@ -532,17 +565,35 @@ extension ButtonTableCellView {
 
 // MARK: - KeyRecorderDelegate (Custom Recording)
 extension ButtonTableCellView: KeyRecorderDelegate {
+    func onRecordingStarted(_ recorder: KeyRecorder) {
+        isCustomRecordingActive = true
+        DispatchQueue.main.async {
+            self.setPlaceholderToRecordingPrompt()
+        }
+    }
+
+    func onRecordingStopped(_ recorder: KeyRecorder, didRecord: Bool) {
+        isCustomRecordingActive = false
+        guard !didRecord else { return }
+        DispatchQueue.main.async {
+            self.refreshActionDisplay()
+            self.setupDashedLine()
+        }
+    }
+
     func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool) {
         guard !isDuplicate else { return }
-        let code = event.code
-        let modifiers = UInt64(event.modifiers.rawValue)
-        let customName = "custom::\(code):\(modifiers)"
+        let customName = ButtonBinding.normalizedCustomBindingName(
+            code: event.code,
+            modifiers: UInt64(event.modifiers.rawValue)
+        )
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.66) { [weak self] in
             guard let self = self else { return }
+            self.isCustomRecordingActive = false
             self.currentShortcut = nil
             self.currentCustomName = customName
-            self.displayCustomBinding(customName)
+            self.refreshActionDisplay()
             self.onCustomShortcutRecorded?(customName)
             // 重绘虚线
             DispatchQueue.main.async {

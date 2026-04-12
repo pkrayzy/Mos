@@ -118,6 +118,15 @@ class ShortcutManager {
         // 鼠标按键分类 (始终显示)
         addCategoryToMenu(
             menu: menu,
+            category: SystemShortcut.modifierKeysCategory,
+            target: target,
+            action: action,
+            totalShortcuts: &totalShortcuts
+        )
+
+        // 鼠标按键分类 (始终显示)
+        addCategoryToMenu(
+            menu: menu,
             category: SystemShortcut.mouseButtonsCategory,
             target: target,
             action: action,
@@ -206,4 +215,3 @@ class ShortcutManager {
     }
 
 }
-

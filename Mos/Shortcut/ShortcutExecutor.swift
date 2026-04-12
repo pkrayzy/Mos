@@ -147,6 +147,9 @@ class ShortcutExecutor {
             let modifiers = binding?.cachedCustomModifiers ?? 0
             return .customKey(code: code, modifiers: modifiers)
         }
+        if let code = SystemShortcut.predefinedModifierCode(for: shortcutName) {
+            return .customKey(code: code, modifiers: 0)
+        }
         if let kind = MouseButtonActionKind(shortcutIdentifier: shortcutName) {
             return .mouseButton(kind: kind)
         }
