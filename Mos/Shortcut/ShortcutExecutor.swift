@@ -51,6 +51,12 @@ enum ResolvedAction {
     }
 }
 
+struct ActionExecutionResult {
+    let mouseSessionID: UUID?
+
+    static let none = ActionExecutionResult(mouseSessionID: nil)
+}
+
 class ShortcutExecutor {
 
     // 单例
@@ -100,21 +106,27 @@ class ShortcutExecutor {
     ///   - binding: 可选的 ButtonBinding (用于访问预解析的 custom cache)
     func execute(named shortcutName: String, phase: InputPhase = .down, binding: ButtonBinding? = nil) {
         guard let action = resolveAction(named: shortcutName, binding: binding) else { return }
-        execute(action: action, phase: phase)
+        _ = execute(action: action, phase: phase)
     }
 
-    func execute(action: ResolvedAction, phase: InputPhase) {
+    @discardableResult
+    func execute(action: ResolvedAction, phase: InputPhase, mouseSessionID: UUID? = nil) -> ActionExecutionResult {
         switch action {
         case .customKey(let code, let modifiers):
             executeCustom(code: code, modifiers: modifiers, phase: phase)
+            return .none
         case .mouseButton(let kind):
-            executeMouseButton(kind, phase: phase)
+            return ActionExecutionResult(
+                mouseSessionID: executeMouseButton(kind, phase: phase, mouseSessionID: mouseSessionID)
+            )
         case .logiAction(let identifier):
-            guard phase == .down else { return }
+            guard phase == .down else { return .none }
             executeLogiAction(identifier)
+            return .none
         case .systemShortcut(let identifier):
-            guard phase == .down else { return }
+            guard phase == .down else { return .none }
             executeResolvedSystemShortcut(named: identifier)
+            return .none
         }
     }
 
@@ -184,8 +196,8 @@ class ShortcutExecutor {
     // MARK: - Mouse Actions
 
     /// 执行鼠标按键动作 (1:1 down/up 映射)
-    private func executeMouseButton(_ kind: MouseButtonActionKind, phase: InputPhase) {
-        guard let source = CGEventSource(stateID: .hidSystemState) else { return }
+    private func executeMouseButton(_ kind: MouseButtonActionKind, phase: InputPhase, mouseSessionID: UUID?) -> UUID? {
+        guard let source = CGEventSource(stateID: .hidSystemState) else { return nil }
         let location = NSEvent.mouseLocation
         // 转换坐标: NSEvent 用左下角原点, CGEvent 用左上角原点
         let screenHeight = NSScreen.main?.frame.height ?? 0
@@ -197,13 +209,42 @@ class ShortcutExecutor {
             mouseCursorPosition: point,
             mouseButton: spec.button
         ) else {
-            return
+            return nil
         }
+
+        let createdSessionID: UUID?
+        if phase == .down {
+            createdSessionID = MouseDragSessionController.shared.beginSession(target: syntheticTarget(for: kind))
+        } else {
+            createdSessionID = nil
+            if let mouseSessionID {
+                MouseDragSessionController.shared.endSession(id: mouseSessionID)
+            } else {
+                MouseDragSessionController.shared.clearAllSessions()
+            }
+        }
+
         if let buttonNumber = spec.buttonNumber {
             event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
         }
         event.setIntegerValueField(.eventSourceUserData, value: MosEventMarker.syntheticCustom)
         event.post(tap: .cghidEventTap)
+        return createdSessionID
+    }
+
+    private func syntheticTarget(for kind: MouseButtonActionKind) -> SyntheticMouseTarget {
+        switch kind {
+        case .left:
+            return .left
+        case .right:
+            return .right
+        case .middle:
+            return .other(buttonNumber: 2)
+        case .back:
+            return .other(buttonNumber: 3)
+        case .forward:
+            return .other(buttonNumber: 4)
+        }
     }
 
     private func mouseEventSpec(for kind: MouseButtonActionKind, phase: InputPhase) -> (type: CGEventType, button: CGMouseButton, buttonNumber: Int64?) {

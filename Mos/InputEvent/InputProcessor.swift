@@ -25,19 +25,30 @@ class InputProcessor {
 
     // MARK: - Active Bindings Table
     /// 跟踪当前按下中的 stateful 动作, 用于 Up 事件配对
-    private var activeBindings: [TriggerKey: ResolvedAction] = [:]
+    private var activeBindings: [TriggerKey: ActiveBindingSession] = [:]
 
     private struct TriggerKey: Hashable {
         let type: EventType
         let code: UInt16
     }
 
+    private struct ActiveBindingSession {
+        let triggerKey: TriggerKey
+        let action: ResolvedAction
+        let mouseSessionID: UUID?
+    }
+
     /// 清空所有活跃绑定和虚拟修饰键状态 (ButtonCore disable 时调用, 防止状态残留)
     func clearActiveBindings() {
-        for action in activeBindings.values where action.executionMode == .stateful {
-            ShortcutExecutor.shared.execute(action: action, phase: .up)
+        for session in activeBindings.values where session.action.executionMode == .stateful {
+            ShortcutExecutor.shared.execute(
+                action: session.action,
+                phase: .up,
+                mouseSessionID: session.mouseSessionID
+            )
         }
         activeBindings.removeAll()
+        MouseDragSessionController.shared.clearAllSessions()
         activeModifierFlags = 0
     }
 
@@ -49,8 +60,8 @@ class InputProcessor {
     /// 从 activeBindings 表重新计算 activeModifierFlags
     private func recomputeActiveModifierFlags() {
         var flags: UInt64 = 0
-        for action in activeBindings.values {
-            guard case let .customKey(code, modifiers) = action,
+        for session in activeBindings.values {
+            guard case let .customKey(code, modifiers) = session.action,
                   KeyCode.modifierKeys.contains(code) else { continue }
             flags |= modifiers | KeyCode.getKeyMask(code).rawValue
         }
@@ -65,8 +76,12 @@ class InputProcessor {
 
         if event.phase == .up {
             // Up 事件: 按 (type, code) 查表, 忽略 modifiers (用户可能已松开修饰键)
-            if let action = activeBindings.removeValue(forKey: key) {
-                ShortcutExecutor.shared.execute(action: action, phase: .up)
+            if let session = activeBindings.removeValue(forKey: key) {
+                ShortcutExecutor.shared.execute(
+                    action: session.action,
+                    phase: .up,
+                    mouseSessionID: session.mouseSessionID
+                )
                 recomputeActiveModifierFlags()
                 return .consumed
             }
@@ -74,8 +89,8 @@ class InputProcessor {
         }
 
         // Down 事件: 完整匹配 (type + code + modifiers + deviceFilter)
-        let bindings = ButtonUtils.shared.getButtonBindings()
-        for binding in bindings where binding.isEnabled {
+        let candidates = ButtonUtils.shared.getButtonBindings(for: event.type, code: event.code)
+        for binding in candidates where binding.isEnabled {
             guard binding.triggerEvent.matchesInput(event),
                   let action = ShortcutExecutor.shared.resolveAction(
                     named: binding.systemShortcutName,
@@ -88,11 +103,19 @@ class InputProcessor {
             }
 
             if let existing = activeBindings.removeValue(forKey: key) {
-                ShortcutExecutor.shared.execute(action: existing, phase: .up)
+                ShortcutExecutor.shared.execute(
+                    action: existing.action,
+                    phase: .up,
+                    mouseSessionID: existing.mouseSessionID
+                )
             }
 
-            activeBindings[key] = action
-            ShortcutExecutor.shared.execute(action: action, phase: .down)
+            let executionResult = ShortcutExecutor.shared.execute(action: action, phase: .down)
+            activeBindings[key] = ActiveBindingSession(
+                triggerKey: key,
+                action: action,
+                mouseSessionID: executionResult.mouseSessionID
+            )
             recomputeActiveModifierFlags()
             return .consumed
         }

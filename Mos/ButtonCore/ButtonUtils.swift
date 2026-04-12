@@ -8,6 +8,11 @@
 
 import Cocoa
 
+struct ButtonBindingTriggerKey: Hashable {
+    let type: EventType
+    let code: UInt16
+}
+
 class ButtonUtils {
 
     // 单例
@@ -18,6 +23,7 @@ class ButtonUtils {
 
     /// 缓存的绑定列表 (已预解析 custom:: 字段)
     private var cachedBindings: [ButtonBinding] = []
+    private var cachedBindingsByTriggerKey: [ButtonBindingTriggerKey: [ButtonBinding]] = [:]
     private var isDirty = true
 
     // MARK: - 获取按钮绑定配置
@@ -25,20 +31,37 @@ class ButtonUtils {
     /// 获取当前应用的按钮绑定配置 (带缓存和预解析)
     /// - Returns: 按钮绑定列表
     func getButtonBindings() -> [ButtonBinding] {
-        if isDirty {
-            cachedBindings = Options.shared.buttons.binding.map { binding in
-                var b = binding
-                b.prepareCustomCache()
-                return b
-            }
-            isDirty = false
-        }
+        refreshCacheIfNeeded()
         return cachedBindings
+    }
+
+    func getButtonBindings(for type: EventType, code: UInt16) -> [ButtonBinding] {
+        refreshCacheIfNeeded()
+        return cachedBindingsByTriggerKey[ButtonBindingTriggerKey(type: type, code: code)] ?? []
     }
 
     /// 标记缓存失效 (绑定变更后调用)
     func invalidateCache() {
         isDirty = true
+    }
+
+    private func refreshCacheIfNeeded() {
+        guard isDirty else { return }
+
+        cachedBindings = Options.shared.buttons.binding.map { binding in
+            var b = binding
+            b.prepareCustomCache()
+            return b
+        }
+
+        cachedBindingsByTriggerKey = Dictionary(grouping: cachedBindings) { binding in
+            ButtonBindingTriggerKey(
+                type: binding.triggerEvent.type,
+                code: binding.triggerEvent.code
+            )
+        }
+
+        isDirty = false
     }
 
     // MARK: - 分应用支持 (预留接口)

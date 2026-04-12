@@ -22,14 +22,16 @@ class ButtonCore {
 
     // 组合的按钮事件掩码
     let leftDown = CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
+    let leftUp = CGEventMask(1 << CGEventType.leftMouseUp.rawValue)
     let rightDown = CGEventMask(1 << CGEventType.rightMouseDown.rawValue)
+    let rightUp = CGEventMask(1 << CGEventType.rightMouseUp.rawValue)
     let otherDown = CGEventMask(1 << CGEventType.otherMouseDown.rawValue)
     let keyDown = CGEventMask(1 << CGEventType.keyDown.rawValue)
     let flagsChanged = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
     let otherUp = CGEventMask(1 << CGEventType.otherMouseUp.rawValue)
     let keyUp = CGEventMask(1 << CGEventType.keyUp.rawValue)
     var eventMask: CGEventMask {
-        return leftDown | rightDown | otherDown | otherUp | keyDown | keyUp
+        return leftDown | leftUp | rightDown | rightUp | otherDown | otherUp | keyDown | keyUp
     }
 
     // MARK: - 按钮事件处理
@@ -74,6 +76,9 @@ class ButtonCore {
                     placeAt: .tailAppendEventTap,
                     for: .defaultTap
                 )
+                eventInterceptor?.onRestart = {
+                    InputProcessor.shared.clearActiveBindings()
+                }
                 isActive = true
             } catch {
                 NSLog("ButtonCore: Failed to create interceptor: \(error)")

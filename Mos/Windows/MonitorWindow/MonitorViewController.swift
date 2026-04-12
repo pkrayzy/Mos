@@ -13,6 +13,10 @@ let scrollEventName = NSNotification.Name(rawValue: "ScrollEvent")
 let buttonEventName = NSNotification.Name(rawValue: "ButtonEvent")
 
 class MonitorViewController: NSViewController, ChartViewDelegate {
+
+    private enum PreviewRefresh {
+        static let buttonLogInterval: TimeInterval = 0.1
+    }
     
     // MARK: - UI: 图表
     var lineChartCount = 0.0
@@ -151,8 +155,8 @@ class MonitorViewController: NSViewController, ChartViewDelegate {
         return Unmanaged.passUnretained(event)
     }
     // 按钮日志
-    private var buttonEventLog: String = ""
-    private let maxButtonLogLines = 50
+    private let buttonEventLogStore = MonitorLogStore(previewLineLimit: 200)
+    private var isButtonPreviewRefreshScheduled = false
     // 更新面板
     @objc private func updateButtonEventData(notification: NSNotification) {
         let event = notification.object as! CGEvent
@@ -167,28 +171,8 @@ class MonitorViewController: NSViewController, ChartViewDelegate {
             logLine = "[\(event.timestampFormatted)] \(event.eventTypeName) \(event.displayName) keyCode: \(event.keyCode)"
         }
 
-        // 将新事件插入到日志开头，确保新事件在首行
-        var logLines = buttonEventLog.isEmpty ? [] : buttonEventLog.components(separatedBy: "\n")
-        logLines.insert(logLine, at: 0)
-        
-        // 管理日志行数，保持最新的 maxButtonLogLines 行（从开头保留）
-        if logLines.count > maxButtonLogLines {
-            logLines = Array(logLines.prefix(maxButtonLogLines))
-        }
-        
-        buttonEventLog = logLines.joined(separator: "\n")
-        
-        // 更新按钮事件专用日志文本框
-        DispatchQueue.main.async { [weak self] in
-            guard let strongSelf = self else { return }
-            
-            if let textView = strongSelf.buttonEventLogTextField {
-                // 使用专用按钮事件文本框
-                textView.string = strongSelf.buttonEventLog
-                // 滚动到顶部以显示最新插入的事件（在首行）
-                textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
-            }
-        }
+        buttonEventLogStore.append(logLine, to: .buttonEvent)
+        scheduleButtonPreviewRefresh()
     }
     // 初始化
     func initButtonObserver() {
@@ -210,6 +194,43 @@ class MonitorViewController: NSViewController, ChartViewDelegate {
     // 停止
     func uninitButtonObserver() {
         buttonEventInterceptor?.stop()
+    }
+
+    private func scheduleButtonPreviewRefresh() {
+        guard !isButtonPreviewRefreshScheduled else { return }
+        isButtonPreviewRefreshScheduled = true
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + PreviewRefresh.buttonLogInterval) { [weak self] in
+            guard let self else { return }
+            self.isButtonPreviewRefreshScheduled = false
+            self.refreshButtonLogPreview()
+        }
+    }
+
+    private func refreshButtonLogPreview() {
+        guard let textView = buttonEventLogTextField else { return }
+        textView.string = buttonEventLogStore.previewText(for: .buttonEvent)
+        textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+    }
+
+    @IBAction private func exportButtonEventLog(_ sender: Any) {
+        guard let window = view.window else { return }
+
+        let savePanel = NSSavePanel()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        savePanel.nameFieldStringValue = "monitor-button-events-\(formatter.string(from: Date())).log"
+        savePanel.allowedFileTypes = ["log", "txt"]
+
+        savePanel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = savePanel.url, let self else { return }
+            let output = self.buttonEventLogStore.exportText(for: .buttonEvent)
+            do {
+                try output.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                NSLog("[MonitorView] Export button event log failure: \(error)")
+            }
+        }
     }
 
     // MARK: - 按键事件处理
@@ -310,7 +331,8 @@ class MonitorViewController: NSViewController, ChartViewDelegate {
     @IBAction func refreshChart(_ sender: Any) {
         initCharts()
         // 清空按钮事件日志
-        buttonEventLog = ""
+        buttonEventLogStore.clear(.buttonEvent)
+        isButtonPreviewRefreshScheduled = false
         buttonEventLogTextField?.string = ""
     }
 }
