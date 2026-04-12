@@ -1,7 +1,7 @@
 //
-//  MouseDragSessionController.swift
+//  MouseInteractionSessionController.swift
 //  Mos
-//  管理 synthetic 鼠标拖拽会话, 提供目标优先级与生命周期控制
+//  管理 synthetic 鼠标拖拽会话与虚拟修饰键的鼠标交互传播
 //
 
 import Cocoa
@@ -19,8 +19,8 @@ enum PhysicalMouseTarget: Equatable {
     case other(buttonNumber: Int64)
 }
 
-final class MouseDragSessionController {
-    static let shared = MouseDragSessionController()
+final class MouseInteractionSessionController {
+    static let shared = MouseInteractionSessionController()
 
     private static let motionEventMask: CGEventMask =
         (CGEventMask(1 << CGEventType.mouseMoved.rawValue)) |
@@ -29,7 +29,7 @@ final class MouseDragSessionController {
         (CGEventMask(1 << CGEventType.otherMouseDragged.rawValue))
 
     private static let motionEventCallback: CGEventTapCallBack = { _, type, event, _ in
-        MouseDragSessionController.shared.handleMotionTapEvent(type: type, event: event)
+        MouseInteractionSessionController.shared.handleMotionTapEvent(type: type, event: event)
     }
 
     private let startMotionTapOverride: (() -> Void)?
@@ -41,6 +41,7 @@ final class MouseDragSessionController {
     private var testStartMotionTap: (() -> Void)?
     private var testStopMotionTap: (() -> Void)?
     var activeSessionCount: Int { activeSessions.count }
+    private var hasActiveVirtualModifiers: Bool { InputProcessor.shared.activeModifierFlags != 0 }
 
     init(
         startMotionTap: (() -> Void)? = nil,
@@ -96,31 +97,48 @@ final class MouseDragSessionController {
         let sessionID = UUID()
         activeSessions[sessionID] = target
         recomputeDominantTarget()
-        if !isMotionTapRunning {
-            startMotionTap()
-        }
+        refreshMotionTapState()
         return sessionID
     }
 
     func endSession(id: UUID) {
         guard activeSessions.removeValue(forKey: id) != nil else { return }
         recomputeDominantTarget()
-        guard activeSessions.isEmpty else { return }
-        stopMotionTap()
+        refreshMotionTapState()
     }
 
     func clearAllSessions() {
         guard !activeSessions.isEmpty || isMotionTapRunning else { return }
         activeSessions.removeAll()
         dominantTarget = nil
+        refreshMotionTapState()
+    }
+
+    func refreshMotionTapState() {
+        if shouldKeepMotionTapRunning {
+            if !isMotionTapRunning {
+                startMotionTap()
+            }
+            return
+        }
+
+        guard isMotionTapRunning else { return }
         stopMotionTap()
     }
 
     func rewriteMouseInteractionEvent(_ event: CGEvent) {
-        guard let synthetic = dominantTarget else { return }
-        let physical = Self.physicalTarget(from: event)
-        guard let effective = Self.effectiveTarget(physical: physical, synthetic: synthetic) else { return }
-        rewrite(event, as: effective)
+        let shouldApplyVirtualModifiers = hasActiveVirtualModifiers
+        let synthetic = dominantTarget
+
+        guard synthetic != nil || shouldApplyVirtualModifiers else { return }
+
+        if let synthetic {
+            let physical = Self.physicalTarget(from: event)
+            if let effective = Self.effectiveTarget(physical: physical, synthetic: synthetic) {
+                rewrite(event, as: effective)
+            }
+        }
+
         event.flags = InputProcessor.shared.combinedModifierFlags(physicalModifiers: event.flags)
     }
 
@@ -164,6 +182,10 @@ final class MouseDragSessionController {
         dominantTarget = Self.dominantSyntheticTarget(from: Array(activeSessions.values))
     }
 
+    private var shouldKeepMotionTapRunning: Bool {
+        !activeSessions.isEmpty || hasActiveVirtualModifiers
+    }
+
     private func rewrite(_ event: CGEvent, as target: SyntheticMouseTarget) {
         switch target {
         case .left:
@@ -196,7 +218,7 @@ final class MouseDragSessionController {
                 try motionInterceptor.start()
                 isMotionTapRunning = true
             } catch {
-                NSLog("MouseDragSessionController: Failed to start motion interceptor: \(error)")
+                NSLog("MouseInteractionSessionController: Failed to start motion interceptor: \(error)")
                 isMotionTapRunning = false
             }
             return
@@ -215,12 +237,12 @@ final class MouseDragSessionController {
             }
             interceptor.shouldRestart = { [weak self] in
                 guard let self else { return false }
-                return self.activeSessionCount > 0
+                return self.shouldKeepMotionTapRunning
             }
             motionInterceptor = interceptor
             isMotionTapRunning = true
         } catch {
-            NSLog("MouseDragSessionController: Failed to create motion interceptor: \(error)")
+            NSLog("MouseInteractionSessionController: Failed to create motion interceptor: \(error)")
             isMotionTapRunning = false
         }
     }

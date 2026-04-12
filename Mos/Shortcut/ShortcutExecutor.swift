@@ -231,13 +231,13 @@ class ShortcutExecutor {
 
         let createdSessionID: UUID?
         if phase == .down {
-            createdSessionID = MouseDragSessionController.shared.beginSession(target: syntheticTarget(for: kind))
+            createdSessionID = MouseInteractionSessionController.shared.beginSession(target: syntheticTarget(for: kind))
         } else {
             createdSessionID = nil
             if let mouseSessionID {
-                MouseDragSessionController.shared.endSession(id: mouseSessionID)
+                MouseInteractionSessionController.shared.endSession(id: mouseSessionID)
             } else {
-                MouseDragSessionController.shared.clearAllSessions()
+                MouseInteractionSessionController.shared.clearAllSessions()
             }
         }
 

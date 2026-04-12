@@ -48,8 +48,9 @@ class InputProcessor {
             )
         }
         activeBindings.removeAll()
-        MouseDragSessionController.shared.clearAllSessions()
         activeModifierFlags = 0
+        MouseInteractionSessionController.shared.clearAllSessions()
+        MouseInteractionSessionController.shared.refreshMotionTapState()
     }
 
     // MARK: - Virtual Modifier Flags
@@ -66,6 +67,7 @@ class InputProcessor {
             flags |= modifiers | KeyCode.getKeyMask(code).rawValue
         }
         activeModifierFlags = flags
+        MouseInteractionSessionController.shared.refreshMotionTapState()
     }
 
     /// 合并当前物理修饰键与虚拟修饰键, 供 synthetic / rewritten 事件复用

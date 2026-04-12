@@ -160,19 +160,31 @@ class MonitorViewController: NSViewController, ChartViewDelegate {
     // 更新面板
     @objc private func updateButtonEventData(notification: NSNotification) {
         let event = notification.object as! CGEvent
+        buttonEventLogStore.append(buttonEventLogLine(for: event), to: .buttonEvent)
+        scheduleButtonPreviewRefresh()
+    }
 
-        let logLine: String
+    func buttonEventLogLine(for event: CGEvent) -> String {
+        let modifiers = event.modifierString.isEmpty ? "none" : event.modifierString
+        let flagsHex = String(event.flags.rawValue, radix: 16)
+
         if event.isMouseInteractionEvent {
             let userData = event.getIntegerValueField(.eventSourceUserData)
             let deltaX = Int(event.getDoubleValueField(.mouseEventDeltaX))
             let deltaY = Int(event.getDoubleValueField(.mouseEventDeltaY))
-            logLine = "[\(event.timestampFormatted)] \(event.eventTypeName) button: \(event.mouseCode) delta:(\(deltaX),\(deltaY)) userData: \(userData)"
-        } else {
-            logLine = "[\(event.timestampFormatted)] \(event.eventTypeName) \(event.displayName) keyCode: \(event.keyCode)"
+            return "[\(event.timestampFormatted)] \(event.eventTypeName) button: \(event.mouseCode) delta:(\(deltaX),\(deltaY)) mods:[\(modifiers)] flags:0x\(flagsHex) userData: \(userData)"
         }
 
-        buttonEventLogStore.append(logLine, to: .buttonEvent)
-        scheduleButtonPreviewRefresh()
+        if event.type == .flagsChanged {
+            let phase = event.isKeyDown ? "down" : "up"
+            return "[\(event.timestampFormatted)] \(event.eventTypeName) key: \(event.keyCodeName) phase: \(phase) mods:[\(modifiers)] flags:0x\(flagsHex)"
+        }
+
+        if event.isKeyboardEvent {
+            return "[\(event.timestampFormatted)] \(event.eventTypeName) key: \(event.keyCodeName) keyCode: \(event.keyCode) mods:[\(modifiers)] flags:0x\(flagsHex)"
+        }
+
+        return "[\(event.timestampFormatted)] \(event.eventTypeName) \(event.displayName) flags:0x\(flagsHex)"
     }
     // 初始化
     func initButtonObserver() {

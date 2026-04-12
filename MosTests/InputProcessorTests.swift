@@ -7,16 +7,16 @@ final class InputProcessorTests: XCTestCase {
         super.setUp()
         Options.shared.buttons.binding = []
         ButtonUtils.shared.invalidateCache()
-        MouseDragSessionController.shared.setTestingMotionTapHooks()
-        MouseDragSessionController.shared.clearAllSessions()
+        MouseInteractionSessionController.shared.setTestingMotionTapHooks()
+        MouseInteractionSessionController.shared.clearAllSessions()
         ShortcutExecutor.shared.setTestingMouseEventObserver()
         InputProcessor.shared.clearActiveBindings()
     }
 
     override func tearDown() {
         InputProcessor.shared.clearActiveBindings()
-        MouseDragSessionController.shared.clearAllSessions()
-        MouseDragSessionController.shared.clearTestingMotionTapHooks()
+        MouseInteractionSessionController.shared.clearAllSessions()
+        MouseInteractionSessionController.shared.clearTestingMotionTapHooks()
         ShortcutExecutor.shared.clearTestingMouseEventObserver()
         Options.shared.buttons.binding = []
         ButtonUtils.shared.invalidateCache()
@@ -123,7 +123,7 @@ final class InputProcessorTests: XCTestCase {
         XCTAssertEqual(InputProcessor.shared.activeModifierFlags, 0)
     }
 
-    func testProcess_statefulMouseShortcut_startsAndStopsMouseDragSession() {
+    func testProcess_statefulMouseShortcut_startsAndStopsMouseInteractionSession() {
         let trigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
         let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
         Options.shared.buttons.binding = [binding]
@@ -132,14 +132,147 @@ final class InputProcessorTests: XCTestCase {
         let downEvent = InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0),
                                    phase: .down, source: .hidPP, device: nil)
         XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
-        XCTAssertTrue(MouseDragSessionController.shared.isMotionTapRunning)
-        XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 1)
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 1)
 
         let upEvent = InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0),
                                  phase: .up, source: .hidPP, device: nil)
         XCTAssertEqual(InputProcessor.shared.process(upEvent), .consumed)
-        XCTAssertFalse(MouseDragSessionController.shared.isMotionTapRunning)
-        XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 0)
+        XCTAssertFalse(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 0)
+    }
+
+    func testProcess_virtualModifierShortcut_startsAndStopsMotionTapForMouseInteractionPropagation() {
+        let trigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
+        let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "custom::58:0", isEnabled: true)
+        Options.shared.buttons.binding = [binding]
+        ButtonUtils.shared.invalidateCache()
+
+        let downEvent = InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0),
+                                   phase: .down, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, CGEventFlags.maskAlternate.rawValue)
+
+        let upEvent = InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0),
+                                 phase: .up, source: .hidPP, device: nil)
+        XCTAssertEqual(InputProcessor.shared.process(upEvent), .consumed)
+        XCTAssertFalse(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, 0)
+    }
+
+    func testProcess_mouseSessionRemainsActiveAfterVirtualModifierReleasesUntilMouseUp() {
+        let modifierTrigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
+        let mouseTrigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
+        let modifierBinding = ButtonBinding(triggerEvent: modifierTrigger, systemShortcutName: "custom::58:0", isEnabled: true)
+        let mouseBinding = ButtonBinding(triggerEvent: mouseTrigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
+        Options.shared.buttons.binding = [modifierBinding, mouseBinding]
+        ButtonUtils.shared.invalidateCache()
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0), phase: .down, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 1)
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0), phase: .down, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, CGEventFlags.maskAlternate.rawValue)
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0), phase: .up, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, 0)
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 1)
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0), phase: .up, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertFalse(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 0)
+    }
+
+    func testProcess_virtualModifierKeepsMotionTapRunningAfterMouseSessionEndsUntilModifierUp() {
+        let modifierTrigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
+        let mouseTrigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
+        let modifierBinding = ButtonBinding(triggerEvent: modifierTrigger, systemShortcutName: "custom::58:0", isEnabled: true)
+        let mouseBinding = ButtonBinding(triggerEvent: mouseTrigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
+        Options.shared.buttons.binding = [modifierBinding, mouseBinding]
+        ButtonUtils.shared.invalidateCache()
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0), phase: .down, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0), phase: .down, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 1)
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0), phase: .up, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertTrue(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 0)
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, CGEventFlags.maskAlternate.rawValue)
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0), phase: .up, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertFalse(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, 0)
+    }
+
+    func testProcess_multipleVirtualModifiers_applyToMappedMouseEvents() {
+        let shiftTrigger = RecordedEvent(type: .mouse, code: 6, modifiers: 0, displayComponents: ["🖱7"], deviceFilter: nil)
+        let optionTrigger = RecordedEvent(type: .mouse, code: 7, modifiers: 0, displayComponents: ["🖱8"], deviceFilter: nil)
+        let leftTrigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
+
+        let shiftBinding = ButtonBinding(triggerEvent: shiftTrigger, systemShortcutName: "custom::56:0", isEnabled: true)
+        let optionBinding = ButtonBinding(triggerEvent: optionTrigger, systemShortcutName: "custom::58:0", isEnabled: true)
+        let leftBinding = ButtonBinding(triggerEvent: leftTrigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
+        Options.shared.buttons.binding = [shiftBinding, optionBinding, leftBinding]
+        ButtonUtils.shared.invalidateCache()
+
+        var observedEvents: [(type: CGEventType, flags: CGEventFlags)] = []
+        ShortcutExecutor.shared.setTestingMouseEventObserver { event in
+            observedEvents.append((event.type, event.flags))
+        }
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 6, modifiers: .init(rawValue: 0), phase: .down, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 7, modifiers: .init(rawValue: 0), phase: .down, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertEqual(InputProcessor.shared.activeModifierFlags, CGEventFlags.maskShift.rawValue | CGEventFlags.maskAlternate.rawValue)
+
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0), phase: .down, source: .hidPP, device: nil)),
+            .consumed
+        )
+        XCTAssertEqual(
+            InputProcessor.shared.process(InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0), phase: .up, source: .hidPP, device: nil)),
+            .consumed
+        )
+
+        XCTAssertEqual(observedEvents.map(\.type), [.leftMouseDown, .leftMouseUp])
+        XCTAssertTrue(observedEvents.allSatisfy { event in
+            event.flags.contains(.maskShift) && event.flags.contains(.maskAlternate)
+        })
     }
 
     func testProcess_statefulMouseShortcut_preservesPhysicalModifierFlagsOnSyntheticMouseEvents() {
@@ -211,7 +344,7 @@ final class InputProcessorTests: XCTestCase {
         XCTAssertEqual(observedTypes, [.rightMouseDown, .rightMouseUp])
     }
 
-    func testProcess_repeatedDownForSameTrigger_replacesPreviousMouseDragSession() {
+    func testProcess_repeatedDownForSameTrigger_replacesPreviousMouseInteractionSession() {
         let trigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
         let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
         Options.shared.buttons.binding = [binding]
@@ -220,10 +353,10 @@ final class InputProcessorTests: XCTestCase {
         let downEvent = InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0),
                                    phase: .down, source: .hidPP, device: nil)
         XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
-        XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 1)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 1)
 
         XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
-        XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 1)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 1)
     }
 
     func testClearActiveBindings_clearsVirtualModifierFlags() {
@@ -241,7 +374,7 @@ final class InputProcessorTests: XCTestCase {
         XCTAssertEqual(InputProcessor.shared.activeModifierFlags, 0)
     }
 
-    func testClearActiveBindings_clearsActiveMouseDragSessions() {
+    func testClearActiveBindings_clearsActiveMouseInteractionSessions() {
         let trigger = RecordedEvent(type: .mouse, code: 3, modifiers: 0, displayComponents: ["🖱4"], deviceFilter: nil)
         let binding = ButtonBinding(triggerEvent: trigger, systemShortcutName: "mouseLeftClick", isEnabled: true)
         Options.shared.buttons.binding = [binding]
@@ -250,11 +383,11 @@ final class InputProcessorTests: XCTestCase {
         let downEvent = InputEvent(type: .mouse, code: 3, modifiers: .init(rawValue: 0),
                                    phase: .down, source: .hidPP, device: nil)
         XCTAssertEqual(InputProcessor.shared.process(downEvent), .consumed)
-        XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 1)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 1)
 
         InputProcessor.shared.clearActiveBindings()
-        XCTAssertFalse(MouseDragSessionController.shared.isMotionTapRunning)
-        XCTAssertEqual(MouseDragSessionController.shared.activeSessionCount, 0)
+        XCTAssertFalse(MouseInteractionSessionController.shared.isMotionTapRunning)
+        XCTAssertEqual(MouseInteractionSessionController.shared.activeSessionCount, 0)
     }
 
     func testButtonCore_passthroughMouseEvent_appliesVirtualModifierFlags() {
@@ -347,6 +480,59 @@ final class InputProcessorTests: XCTestCase {
 
         XCTAssertEqual(store.previewText(for: .buttonEvent), "")
         XCTAssertEqual(store.exportText(for: .buttonEvent), "")
+    }
+
+    func testMonitorButtonEventLogLine_includesMouseModifierFlags() {
+        let controller = MonitorViewController()
+
+        let event = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .mouseMoved,
+            mouseCursorPosition: CGPoint(x: 32, y: 48),
+            mouseButton: .left
+        )!
+        event.flags = [.maskShift, .maskCommand]
+        event.setIntegerValueField(.mouseEventDeltaX, value: 4)
+        event.setIntegerValueField(.mouseEventDeltaY, value: -2)
+        event.setIntegerValueField(.eventSourceUserData, value: 42)
+
+        let rendered = controller.buttonEventLogLine(for: event)
+        XCTAssertTrue(rendered.contains("mods:[⇧ ⌘]"))
+        XCTAssertTrue(rendered.contains("flags:0x"))
+        XCTAssertTrue(rendered.contains("userData: 42"))
+    }
+
+    func testMonitorButtonEventLogLine_includesFlagsChangedPhaseAndModifierFlags() {
+        let controller = MonitorViewController()
+
+        let event = CGEvent(source: nil)!
+        event.type = .flagsChanged
+        event.setIntegerValueField(.keyboardEventKeycode, value: Int64(KeyCode.optionL))
+        event.flags = [.maskAlternate, .maskShift]
+
+        let rendered = controller.buttonEventLogLine(for: event)
+        XCTAssertTrue(rendered.contains("flagsChanged"))
+        XCTAssertTrue(rendered.contains("phase: down"))
+        XCTAssertTrue(rendered.contains("mods:[⇧ ⌥]"))
+        XCTAssertTrue(rendered.contains("flags:0x"))
+    }
+
+    func testMonitorButtonEventLogLine_includesKeyDownModifiersAndKeyName() {
+        let controller = MonitorViewController()
+
+        let event = CGEvent(
+            keyboardEventSource: nil,
+            virtualKey: 0,
+            keyDown: true
+        )!
+        event.flags = [.maskCommand, .maskShift]
+
+        let rendered = controller.buttonEventLogLine(for: event)
+        XCTAssertTrue(rendered.contains("keyDown"))
+        XCTAssertTrue(rendered.contains("key:"))
+        XCTAssertTrue(rendered.contains("keyCode: 0"))
+        XCTAssertTrue(rendered.contains("mods:[⇧ ⌘]"))
+        XCTAssertTrue(rendered.contains("flags:0x"))
     }
 
     func testButtonUtilsIndex_returnsOnlyMatchingTypeAndCodeCandidates() {
