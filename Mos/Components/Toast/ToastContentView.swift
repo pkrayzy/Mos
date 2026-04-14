@@ -26,6 +26,7 @@ class ToastContentView: NSView {
     private let iconSize: CGFloat = 20
     private let iconMessageSpacing: CGFloat = 8
     private let accentIndicatorWidth: CGFloat = 3
+    private static let fallbackSingleLineMaxWidth: CGFloat = 350
 
     // MARK: - State
 
@@ -39,7 +40,14 @@ class ToastContentView: NSView {
 
     // MARK: - Initialization
 
-    init(message: String, icon: NSImage?, accentColor: NSColor?, showsAccentIndicator: Bool) {
+    init(
+        message: String,
+        icon: NSImage?,
+        accentColor: NSColor?,
+        showsAccentIndicator: Bool,
+        wrapWidth: CGFloat? = nil,
+        singleLineMaxWidth: CGFloat = ToastContentView.fallbackSingleLineMaxWidth
+    ) {
         effectView = NSVisualEffectView()
         iconView = NSImageView()
         messageLabel = NSTextField(labelWithString: "")
@@ -49,9 +57,9 @@ class ToastContentView: NSView {
 
         setupEffectView()
         setupIconView()
-        setupMessageLabel()
+        setupMessageLabel(wrapWidth: wrapWidth)
         setupAccentIndicator()
-        setupLayout()
+        setupLayout(wrapWidth: wrapWidth, singleLineMaxWidth: singleLineMaxWidth)
 
         update(message: message, icon: icon, accentColor: accentColor, showsAccentIndicator: showsAccentIndicator)
     }
@@ -87,16 +95,28 @@ class ToastContentView: NSView {
         effectView.addSubview(iconView)
     }
 
-    private func setupMessageLabel() {
+    private func setupMessageLabel(wrapWidth: CGFloat? = nil) {
         messageLabel.font = NSFont.systemFont(ofSize: 13)
         messageLabel.textColor = NSColor.labelColor
         messageLabel.backgroundColor = .clear
         messageLabel.isBezeled = false
         messageLabel.isEditable = false
         messageLabel.isSelectable = false
-        messageLabel.maximumNumberOfLines = 2
-        messageLabel.lineBreakMode = .byTruncatingTail
-        messageLabel.cell?.truncatesLastVisibleLine = true
+        if let wrapWidth, wrapWidth > 0 {
+            messageLabel.maximumNumberOfLines = 0
+            messageLabel.lineBreakMode = .byWordWrapping
+            messageLabel.preferredMaxLayoutWidth = wrapWidth
+            messageLabel.cell?.usesSingleLineMode = false
+            messageLabel.cell?.wraps = true
+            messageLabel.cell?.truncatesLastVisibleLine = false
+        } else {
+            messageLabel.maximumNumberOfLines = 1
+            messageLabel.lineBreakMode = .byTruncatingTail
+            messageLabel.preferredMaxLayoutWidth = 0
+            messageLabel.cell?.usesSingleLineMode = true
+            messageLabel.cell?.wraps = false
+            messageLabel.cell?.truncatesLastVisibleLine = true
+        }
         messageLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
         effectView.addSubview(messageLabel)
@@ -110,8 +130,9 @@ class ToastContentView: NSView {
         effectView.addSubview(accentIndicator)
     }
 
-    private func setupLayout() {
+    private func setupLayout(wrapWidth: CGFloat?, singleLineMaxWidth: CGFloat) {
         translatesAutoresizingMaskIntoConstraints = false
+        let resolvedMaxWidth = wrapWidth.flatMap { $0 > 0 ? $0 : nil } ?? singleLineMaxWidth
 
         NSLayoutConstraint.activate([
             effectView.topAnchor.constraint(equalTo: topAnchor),
@@ -132,7 +153,7 @@ class ToastContentView: NSView {
             messageLabel.topAnchor.constraint(equalTo: effectView.topAnchor, constant: verticalPadding),
             messageLabel.bottomAnchor.constraint(equalTo: effectView.bottomAnchor, constant: -verticalPadding),
             messageLabel.trailingAnchor.constraint(equalTo: effectView.trailingAnchor, constant: -horizontalPadding),
-            messageLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 300),
+            messageLabel.widthAnchor.constraint(lessThanOrEqualToConstant: resolvedMaxWidth),
         ])
     }
 

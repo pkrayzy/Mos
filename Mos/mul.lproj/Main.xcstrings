@@ -7499,6 +7499,18 @@
         }
       }
     },
+    "qQe-2B-2rE.title" : {
+      "comment" : "Class = \"NSButtonCell\"; title = \"Export Log\"; ObjectID = \"qQe-2B-2rE\";",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Export Log"
+          }
+        }
+      }
+    },
     "Qse-ik-rgy.placeholderString" : {
       "comment" : "Class = \"NSTextFieldCell\"; placeholderString = \"1-5\"; ObjectID = \"Qse-ik-rgy\";",
       "extractionState" : "extracted_with_value",

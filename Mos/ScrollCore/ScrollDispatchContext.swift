@@ -31,7 +31,11 @@ final class ScrollDispatchContext {
     private let postQueue = DispatchQueue(label: "me.caldis.mos.scrollposter.post", qos: .userInteractive)
     // TTL 仅作为 enqueue 投递时的兜底安全网, 不用于快照创建门控
     // 需覆盖最长惯性减速阶段 (通常 1-3s, 极端 ~5s)
+#if DEBUG
+    var eventTTL: CFTimeInterval = 5.0
+#else
     private let eventTTL: CFTimeInterval = 5.0
+#endif
 
 #if DEBUG
     private var postedFrames: UInt64 = 0
@@ -41,7 +45,11 @@ final class ScrollDispatchContext {
     private var updateSnapshotFailures: UInt64 = 0
 #endif
 
+#if DEBUG
+    init() {}
+#else
     private init() {}
+#endif
 
     @discardableResult
     func capture(event: CGEvent) -> Bool {
@@ -147,6 +155,16 @@ final class ScrollDispatchContext {
         )
         os_unfair_lock_unlock(&lock)
         return snapshot
+    }
+
+    func resetDiagnostics() {
+        os_unfair_lock_lock(&lock)
+        postedFrames = 0
+        droppedFramesByGeneration = 0
+        droppedFramesByTTL = 0
+        skippedSyntheticEvents = 0
+        updateSnapshotFailures = 0
+        os_unfair_lock_unlock(&lock)
     }
 #endif
 }

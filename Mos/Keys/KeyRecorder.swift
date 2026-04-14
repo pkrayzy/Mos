@@ -15,19 +15,31 @@ enum KeyRecordingMode {
     case combination
     /// 单键模式：支持单个按键，包括单独的修饰键 (用于 ScrollingView)
     case singleKey
+    /// 自适应模式：支持所有输入类型，通过时间间隔判断意图 (用于自定义绑定)
+    case adaptive
 }
 
 protocol KeyRecorderDelegate: AnyObject {
+    /// 录制开始回调
+    func onRecordingStarted(_ recorder: KeyRecorder)
+
     /// 录制完成回调
-    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: MosInputEvent, isDuplicate: Bool)
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool)
+
+    /// 录制结束回调
+    func onRecordingStopped(_ recorder: KeyRecorder, didRecord: Bool)
 
     /// 验证录制的事件是否为重复
-    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool
 }
 
 /// 默认实现 (替代 @objc optional 语义)
 extension KeyRecorderDelegate {
-    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool {
+    func onRecordingStarted(_ recorder: KeyRecorder) {}
+
+    func onRecordingStopped(_ recorder: KeyRecorder, didRecord: Bool) {}
+
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool {
         return true
     }
 }
@@ -51,6 +63,31 @@ class KeyRecorder: NSObject {
     private let invalidKeyThreshold = 5 // 显示 ESC 提示的阈值
     private var recordingMode: KeyRecordingMode = .combination // 当前录制模式
     private var hidEventObserver: NSObjectProtocol?  // HID++ 事件监听 (录制期间)
+    // Adaptive mode state
+    private enum AdaptiveState {
+        case idle
+        case modifierHeld(modifiers: CGEventFlags)
+        case modifierReleasedWaiting(modifiers: CGEventFlags)
+        case recorded
+    }
+    private var adaptiveState: AdaptiveState = .idle
+    private var adaptiveConfirmTimer: Timer?  // 300ms post-release timer
+    private var holdConfirmTimer: Timer?       // 9.5s fallback timer
+    // 同时释放检测 (类似格斗游戏组合键输入缓冲)
+    private var previousAdaptiveFlags: CGEventFlags = []
+    private var modifierReleaseTimestamps: [(flags: CGEventFlags, time: TimeInterval)] = []
+    private var displayDebounceTimer: Timer?  // 释放时延迟更新 preview, 避免闪烁中间态
+
+    // Adaptive mode constants
+    private static let ADAPTIVE_CONFIRM_DELAY: TimeInterval = 0.3
+    private static let HOLD_CONFIRM_DELAY: TimeInterval = 9.5
+    private static let SIMULTANEOUS_RELEASE_WINDOW: TimeInterval = 0.05  // 50ms 内视为同时释放
+    private static let modifierFlagsMask: UInt64 =
+        CGEventFlags.maskShift.rawValue |
+        CGEventFlags.maskControl.rawValue |
+        CGEventFlags.maskAlternate.rawValue |
+        CGEventFlags.maskCommand.rawValue |
+        CGEventFlags.maskSecondaryFn.rawValue
     // UI 组件
     private var keyPopover: KeyPopover?
     
@@ -80,6 +117,7 @@ class KeyRecorder: NSObject {
         guard !isRecording else { return }
         isRecording = true
         recordingMode = mode
+        delegate?.onRecordingStarted(self)
         // Log
         NSLog("[EventRecorder] Starting in \(mode) mode")
         // 确保清理任何存在的录制界面
@@ -119,6 +157,10 @@ class KeyRecorder: NSObject {
             interceptor = try Interceptor(
                 event: eventMask,
                 handleBy: { (proxy, type, event, refcon) in
+                    // 跳过 Mos 合成事件, 避免 executeCustom 的合成事件干扰录制
+                    if event.getIntegerValueField(.eventSourceUserData) == MosEventMarker.syntheticCustom {
+                        return nil
+                    }
                     let recordedEvent = event
                     switch type {
                     case .flagsChanged:
@@ -171,7 +213,7 @@ class KeyRecorder: NSObject {
                 queue: .main
             ) { [weak self] notification in
                 guard let self = self, self.isRecording, !self.isRecorded else { return }
-                guard let mosEvent = notification.userInfo?["event"] as? MosInputEvent else { return }
+                guard let mosEvent = notification.userInfo?["event"] as? InputEvent else { return }
                 guard mosEvent.phase == .down else { return }
                 NotificationCenter.default.post(
                     name: KeyRecorder.FINISH_NOTI_NAME,
@@ -193,10 +235,15 @@ class KeyRecorder: NSObject {
         guard isRecording && !isRecorded else { return }
         let event = notification.object as! CGEvent
 
+        // Adaptive 模式: 使用状态机处理修饰键
+        if recordingMode == .adaptive {
+            handleAdaptiveFlagsChanged(event)
+            return
+        }
+
         // 单键模式：修饰键按下时直接完成录制
         if recordingMode == .singleKey && event.isKeyDown && event.isModifiers {
             NSLog("[EventRecorder] Single key mode: modifier key recorded")
-            // 直接触发录制完成
             NotificationCenter.default.post(
                 name: KeyRecorder.FINISH_NOTI_NAME,
                 object: event
@@ -207,13 +254,176 @@ class KeyRecorder: NSObject {
         // 组合键模式：如果有修饰键被按下，刷新超时定时器给用户更多时间
         let hasActiveModifiers = event.hasModifiers
         if hasActiveModifiers {
-            startTimeoutTimer() // 重新启动定时器
+            startTimeoutTimer()
             NSLog("[EventRecorder] Modifier key pressed, timeout timer refreshed")
         }
         // 实时更新录制界面显示当前已按下的修饰键
         keyPopover?.keyPreview
             .updateForRecording(from: event)
     }
+    // MARK: - Adaptive Mode
+
+    private func handleAdaptiveFlagsChanged(_ event: CGEvent) {
+        let hasActiveModifiers = event.hasModifiers
+
+        // 检测本次释放了哪些修饰键 (previous & ~current)
+        let currentBits = event.flags.rawValue & Self.modifierFlagsMask
+        let previousBits = previousAdaptiveFlags.rawValue & Self.modifierFlagsMask
+        let releasedBits = previousBits & ~currentBits
+        if releasedBits != 0 {
+            modifierReleaseTimestamps.append((
+                flags: CGEventFlags(rawValue: releasedBits),
+                time: CACurrentMediaTime()
+            ))
+        }
+        previousAdaptiveFlags = event.flags
+
+        if hasActiveModifiers {
+            // 修饰键仍有按住
+            cancelAdaptiveConfirmTimer()
+            startHoldConfirmTimer()
+            startTimeoutTimer()
+            // 新手势开始时清空释放历史
+            switch adaptiveState {
+            case .idle, .modifierReleasedWaiting, .recorded:
+                modifierReleaseTimestamps.removeAll()
+            case .modifierHeld:
+                break
+            }
+            adaptiveState = .modifierHeld(modifiers: event.flags)
+            NSLog("[EventRecorder] Adaptive: modifier held, flags=\(event.flags.rawValue)")
+
+            let isAdding = (currentBits & ~previousBits) != 0
+            if isAdding {
+                // 新增修饰键: 取消 debounce, 清空释放历史 (用户改变了意图), 立即更新显示
+                cancelDisplayDebounceTimer()
+                modifierReleaseTimestamps.removeAll()
+                keyPopover?.keyPreview.updateForRecording(from: event)
+            } else {
+                // 释放修饰键但仍有按住: 延迟更新, 避免同时释放时闪烁中间态
+                scheduleDisplayDebounce(event: event)
+            }
+        } else {
+            // 所有修饰键松开
+            cancelDisplayDebounceTimer() // 不再需要延迟更新, 最终结果由 confirm 流程显示
+            switch adaptiveState {
+            case .modifierHeld:
+                cancelHoldConfirmTimer()
+                // 从释放时间戳中计算同时释放的修饰键组合
+                let simultaneousModifiers = computeSimultaneousReleaseModifiers()
+                modifierReleaseTimestamps.removeAll()
+                adaptiveState = .modifierReleasedWaiting(modifiers: simultaneousModifiers)
+                startAdaptiveConfirmTimer(modifiers: simultaneousModifiers)
+                NSLog("[EventRecorder] Adaptive: all released, simultaneous flags=\(simultaneousModifiers.rawValue)")
+            default:
+                break
+            }
+        }
+    }
+
+    /// 从释放时间戳中提取最后一组同时释放的修饰键
+    /// 类似格斗游戏组合键检测: 50ms 窗口内的释放视为同时操作
+    private func computeSimultaneousReleaseModifiers() -> CGEventFlags {
+        guard let lastRelease = modifierReleaseTimestamps.last else { return [] }
+        var combinedBits: UInt64 = 0
+        for release in modifierReleaseTimestamps.reversed() {
+            if lastRelease.time - release.time <= Self.SIMULTANEOUS_RELEASE_WINDOW {
+                combinedBits |= release.flags.rawValue
+            } else {
+                break
+            }
+        }
+        return CGEventFlags(rawValue: combinedBits)
+    }
+
+    /// Adaptive 模式下的事件完成处理 (非修饰键/组合键录入时调用)
+    private func handleAdaptiveRecordedEvent(_ event: InputEvent) {
+        cancelAdaptiveConfirmTimer()
+        cancelHoldConfirmTimer()
+        adaptiveState = .recorded
+    }
+
+    /// 确认录制当前修饰键组合 (300ms 定时器或 9.5s hold 定时器触发)
+    private func confirmAdaptiveModifiers(_ modifiers: CGEventFlags) {
+        guard isRecording && !isRecorded else { return }
+        cancelAdaptiveConfirmTimer()
+        cancelHoldConfirmTimer()
+        adaptiveState = .recorded
+
+        // 构造 InputEvent 并通过 FINISH 通知完成录制
+        let mosEvent = InputEvent(
+            type: .keyboard,
+            code: extractPrimaryModifierCode(from: modifiers),
+            modifiers: modifiers,
+            phase: .down,
+            source: .hidPP,
+            device: nil
+        )
+        NotificationCenter.default.post(
+            name: KeyRecorder.FINISH_NOTI_NAME,
+            object: mosEvent
+        )
+    }
+
+    /// 从 flags 中提取主要修饰键的 keyCode
+    private func extractPrimaryModifierCode(from flags: CGEventFlags) -> UInt16 {
+        if flags.rawValue & CGEventFlags.maskCommand.rawValue != 0 { return KeyCode.commandL }
+        if flags.rawValue & CGEventFlags.maskShift.rawValue != 0 { return KeyCode.shiftL }
+        if flags.rawValue & CGEventFlags.maskAlternate.rawValue != 0 { return KeyCode.optionL }
+        if flags.rawValue & CGEventFlags.maskControl.rawValue != 0 { return KeyCode.controlL }
+        if flags.rawValue & CGEventFlags.maskSecondaryFn.rawValue != 0 { return KeyCode.fnL }
+        return KeyCode.commandL
+    }
+
+    // MARK: - Adaptive Timers
+
+    private func startAdaptiveConfirmTimer(modifiers: CGEventFlags) {
+        cancelAdaptiveConfirmTimer()
+        adaptiveConfirmTimer = Timer.scheduledTimer(withTimeInterval: KeyRecorder.ADAPTIVE_CONFIRM_DELAY, repeats: false) { [weak self] _ in
+            NSLog("[EventRecorder] Adaptive: 300ms confirm timer fired, confirming modifier(s)")
+            self?.confirmAdaptiveModifiers(modifiers)
+        }
+    }
+
+    private func cancelAdaptiveConfirmTimer() {
+        adaptiveConfirmTimer?.invalidate()
+        adaptiveConfirmTimer = nil
+    }
+
+    private func startHoldConfirmTimer() {
+        cancelHoldConfirmTimer()
+        holdConfirmTimer = Timer.scheduledTimer(withTimeInterval: KeyRecorder.HOLD_CONFIRM_DELAY, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            NSLog("[EventRecorder] Adaptive: 9.5s hold timer fired")
+            if case .modifierHeld(let modifiers) = self.adaptiveState {
+                self.confirmAdaptiveModifiers(modifiers)
+            }
+        }
+    }
+
+    private func cancelHoldConfirmTimer() {
+        holdConfirmTimer?.invalidate()
+        holdConfirmTimer = nil
+    }
+
+    // MARK: - Display Debounce (防止同时释放修饰键时 preview 闪烁中间态)
+
+    private func scheduleDisplayDebounce(event: CGEvent) {
+        cancelDisplayDebounceTimer()
+        // 保留 event 的 flags 用于延迟更新 (CGEvent 是引用类型, 不需要拷贝 flags)
+        let flags = event.flags
+        displayDebounceTimer = Timer.scheduledTimer(withTimeInterval: Self.SIMULTANEOUS_RELEASE_WINDOW, repeats: false) { [weak self] _ in
+            guard let self = self, self.isRecording, !self.isRecorded else { return }
+            // 窗口期内没有更多释放事件, 说明这是一次有意的释放, 更新显示
+            self.keyPopover?.keyPreview.updateForRecording(modifiers: flags)
+        }
+    }
+
+    private func cancelDisplayDebounceTimer() {
+        displayDebounceTimer?.invalidate()
+        displayDebounceTimer = nil
+    }
+
     // 录制取消处理
     @objc private func handleRecordingCancelled(_ notification: NSNotification) {
         guard isRecording && !isRecorded else { return }
@@ -223,23 +433,34 @@ class KeyRecorder: NSObject {
     @objc private func handleRecordedEvent(_ notification: NSNotification) {
         guard isRecording else { return }
 
-        // 统一转换为 MosInputEvent
-        // 注意: 先检查 MosInputEvent (value type), 再检查 CGEvent (CoreFoundation type)
+        // 统一转换为 InputEvent
+        // 注意: 先检查 InputEvent (value type), 再检查 CGEvent (CoreFoundation type)
         // CGEvent 的 as? 对 Any 总是成功, 所以必须后检查
-        let mosEvent: MosInputEvent
-        if let hidEvent = notification.object as? MosInputEvent {
+        let mosEvent: InputEvent
+        if let hidEvent = notification.object as? InputEvent {
             mosEvent = hidEvent
         } else if let cgEvent = notification.object, CFGetTypeID(cgEvent as CFTypeRef) == CGEvent.typeID {
-            mosEvent = MosInputEvent(fromCGEvent: cgEvent as! CGEvent)
+            mosEvent = InputEvent(fromCGEvent: cgEvent as! CGEvent)
         } else {
             NSLog("[EventRecorder] Unknown event type in notification")
             return
         }
 
+        // Adaptive 模式: 清理定时器和状态
+        if recordingMode == .adaptive {
+            handleAdaptiveRecordedEvent(mosEvent)
+        }
+
         // 检查事件有效性 (根据录制模式)
-        let isValid = recordingMode == .singleKey
-            ? mosEvent.isRecordableAsSingleKey
-            : mosEvent.isRecordable
+        let isValid: Bool
+        switch recordingMode {
+        case .singleKey:
+            isValid = mosEvent.isRecordableAsSingleKey
+        case .combination:
+            isValid = mosEvent.isRecordable
+        case .adaptive:
+            isValid = mosEvent.isRecordableAsAdaptive
+        }
         guard isValid else {
             NSLog("[EventRecorder] Invalid event ignored")
             keyPopover?.keyPreview.shakeWarning()
@@ -270,6 +491,7 @@ class KeyRecorder: NSObject {
     func stopRecording() {
         // Guard: 需要 Recording 才进行后续处理
         guard isRecording else { return }
+        let didRecord = isRecorded
         // Log
         NSLog("[EventRecorder] Stopping")
         // 隐藏录制界面
@@ -277,6 +499,13 @@ class KeyRecorder: NSObject {
         keyPopover = nil
         // 取消超时定时器
         cancelTimeoutTimer()
+        // 清理 adaptive 状态
+        cancelAdaptiveConfirmTimer()
+        cancelHoldConfirmTimer()
+        cancelDisplayDebounceTimer()
+        adaptiveState = .idle
+        previousAdaptiveFlags = []
+        modifierReleaseTimestamps.removeAll()
         // 取消通知和监听
         interceptor?.stop()
         interceptor = nil
@@ -287,6 +516,7 @@ class KeyRecorder: NSObject {
             NotificationCenter.default.removeObserver(observer)
             hidEventObserver = nil
         }
+        delegate?.onRecordingStopped(self, didRecord: didRecord)
         // 录制结束: 恢复到只 divert 有绑定的按键
         LogitechHIDManager.shared.restoreDivertToBindings()
         // 重置状态 (添加延迟确保 Popover 结束动画完成, 避免多个 popover 重复出现导致卡住)
@@ -311,4 +541,3 @@ class KeyRecorder: NSObject {
         recordTimeoutTimer = nil
     }
 }
-

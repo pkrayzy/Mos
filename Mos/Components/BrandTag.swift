@@ -9,7 +9,7 @@
 import Cocoa
 
 /// 品牌标签配置
-struct BrandTagConfig {
+struct BrandTagConfig: Equatable {
     let name: String           // 标签文字 (如 "Logi")
     let bgColor: NSColor       // 背景色
     let textColor: NSColor     // 文字色

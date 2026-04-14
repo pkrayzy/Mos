@@ -131,13 +131,22 @@ struct RecordedEvent: Codable, Equatable {
         self.deviceFilter = nil
     }
 
-    /// 从 MosInputEvent 构造
-    init(from event: MosInputEvent, deviceFilter: DeviceFilter? = nil) {
+    /// 从 InputEvent 构造
+    init(from event: InputEvent, deviceFilter: DeviceFilter? = nil) {
         self.type = event.type
         self.code = event.code
         self.modifiers = UInt(event.modifiers.rawValue)
         self.deviceFilter = deviceFilter
         self.displayComponents = event.displayComponents
+    }
+
+    /// 便捷构造 - 直接指定所有字段
+    init(type: EventType, code: UInt16, modifiers: UInt, displayComponents: [String], deviceFilter: DeviceFilter?) {
+        self.type = type
+        self.code = code
+        self.modifiers = modifiers
+        self.displayComponents = displayComponents
+        self.deviceFilter = deviceFilter
     }
 
     // MARK: - 匹配方法
@@ -159,13 +168,12 @@ struct RecordedEvent: Codable, Equatable {
                 return code == Int(event.getIntegerValueField(.mouseEventButtonNumber))
         }
     }
-    /// 匹配 MosInputEvent (供 MosInputProcessor 使用)
-    func matchesMosInput(_ event: MosInputEvent) -> Bool {
+    /// 匹配 InputEvent (供 InputProcessor 使用)
+    func matchesInput(_ event: InputEvent) -> Bool {
         guard UInt(event.modifiers.rawValue) == modifiers else { return false }
         guard event.type == type else { return false }
         switch type {
         case .keyboard:
-            guard event.phase == .down else { return false }
             guard code == event.code else { return false }
         case .mouse:
             guard code == event.code else { return false }
@@ -174,6 +182,29 @@ struct RecordedEvent: Codable, Equatable {
             guard filter.matches(event.device) else { return false }
         }
         return true
+    }
+
+    /// 匹配优先级:
+    /// - keyboard: 仅接受精确 modifiers 匹配
+    /// - mouse: 允许额外 modifiers 存在, 返回绑定自身 modifiers 数量作为优先级
+    func matchPriority(for event: InputEvent) -> Int? {
+        guard event.type == type else { return nil }
+        guard code == event.code else { return nil }
+        if let filter = deviceFilter, !filter.matches(event.device) {
+            return nil
+        }
+
+        let expectedModifiers = modifiers & UInt(KeyCode.modifiersMask)
+        let actualModifiers = UInt(event.modifiers.rawValue) & UInt(KeyCode.modifiersMask)
+
+        switch type {
+        case .keyboard:
+            guard actualModifiers == expectedModifiers else { return nil }
+        case .mouse:
+            guard actualModifiers & expectedModifiers == expectedModifiers else { return nil }
+        }
+
+        return expectedModifiers.nonzeroBitCount
     }
 
     /// Equatable
@@ -188,7 +219,10 @@ struct RecordedEvent: Codable, Equatable {
 /// 按钮绑定 - 将录制的事件与系统快捷键关联
 struct ButtonBinding: Codable, Equatable {
 
-    // MARK: - 数据字段
+    static let customBindingRelevantModifierMask: UInt64 =
+        KeyCode.modifiersMask | CGEventFlags.maskSecondaryFn.rawValue
+
+    // MARK: - 持久化字段
 
     /// 唯一标识符
     let id: UUID
@@ -197,6 +231,7 @@ struct ButtonBinding: Codable, Equatable {
     let triggerEvent: RecordedEvent
 
     /// 绑定的系统快捷键名称
+    /// 自定义快捷键格式: "custom::<keyCode>:<modifierFlags>"
     let systemShortcutName: String
 
     /// 是否启用
@@ -205,6 +240,20 @@ struct ButtonBinding: Codable, Equatable {
     /// 创建时间
     let createdAt: Date
 
+    // MARK: - 瞬态缓存字段 (不参与编解码)
+
+    /// 缓存的自定义按键码
+    private(set) var cachedCustomCode: UInt16? = nil
+
+    /// 缓存的自定义修饰键标志
+    private(set) var cachedCustomModifiers: UInt64? = nil
+
+    // MARK: - CodingKeys (仅编码持久化字段)
+
+    enum CodingKeys: String, CodingKey {
+        case id, triggerEvent, systemShortcutName, isEnabled, createdAt
+    }
+
     // MARK: - 计算属性
 
     /// 获取系统快捷键对象
@@ -212,27 +261,74 @@ struct ButtonBinding: Codable, Equatable {
         return SystemShortcut.getShortcut(named: systemShortcutName)
     }
 
+    /// 是否为自定义绑定
+    var isCustomBinding: Bool {
+        return systemShortcutName.hasPrefix("custom::")
+    }
+
     // MARK: - 初始化
 
-    init(id: UUID = UUID(), triggerEvent: RecordedEvent, systemShortcutName: String, isEnabled: Bool = true) {
+    init(id: UUID = UUID(), triggerEvent: RecordedEvent, systemShortcutName: String, isEnabled: Bool = true, createdAt: Date = Date()) {
         self.id = id
         self.triggerEvent = triggerEvent
         self.systemShortcutName = systemShortcutName
         self.isEnabled = isEnabled
-        self.createdAt = Date()
+        self.createdAt = createdAt
     }
 
-    // MARK: - Equatable
+    // MARK: - 自定义缓存
+
+    /// 解析 custom:: 格式并填充缓存字段
+    mutating func prepareCustomCache() {
+        guard let payload = Self.normalizedCustomBindingPayload(from: systemShortcutName) else {
+            cachedCustomCode = nil
+            cachedCustomModifiers = nil
+            return
+        }
+        cachedCustomCode = payload.code
+        cachedCustomModifiers = payload.modifiers
+    }
+
+    static func normalizedCustomBindingName(code: UInt16, modifiers: UInt64) -> String {
+        let payload = normalizeCustomBindingPayload(code: code, modifiers: modifiers)
+        return "custom::\(payload.code):\(payload.modifiers)"
+    }
+
+    static func normalizedCustomBindingPayload(from customBindingName: String) -> (code: UInt16, modifiers: UInt64)? {
+        guard customBindingName.hasPrefix("custom::") else { return nil }
+        let payload = String(customBindingName.dropFirst("custom::".count))
+        let parts = payload.split(separator: ":")
+        guard parts.count == 2,
+              let code = UInt16(parts[0]),
+              let modifiers = UInt64(parts[1]) else {
+            return nil
+        }
+        return normalizeCustomBindingPayload(code: code, modifiers: modifiers)
+    }
+
+    static func normalizeCustomBindingPayload(code: UInt16, modifiers: UInt64) -> (code: UInt16, modifiers: UInt64) {
+        var normalizedModifiers = modifiers & customBindingRelevantModifierMask
+        if KeyCode.modifierKeys.contains(code) {
+            normalizedModifiers &= ~KeyCode.getKeyMask(code).rawValue
+        }
+        return (code, normalizedModifiers)
+    }
+
+    // MARK: - Equatable (仅比较持久化字段, 忽略瞬态缓存)
 
     static func == (lhs: ButtonBinding, rhs: ButtonBinding) -> Bool {
-        return lhs.id == rhs.id
+        return lhs.id == rhs.id &&
+               lhs.triggerEvent == rhs.triggerEvent &&
+               lhs.systemShortcutName == rhs.systemShortcutName &&
+               lhs.isEnabled == rhs.isEnabled &&
+               lhs.createdAt == rhs.createdAt
     }
 }
 
-// MARK: - ScrollHotkey + MosInputEvent
+// MARK: - ScrollHotkey + InputEvent
 extension ScrollHotkey {
-    /// 从 MosInputEvent 构造
-    init(from event: MosInputEvent) {
+    /// 从 InputEvent 构造
+    init(from event: InputEvent) {
         self.type = event.type
         self.code = event.code
     }

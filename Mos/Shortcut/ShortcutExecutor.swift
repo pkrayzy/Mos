@@ -8,6 +8,55 @@
 
 import Cocoa
 
+enum MouseButtonActionKind {
+    case left
+    case right
+    case middle
+    case back
+    case forward
+
+    init?(shortcutIdentifier: String) {
+        switch shortcutIdentifier {
+        case "mouseLeftClick":
+            self = .left
+        case "mouseRightClick":
+            self = .right
+        case "mouseMiddleClick":
+            self = .middle
+        case "mouseBackClick":
+            self = .back
+        case "mouseForwardClick":
+            self = .forward
+        default:
+            return nil
+        }
+    }
+}
+
+enum ResolvedAction {
+    case customKey(code: UInt16, modifiers: UInt64)
+    case mouseButton(kind: MouseButtonActionKind)
+    case systemShortcut(identifier: String)
+    case logiAction(identifier: String)
+
+    var executionMode: ActionExecutionMode {
+        switch self {
+        case .customKey, .mouseButton:
+            return .stateful
+        case .logiAction:
+            return .trigger
+        case .systemShortcut(let identifier):
+            return SystemShortcut.getShortcut(named: identifier)?.executionMode ?? .trigger
+        }
+    }
+}
+
+struct ActionExecutionResult {
+    let mouseSessionID: UUID?
+
+    static let none = ActionExecutionResult(mouseSessionID: nil)
+}
+
 class ShortcutExecutor {
 
     // 单例
@@ -15,6 +64,8 @@ class ShortcutExecutor {
     init() {
         NSLog("Module initialized: ShortcutExecutor")
     }
+
+    private var testingMouseEventObserver: ((CGEvent) -> Void)?
 
     // MARK: - 执行快捷键 (统一接口)
 
@@ -26,7 +77,6 @@ class ShortcutExecutor {
     func execute(code: CGKeyCode, flags: UInt64, preserveFlagsOnKeyUp: Bool = false) {
         // 创建事件源
         guard let source = CGEventSource(stateID: .hidSystemState) else {
-            // NSLog("ShortcutExecutor: Failed to create event source")
             return
         }
 
@@ -48,25 +98,69 @@ class ShortcutExecutor {
     /// 执行系统快捷键 (从SystemShortcut.Shortcut对象)
     /// - Parameter shortcut: SystemShortcut.Shortcut对象
     func execute(_ shortcut: SystemShortcut.Shortcut) {
-        // NSLog("ShortcutExecutor: Executing '\(shortcut.identifier)' (code: \(shortcut.code), modifiers: \(shortcut.modifiers))")
         execute(code: shortcut.code, flags: UInt64(shortcut.modifiers.rawValue), preserveFlagsOnKeyUp: shortcut.preserveFlagsOnKeyUp)
     }
 
     /// 执行系统快捷键 (从名称解析, 支持动态读取系统配置)
-    /// - Parameter shortcutName: 快捷键名称 (如 "minimizeWindow", "mouseLeftClick", "logiSmartShiftToggle")
-    func execute(named shortcutName: String) {
-        // 鼠标按键动作
-        if shortcutName.hasPrefix("mouse") {
-            executeMouseAction(shortcutName)
-            return
-        }
+    /// - Parameters:
+    ///   - shortcutName: 快捷键名称
+    ///   - phase: 事件阶段 (down/up), 默认 .down
+    ///   - binding: 可选的 ButtonBinding (用于访问预解析的 custom cache)
+    func execute(named shortcutName: String, phase: InputPhase = .down, binding: ButtonBinding? = nil, inputModifiers: CGEventFlags? = nil) {
+        guard let action = resolveAction(named: shortcutName, binding: binding) else { return }
+        _ = execute(action: action, phase: phase, inputModifiers: inputModifiers)
+    }
 
-        // Logi HID++ 动作
+    @discardableResult
+    func execute(
+        action: ResolvedAction,
+        phase: InputPhase,
+        mouseSessionID: UUID? = nil,
+        inputModifiers: CGEventFlags? = nil
+    ) -> ActionExecutionResult {
+        switch action {
+        case .customKey(let code, let modifiers):
+            executeCustom(code: code, modifiers: modifiers, phase: phase)
+            return .none
+        case .mouseButton(let kind):
+            return ActionExecutionResult(
+                mouseSessionID: executeMouseButton(
+                    kind,
+                    phase: phase,
+                    mouseSessionID: mouseSessionID,
+                    inputModifiers: inputModifiers
+                )
+            )
+        case .logiAction(let identifier):
+            guard phase == .down else { return .none }
+            executeLogiAction(identifier)
+            return .none
+        case .systemShortcut(let identifier):
+            guard phase == .down else { return .none }
+            executeResolvedSystemShortcut(named: identifier)
+            return .none
+        }
+    }
+
+    func resolveAction(named shortcutName: String, binding: ButtonBinding? = nil) -> ResolvedAction? {
+        if let code = binding?.cachedCustomCode {
+            let modifiers = binding?.cachedCustomModifiers ?? 0
+            return .customKey(code: code, modifiers: modifiers)
+        }
+        if let code = SystemShortcut.predefinedModifierCode(for: shortcutName) {
+            return .customKey(code: code, modifiers: 0)
+        }
+        if let kind = MouseButtonActionKind(shortcutIdentifier: shortcutName) {
+            return .mouseButton(kind: kind)
+        }
         if shortcutName.hasPrefix("logi") {
-            executeLogiAction(shortcutName)
-            return
+            return .logiAction(identifier: shortcutName)
         }
+        guard !shortcutName.isEmpty else { return nil }
+        return .systemShortcut(identifier: shortcutName)
+    }
 
+    private func executeResolvedSystemShortcut(named shortcutName: String) {
         // 优先使用系统实际配置 (对于Mission Control相关快捷键)
         if let resolved = SystemShortcut.resolveSystemShortcut(shortcutName) {
             execute(code: resolved.code, flags: resolved.modifiers)
@@ -81,48 +175,119 @@ class ShortcutExecutor {
         execute(shortcut)
     }
 
-    // MARK: - Mouse Actions
+    // MARK: - Custom Binding Execution
 
-    /// 执行鼠标按键动作
-    private func executeMouseAction(_ name: String) {
+    /// 执行自定义绑定 (1:1 down/up 映射)
+    private func executeCustom(code: UInt16, modifiers: UInt64, phase: InputPhase) {
         guard let source = CGEventSource(stateID: .hidSystemState) else { return }
-        let location = NSEvent.mouseLocation
-        // 转换坐标: NSEvent 用左下角原点, CGEvent 用左上角原点
-        let screenHeight = NSScreen.main?.frame.height ?? 0
-        let cgPoint = CGPoint(x: location.x, y: screenHeight - location.y)
+        let isModifierKey = KeyCode.modifierKeys.contains(code)
 
-        switch name {
-        case "mouseLeftClick":
-            postMouseClick(source: source, at: cgPoint, button: .left,
-                          downType: .leftMouseDown, upType: .leftMouseUp)
-        case "mouseRightClick":
-            postMouseClick(source: source, at: cgPoint, button: .right,
-                          downType: .rightMouseDown, upType: .rightMouseUp)
-        case "mouseMiddleClick":
-            postMouseClick(source: source, at: cgPoint, button: .center,
-                          downType: .otherMouseDown, upType: .otherMouseUp, buttonNumber: 2)
-        case "mouseBackClick":
-            postMouseClick(source: source, at: cgPoint, button: .center,
-                          downType: .otherMouseDown, upType: .otherMouseUp, buttonNumber: 3)
-        case "mouseForwardClick":
-            postMouseClick(source: source, at: cgPoint, button: .center,
-                          downType: .otherMouseDown, upType: .otherMouseUp, buttonNumber: 4)
-        default:
-            break
+        if isModifierKey {
+            // 修饰键: 使用 flagsChanged 事件类型
+            guard let event = CGEvent(source: source) else { return }
+            event.type = .flagsChanged
+            event.setIntegerValueField(.keyboardEventKeycode, value: Int64(code))
+            if phase == .down {
+                // 按下: 设置所有修饰键 flags (自身 + 附加修饰键)
+                let keyMask = KeyCode.getKeyMask(code)
+                event.flags = CGEventFlags(rawValue: modifiers | keyMask.rawValue)
+            } else {
+                // 松开: 清除所有 flags (释放全部修饰键)
+                event.flags = CGEventFlags(rawValue: 0)
+            }
+            // 标记为 Mos 合成事件, 避免被 ScrollCore/ButtonCore/KeyRecorder 误处理
+            event.setIntegerValueField(.eventSourceUserData, value: MosEventMarker.syntheticCustom)
+            event.post(tap: .cghidEventTap)
+        } else {
+            // 普通键: 使用 keyDown/keyUp
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: phase == .down) else { return }
+            event.flags = CGEventFlags(rawValue: modifiers)
+            // 标记为 Mos 合成事件
+            event.setIntegerValueField(.eventSourceUserData, value: MosEventMarker.syntheticCustom)
+            event.post(tap: .cghidEventTap)
         }
     }
 
-    /// 发送鼠标点击事件 (down + up)
-    private func postMouseClick(source: CGEventSource, at point: CGPoint,
-                                button: CGMouseButton, downType: CGEventType, upType: CGEventType,
-                                buttonNumber: Int64? = nil) {
-        if let down = CGEvent(mouseEventSource: source, mouseType: downType, mouseCursorPosition: point, mouseButton: button) {
-            if let bn = buttonNumber { down.setIntegerValueField(.mouseEventButtonNumber, value: bn) }
-            down.post(tap: .cghidEventTap)
+    // MARK: - Mouse Actions
+
+    /// 执行鼠标按键动作 (1:1 down/up 映射)
+    private func executeMouseButton(
+        _ kind: MouseButtonActionKind,
+        phase: InputPhase,
+        mouseSessionID: UUID?,
+        inputModifiers: CGEventFlags?
+    ) -> UUID? {
+        guard let source = CGEventSource(stateID: .hidSystemState) else { return nil }
+        let location = NSEvent.mouseLocation
+        // 转换坐标: NSEvent 用左下角原点, CGEvent 用左上角原点
+        let screenHeight = NSScreen.main?.frame.height ?? 0
+        let point = CGPoint(x: location.x, y: screenHeight - location.y)
+        let spec = mouseEventSpec(for: kind, phase: phase)
+        guard let event = CGEvent(
+            mouseEventSource: source,
+            mouseType: spec.type,
+            mouseCursorPosition: point,
+            mouseButton: spec.button
+        ) else {
+            return nil
         }
-        if let up = CGEvent(mouseEventSource: source, mouseType: upType, mouseCursorPosition: point, mouseButton: button) {
-            if let bn = buttonNumber { up.setIntegerValueField(.mouseEventButtonNumber, value: bn) }
-            up.post(tap: .cghidEventTap)
+
+        let createdSessionID: UUID?
+        if phase == .down {
+            createdSessionID = MouseInteractionSessionController.shared.beginSession(target: syntheticTarget(for: kind))
+        } else {
+            createdSessionID = nil
+            if let mouseSessionID {
+                MouseInteractionSessionController.shared.endSession(id: mouseSessionID)
+            } else {
+                MouseInteractionSessionController.shared.clearAllSessions()
+            }
+        }
+
+        if let buttonNumber = spec.buttonNumber {
+            event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
+        }
+        event.flags = InputProcessor.shared.combinedModifierFlags(physicalModifiers: inputModifiers)
+        event.setIntegerValueField(.eventSourceUserData, value: MosEventMarker.syntheticCustom)
+        notifyOrPostMouseEvent(event)
+        return createdSessionID
+    }
+
+    func setTestingMouseEventObserver(_ observer: @escaping (CGEvent) -> Void = { _ in }) {
+        testingMouseEventObserver = observer
+    }
+
+    func clearTestingMouseEventObserver() {
+        testingMouseEventObserver = nil
+    }
+
+    private func syntheticTarget(for kind: MouseButtonActionKind) -> SyntheticMouseTarget {
+        switch kind {
+        case .left:
+            return .left
+        case .right:
+            return .right
+        case .middle:
+            return .other(buttonNumber: 2)
+        case .back:
+            return .other(buttonNumber: 3)
+        case .forward:
+            return .other(buttonNumber: 4)
+        }
+    }
+
+    private func mouseEventSpec(for kind: MouseButtonActionKind, phase: InputPhase) -> (type: CGEventType, button: CGMouseButton, buttonNumber: Int64?) {
+        switch kind {
+        case .left:
+            return (phase == .down ? .leftMouseDown : .leftMouseUp, .left, nil)
+        case .right:
+            return (phase == .down ? .rightMouseDown : .rightMouseUp, .right, nil)
+        case .middle:
+            return (phase == .down ? .otherMouseDown : .otherMouseUp, .center, 2)
+        case .back:
+            return (phase == .down ? .otherMouseDown : .otherMouseUp, .center, 3)
+        case .forward:
+            return (phase == .down ? .otherMouseDown : .otherMouseUp, .center, 4)
         }
     }
 
@@ -140,5 +305,13 @@ class ShortcutExecutor {
         default:
             break
         }
+    }
+
+    private func notifyOrPostMouseEvent(_ event: CGEvent) {
+        if let testingMouseEventObserver {
+            testingMouseEventObserver(event)
+            return
+        }
+        event.post(tap: .cghidEventTap)
     }
 }

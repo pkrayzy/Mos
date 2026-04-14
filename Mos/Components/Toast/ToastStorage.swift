@@ -13,6 +13,7 @@ import Cocoa
 class ToastStorage {
 
     static let shared = ToastStorage()
+    static let fallbackDefaultWrapWidth: CGFloat = 400
 
     private let defaults: UserDefaults
 
@@ -20,6 +21,7 @@ class ToastStorage {
         static let positionX = "positionX"
         static let positionY = "positionY"
         static let maxCount = "maxCount"
+        static let defaultWrapWidth = "defaultWrapWidth"
         static let showsAccentIndicator = "showsAccentIndicator"
         static let showsIcon = "showsIcon"
     }
@@ -77,6 +79,24 @@ class ToastStorage {
         }
         set {
             defaults.set(min(max(newValue, 1), 8), forKey: Keys.maxCount)
+        }
+    }
+
+    // MARK: - Wrap Width
+
+    /// Toast 默认换行宽度。未配置时默认为 `400`，`0` 表示单行模式。
+    var defaultWrapWidth: CGFloat {
+        get {
+            guard defaults.object(forKey: Keys.defaultWrapWidth) != nil else {
+                return Self.fallbackDefaultWrapWidth
+            }
+            let rawValue = CGFloat(defaults.double(forKey: Keys.defaultWrapWidth))
+            guard rawValue.isFinite else { return Self.fallbackDefaultWrapWidth }
+            return max(rawValue, 0)
+        }
+        set {
+            let sanitizedValue = newValue.isFinite ? max(newValue, 0) : 0
+            defaults.set(Double(sanitizedValue), forKey: Keys.defaultWrapWidth)
         }
     }
 

@@ -52,6 +52,12 @@ struct POPOVER_IDENTIFIER {
     static let statusItemMainPanelViewController = "statusItemMainPanelViewController"
 }
 
+// 合成事件标记 (用于 eventSourceUserData 字段, 区分 Mos 合成事件与物理事件)
+enum MosEventMarker {
+    /// ShortcutExecutor.executeCustom 发出的合成键盘/修饰键事件
+    static let syntheticCustom: Int64 = 0x4D6F73  // "Mos" ASCII
+}
+
 // 事件处理应用
 struct SPECIAL_EVENT_SOURCE_APPLICATION {
     static let logitechOptions = "com.logitech.manager.daemon"
@@ -209,4 +215,10 @@ class OPTIONS_APPLICATION_DEFAULT {
         matchKey: "path",
         forObserver: {() in Options.shared.saveOptions()}
     )
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    /// 辅助功能权限在运行时被撤销
+    static let mosAccessibilityPermissionLost = Notification.Name("mosAccessibilityPermissionLost")
 }

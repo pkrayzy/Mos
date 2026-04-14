@@ -78,11 +78,11 @@ extension StatusItemManager {
             // Reset
             menu.removeAllItems()
             // Monitor
-            Utils.addMenuItem(to: menu, title: NSLocalizedString("Event Monitor", comment: ""), icon: #imageLiteral(resourceName: "SF.square.stack.3d.down.right"), action: #selector(monitorClick))
+            Utils.addMenuItem(to: menu, title: "Debug: Event Monitor", action: #selector(monitorClick))
             // HID++ Debug
-            Utils.addMenuItem(to: menu, title: " HID++", icon: #imageLiteral(resourceName: "SF.hidpp"), action: #selector(hidDebugClick))
+            Utils.addMenuItem(to: menu, title: "Debug: HID++", action: #selector(hidDebugClick))
             // Toast Debug
-            menu.addItem(Toast.debugMenuItem())
+            Utils.addMenuItem(to: menu, title: "Debug: Toast", action: #selector(toastDebugClick))
             // Preferences
             Utils.addMenuItem(to: menu, title: NSLocalizedString("Preferences", comment: ""), icon: #imageLiteral(resourceName: "SF.gauge"), action: #selector(preferencesClick))
             // Quit
@@ -105,6 +105,9 @@ extension StatusItemManager {
     }
     @objc func hidDebugClick() {
         LogitechHIDDebugPanel.shared.show()
+    }
+    @objc func toastDebugClick() {
+        Toast.showTestPanel()
     }
     @objc func preferencesClick() {
         WindowManager.shared.showWindow(withIdentifier: WINDOW_IDENTIFIER.preferencesWindowController)

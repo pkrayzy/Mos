@@ -176,7 +176,11 @@ class ScrollCore {
         }
 
         if shouldSmoothAny {
-            return nil
+            if ScrollPoster.shared.isAvailable {
+                return nil
+            } else {
+                return Unmanaged.passUnretained(event)
+            }
         } else {
             return Unmanaged.passUnretained(event)
         }
@@ -238,6 +242,11 @@ class ScrollCore {
 
     // MARK: - 热键事件处理 (CGEventTap)
     let hotkeyEventCallBack: CGEventTapCallBack = { (proxy, type, event, refcon) in
+        // 跳过 Mos 合成事件, 避免 executeCustom 的 flagsChanged 误触发 dash/toggle/block
+        if event.getIntegerValueField(.eventSourceUserData) == MosEventMarker.syntheticCustom {
+            return nil  // listenOnly tap 返回值无影响
+        }
+
         let keyCode = event.keyCode
         let mouseButton = UInt16(event.getIntegerValueField(.mouseEventButtonNumber))
 
@@ -331,6 +340,9 @@ class ScrollCore {
                 placeAt: .tailAppendEventTap,
                 for: .defaultTap
             )
+            scrollEventInterceptor?.onRestart = {
+                ScrollPoster.shared.stop(.TrackingEnd)
+            }
             hotkeyEventInterceptor = try Interceptor(
                 event: hotkeyEventMask,
                 handleBy: hotkeyEventCallBack,
@@ -347,6 +359,7 @@ class ScrollCore {
             )
             // 初始化滚动事件发送器
             ScrollPoster.shared.create()
+            ScrollPoster.shared.startKeeper()
         } catch {
             print("[ScrollCore] Create Interceptor failure: \(error)")
         }
@@ -358,9 +371,14 @@ class ScrollCore {
         isActive = false
         // 停止滚动事件发送器
         ScrollPoster.shared.stop()
+        ScrollPoster.shared.stopKeeper()
         // 停止截取事件
         scrollEventInterceptor?.stop()
         hotkeyEventInterceptor?.stop()
         mouseEventInterceptor?.stop()
+        // 显式释放, 避免旧 tap 残留在对象图中
+        scrollEventInterceptor = nil
+        hotkeyEventInterceptor = nil
+        mouseEventInterceptor = nil
     }
 }

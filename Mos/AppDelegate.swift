@@ -10,6 +10,10 @@ import Cocoa
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
+    // 防抖定时器: 显示器参数变化通知
+    private var screenChangeTimer: Timer?
+    // 权限恢复轮询定时器
+    private var permissionRecoveryTimer: Timer?
 
     // 运行前预处理
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -53,6 +57,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        // 监听显示器参数变化 (热插拔/分辨率/显示器休眠唤醒), 延迟重建 CVDisplayLink
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.screenChangeTimer?.invalidate()
+            self?.screenChangeTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
+                ScrollPoster.shared.recreateDisplayLink()
+            }
+        }
+        // 监听辅助功能权限在运行时被撤销
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAccessibilityPermissionLost),
+            name: .mosAccessibilityPermissionLost,
+            object: nil
+        )
     }
     // 运行后启动滚动处理
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -85,6 +106,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // 开启辅助权限后, 关闭定时器, 开始处理
             if Utils.isHadAccessibilityPermissions() {
                 validTimer.invalidate()
+                permissionRecoveryTimer = nil
                 NSLog("First Initialization (Accessibility Authorization Needed)")
                 ScrollCore.shared.enable()
                 ButtonCore.shared.enable()
@@ -101,7 +123,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 WindowManager.shared.showWindow(withIdentifier: WINDOW_IDENTIFIER.introductionWindowController, withTitle: "")
                 // 启动定时器检测权限, 当拥有授权时启动滚动处理
                 Timer.scheduledTimer(
-                    timeInterval: 2.0,
+                    timeInterval: 10.0,
                     target: self,
                     selector: #selector(startWithAccessibilityPermissionsChecker(_:)),
                     userInfo: nil,
@@ -113,13 +135,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // 在切换用户时停止滚动处理
     @objc func sessionDidActive(notification: NSNotification){
-        ScrollCore.shared.enable()
-        ButtonCore.shared.enable()
-        LogitechHIDManager.shared.start()
+        startWithAccessibilityPermissionsChecker(nil)
     }
     @objc func sessionDidResign(notification: NSNotification){
+        permissionRecoveryTimer?.invalidate()
+        permissionRecoveryTimer = nil
         LogitechHIDManager.shared.stop()
         ScrollCore.shared.disable()
         ButtonCore.shared.disable()
+    }
+    // 辅助功能权限在运行时被撤销 (可能由多个 Interceptor 同时触发, 此方法必须幂等)
+    @objc func handleAccessibilityPermissionLost() {
+        // 避免多个 Interceptor 同时触发导致重复处理
+        guard ScrollCore.shared.isActive || ButtonCore.shared.isActive else { return }
+        NSLog("Accessibility permission lost at runtime, disabling cores")
+        LogitechHIDManager.shared.stop()
+        ScrollCore.shared.disable()
+        ButtonCore.shared.disable()
+        Toast.show(
+            NSLocalizedString("Accessibility permission lost, Mos has been paused", comment: ""),
+            style: .warning,
+            duration: 5.0
+        )
+        // 启动定时器检测权限恢复
+        permissionRecoveryTimer?.invalidate()
+        permissionRecoveryTimer = Timer.scheduledTimer(
+            timeInterval: 2.0,
+            target: self,
+            selector: #selector(startWithAccessibilityPermissionsChecker(_:)),
+            userInfo: nil,
+            repeats: true
+        )
     }
 }

@@ -150,6 +150,152 @@ private func testInfoStyleProvidesAccentColor() {
            "Info 类型应提供强调色，以支持 ribbon 显示")
 }
 
+private func findMessageLabel(in view: NSView) -> NSTextField? {
+    if let textField = view as? NSTextField {
+        return textField
+    }
+    for subview in view.subviews {
+        if let label = findMessageLabel(in: subview) {
+            return label
+        }
+    }
+    return nil
+}
+
+private func testToastContentViewNilWrapWidthUsesSingleLineTruncation() {
+    let contentView = ToastContentView(
+        message: "Long toast message that should wrap to multiple lines when expanded.",
+        icon: nil,
+        accentColor: nil,
+        showsAccentIndicator: true,
+        wrapWidth: nil
+    )
+
+    guard let messageLabel = findMessageLabel(in: contentView) else {
+        fputs("FAIL: 未找到 toast 消息文本控件\n", stderr)
+        exit(1)
+    }
+
+    expect(messageLabel.maximumNumberOfLines == 1, "未提供 wrapWidth 时应默认为单行")
+    expect(messageLabel.lineBreakMode == .byTruncatingTail, "未提供 wrapWidth 时应默认为尾部截断")
+}
+
+private func testDefaultWrapWidthStorageDefaultsToFourHundred() {
+    let suiteName = "\(Bundle.main.bundleIdentifier ?? "app").toast"
+    let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+    defaults.removeObject(forKey: "defaultWrapWidth")
+
+    let storage = ToastStorage()
+
+    expectEqual(storage.defaultWrapWidth, 400, "defaultWrapWidth 默认值应为 400")
+}
+
+private func testDefaultWrapWidthStorageClampsNegativeValues() {
+    let suiteName = "\(Bundle.main.bundleIdentifier ?? "app").toast"
+    let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+    defaults.removeObject(forKey: "defaultWrapWidth")
+
+    let storage = ToastStorage()
+    storage.defaultWrapWidth = -120
+
+    expectEqual(storage.defaultWrapWidth, 0, "defaultWrapWidth 不应接受负值")
+}
+
+private func testDefaultWrapWidthStoragePreservesPositiveValues() {
+    let suiteName = "\(Bundle.main.bundleIdentifier ?? "app").toast"
+    let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+    defaults.removeObject(forKey: "defaultWrapWidth")
+
+    let storage = ToastStorage()
+    storage.defaultWrapWidth = 420
+
+    expectEqual(storage.defaultWrapWidth, 420, "defaultWrapWidth 应保留正值")
+}
+
+private func testZeroWrapWidthUsesSingleLineTruncation() {
+    let contentView = ToastContentView(
+        message: "Long toast message that should stay on a single line when wrap width is zero.",
+        icon: nil,
+        accentColor: nil,
+        showsAccentIndicator: true,
+        wrapWidth: 0
+    )
+
+    guard let messageLabel = findMessageLabel(in: contentView) else {
+        fputs("FAIL: 未找到 toast 消息文本控件\n", stderr)
+        exit(1)
+    }
+
+    expect(messageLabel.maximumNumberOfLines == 1, "wrapWidth = 0 时应强制单行")
+    expect(messageLabel.lineBreakMode == .byTruncatingTail, "wrapWidth = 0 时应保持尾部截断")
+}
+
+private func testZeroWrapWidthCanUseWiderSingleLineLimit() {
+    let contentView = ToastContentView(
+        message: "Hello, this is a toast message 213123123123123123231 and it should stay on one line without the old 350pt cap.",
+        icon: ToastContentView.defaultIcon(for: .info),
+        accentColor: ToastContentView.accentColor(for: .info),
+        showsAccentIndicator: true,
+        wrapWidth: 0,
+        singleLineMaxWidth: 800
+    )
+
+    contentView.layoutSubtreeIfNeeded()
+
+    expect(contentView.fittingSize.width > 500, "单行模式应允许使用更宽的单行上限，而不是固定截断在 350pt")
+}
+
+private func testPositiveWrapWidthUsesUnlimitedLines() {
+    let contentView = ToastContentView(
+        message: "Long toast message that should wrap to multiple lines when wrap width is positive.",
+        icon: nil,
+        accentColor: nil,
+        showsAccentIndicator: true,
+        wrapWidth: 350
+    )
+
+    guard let messageLabel = findMessageLabel(in: contentView) else {
+        fputs("FAIL: 未找到 toast 消息文本控件\n", stderr)
+        exit(1)
+    }
+
+    expect(messageLabel.maximumNumberOfLines == 0, "正 wrapWidth 时应取消行数限制")
+    expect(messageLabel.lineBreakMode == .byWordWrapping, "正 wrapWidth 时应启用自动换行")
+    expectEqual(messageLabel.preferredMaxLayoutWidth, 350, "正 wrapWidth 时应传递到 preferredMaxLayoutWidth")
+}
+
+private func testPositiveWrapWidthKeepsReadableWidth() {
+    let contentView = ToastContentView(
+        message: "This is a long toast message that should wrap across multiple lines when full text is enabled.",
+        icon: ToastContentView.defaultIcon(for: .warning),
+        accentColor: ToastContentView.accentColor(for: .warning),
+        showsAccentIndicator: true,
+        wrapWidth: 350
+    )
+
+    contentView.layoutSubtreeIfNeeded()
+
+    expect(contentView.fittingSize.width >= 250, "正 wrapWidth 时 toast 宽度不应塌缩到只剩图标")
+}
+
+private func testNegativeWrapWidthFallsBackToSingleLine() {
+    let contentView = ToastContentView(
+        message: "Long toast message that should still stay single-line when wrap width is negative.",
+        icon: nil,
+        accentColor: nil,
+        showsAccentIndicator: true,
+        wrapWidth: -1
+    )
+
+    guard let messageLabel = findMessageLabel(in: contentView) else {
+        fputs("FAIL: 未找到 toast 消息文本控件\n", stderr)
+        exit(1)
+    }
+
+    expect(messageLabel.maximumNumberOfLines == 1, "负 wrapWidth 应回退到单行")
+    expect(messageLabel.lineBreakMode == .byTruncatingTail, "负 wrapWidth 应保持尾部截断")
+}
+
 private func testSnappedAnchorPointSnapsXAxisToScreenMidline() {
     let visibleFrame = NSRect(x: 80, y: 40, width: 1200, height: 800)
     let proposedAnchor = NSPoint(x: visibleFrame.midX - 19, y: 420)
@@ -195,6 +341,15 @@ struct ToastRegressionTests {
         testStackOffsetsMatchLayeredSpacing()
         testStackOpacitiesFadeByLayer()
         testInfoStyleProvidesAccentColor()
+        testToastContentViewNilWrapWidthUsesSingleLineTruncation()
+        testDefaultWrapWidthStorageDefaultsToFourHundred()
+        testDefaultWrapWidthStorageClampsNegativeValues()
+        testDefaultWrapWidthStoragePreservesPositiveValues()
+        testZeroWrapWidthUsesSingleLineTruncation()
+        testZeroWrapWidthCanUseWiderSingleLineLimit()
+        testPositiveWrapWidthUsesUnlimitedLines()
+        testPositiveWrapWidthKeepsReadableWidth()
+        testNegativeWrapWidthFallsBackToSingleLine()
         testSnappedAnchorPointSnapsXAxisToScreenMidline()
         testSnappedAnchorPointLeavesXAxisAloneOutsideTolerance()
         testSnappedAnchorPointSnapsYAxisToScreenFifths()

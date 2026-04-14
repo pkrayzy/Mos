@@ -118,6 +118,15 @@ class ShortcutManager {
         // 鼠标按键分类 (始终显示)
         addCategoryToMenu(
             menu: menu,
+            category: SystemShortcut.modifierKeysCategory,
+            target: target,
+            action: action,
+            totalShortcuts: &totalShortcuts
+        )
+
+        // 鼠标按键分类 (始终显示)
+        addCategoryToMenu(
+            menu: menu,
             category: SystemShortcut.mouseButtonsCategory,
             target: target,
             action: action,
@@ -135,6 +144,24 @@ class ShortcutManager {
                 customImage: BrandTag.createTagImage(brand: .logi, fontSize: 7, height: 14)
             )
         }
+
+        // 自定义绑定分隔线
+        menu.addItem(NSMenuItem.separator())
+
+        // "自定义…" 菜单项 (representedObject 为字符串标记)
+        let customItem = NSMenuItem(
+            title: NSLocalizedString("custom-shortcut", comment: ""),
+            action: action,
+            keyEquivalent: ""
+        )
+        customItem.target = target
+        customItem.representedObject = "__custom__" as NSString
+        if supportsSFSymbols {
+            if #available(macOS 11.0, *) {
+                customItem.image = createSymbolImage("keyboard")
+            }
+        }
+        menu.addItem(customItem)
     }
 
     /// 将一个分类添加到菜单
@@ -188,4 +215,3 @@ class ShortcutManager {
     }
 
 }
-

@@ -13,6 +13,12 @@ class Interceptor {
     private var keeper: Timer?
     private var _eventTapRef: CFMachPort?
     private var _runLoopSourceRef: CFRunLoopSource?
+
+    /// 重启时的额外清理操作 (由调用方注入, 避免 Interceptor 耦合特定子系统)
+    /// 注意: 闭包不应捕获 Interceptor 实例, 否则会形成循环引用
+    var onRestart: (() -> Void)?
+    /// 控制是否继续执行自动重启逻辑 (默认 true)
+    var shouldRestart: (() -> Bool)?
     
     // 可访问对象只读
     public var eventTapRef: CFMachPort? { _eventTapRef }
@@ -62,6 +68,11 @@ extension Interceptor {
         guard let tap = _eventTapRef, let source = _runLoopSourceRef else {
             throw InterceptorError.eventTapEnableFailed
         }
+        // 权限已被撤销时, 不启用 tap, 避免僵尸 tap 吞没系统事件
+        guard AXIsProcessTrusted() else {
+            NotificationCenter.default.post(name: .mosAccessibilityPermissionLost, object: nil)
+            throw InterceptorError.eventTapEnableFailed
+        }
         // 确保 source 没有被重复添加
         if !CFRunLoopContainsSource(CFRunLoopGetCurrent(), source, .commonModes) {
             CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
@@ -70,20 +81,36 @@ extension Interceptor {
         CGEvent.tapEnable(tap: tap, enable: true)
         // 启动守护
         keeper = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            if let self = self, !self.isRunning() {
+            guard let self = self else { return }
+            // 权限被撤销时, 主动停止 tap 并通知, 不等 restart 判断
+            guard AXIsProcessTrusted() else {
+                self.stop()
+                self.onRestart?()
+                NotificationCenter.default.post(name: .mosAccessibilityPermissionLost, object: nil)
+                return
+            }
+            if !self.isRunning() {
                 self.restart()
             }
         }
     }
     
     public func stop() {
+        stop(removeFromRunLoop: true)
+    }
+
+    public func pause() {
+        stop(removeFromRunLoop: false)
+    }
+
+    private func stop(removeFromRunLoop: Bool) {
         // 停止守护
         keeper?.invalidate()
         keeper = nil
         // 关闭拦截层
         if let tap = _eventTapRef, let source = _runLoopSourceRef {
             CGEvent.tapEnable(tap: tap, enable: false)
-            if CFRunLoopContainsSource(CFRunLoopGetCurrent(), source, .commonModes) {
+            if removeFromRunLoop, CFRunLoopContainsSource(CFRunLoopGetCurrent(), source, .commonModes) {
                 CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
             }
         }
@@ -101,21 +128,19 @@ extension Interceptor {
     }
     
     public func restart() {
-        stop()
-        ScrollPoster.shared.stop(.TrackingEnd)
-        // 保存 timer 的引用以防止提前释放
-        keeper = Timer.scheduledTimer(
-            timeInterval: 0.5,
-            target: self,
-            selector: #selector(start),
-            userInfo: nil,
-            repeats: false
-        )
-    }
-    
-    @objc private func check() {
-        if !isRunning() {
-            restart()
+        // 权限已被撤销时, 不再尝试重新启用 tap
+        guard AXIsProcessTrusted() else {
+            stop()
+            onRestart?()
+            NotificationCenter.default.post(name: .mosAccessibilityPermissionLost, object: nil)
+            return
+        }
+        pause()
+        onRestart?()
+        guard shouldRestart?() ?? true else { return }
+        // 使用 closure timer 避免 @objc throws 方法作为 selector 的 ObjC bridge 问题
+        keeper = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            try? self?.start()
         }
     }
 }

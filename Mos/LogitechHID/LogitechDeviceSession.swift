@@ -15,7 +15,7 @@ class LogitechDeviceSession {
 
     // MARK: - Public
     let hidDevice: IOHIDDevice
-    let deviceInfo: MosInputDevice
+    let deviceInfo: InputDevice
     let usagePage: Int
     let usage: Int
     let transport: String
@@ -153,7 +153,7 @@ class LogitechDeviceSession {
         self.usagePage = IOHIDDeviceGetProperty(hidDevice, kIOHIDPrimaryUsagePageKey as CFString) as? Int ?? 0
         self.usage = IOHIDDeviceGetProperty(hidDevice, kIOHIDPrimaryUsageKey as CFString) as? Int ?? 0
         self.transport = IOHIDDeviceGetProperty(hidDevice, kIOHIDTransportKey as CFString) as? String ?? ""
-        self.deviceInfo = MosInputDevice(
+        self.deviceInfo = InputDevice(
             vendorId: UInt16(IOHIDDeviceGetProperty(hidDevice, kIOHIDVendorIDKey as CFString) as? Int ?? 0),
             productId: UInt16(IOHIDDeviceGetProperty(hidDevice, kIOHIDProductIDKey as CFString) as? Int ?? 0),
             name: IOHIDDeviceGetProperty(hidDevice, kIOHIDProductKey as CFString) as? String ?? "Unknown"
@@ -1535,12 +1535,12 @@ class LogitechDeviceSession {
 
     private func dispatchButtonEvent(cid: UInt16, isDown: Bool) {
         let currentFlags = CGEventSource.flagsState(.combinedSessionState)
-        let mosEvent = MosInputEvent(
+        let mosEvent = InputEvent(
             type: .mouse,
             code: LogitechCIDRegistry.toMosCode(cid),
             modifiers: currentFlags,
             phase: isDown ? .down : .up,
-            source: .hidPlusPlus,
+            source: .hidPP,
             device: deviceInfo
         )
 
@@ -1561,21 +1561,21 @@ class LogitechDeviceSession {
             code: mosEvent.code, isDown: isDown
         )
 
-        // 匹配 binding, 如果是 logi* 动作则在当前 session 执行 (设备隔离)
+        // 匹配 binding: logi* 动作在当前 session 执行 (设备隔离, 仅 down)
+        // 其余一律走 InputProcessor (支持 down/up 和 custom 绑定)
         if isDown {
-            let bindings = ButtonUtils.shared.getButtonBindings()
-            if let binding = bindings.first(where: { $0.triggerEvent.matchesMosInput(mosEvent) && $0.isEnabled }) {
-                if binding.systemShortcutName.hasPrefix("logi") {
-                    executeLogiAction(binding.systemShortcutName)
-                } else {
-                    ShortcutExecutor.shared.execute(named: binding.systemShortcutName)
-                }
+            if let binding = ButtonUtils.shared.getBestMatchingBinding(
+                for: mosEvent,
+                where: { $0.systemShortcutName.hasPrefix("logi") }
+            ) {
+                // Logi 动作: 在当前 session 执行 (设备隔离, 不注册 activeBindings)
+                executeLogiAction(binding.systemShortcutName)
                 return
             }
         }
-
-        // 未匹配的事件走 MosInputProcessor
-        let _ = MosInputProcessor.shared.process(mosEvent)
+        // 非 logi 绑定 (含 custom::) 和所有 Up 事件: 统一走 InputProcessor
+        let result = InputProcessor.shared.process(mosEvent)
+        if result == .consumed { return }
 
         // 通知 KeyRecorder
         NotificationCenter.default.post(

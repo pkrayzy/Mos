@@ -55,6 +55,31 @@ extension CGEvent {
         return KeyCode.mouseMap[mouseCode] ?? "Mouse(\(mouseCode))"
     }
 
+    /// 事件类型名 (用于调试日志)
+    var eventTypeName: String {
+        switch type {
+        case .leftMouseDown: return "leftMouseDown"
+        case .leftMouseUp: return "leftMouseUp"
+        case .rightMouseDown: return "rightMouseDown"
+        case .rightMouseUp: return "rightMouseUp"
+        case .mouseMoved: return "mouseMoved"
+        case .leftMouseDragged: return "leftMouseDragged"
+        case .rightMouseDragged: return "rightMouseDragged"
+        case .otherMouseDown: return "otherMouseDown"
+        case .otherMouseUp: return "otherMouseUp"
+        case .otherMouseDragged: return "otherMouseDragged"
+        case .keyDown: return "keyDown"
+        case .keyUp: return "keyUp"
+        case .flagsChanged: return "flagsChanged"
+        case .scrollWheel: return "scrollWheel"
+        case .tabletPointer: return "tabletPointer"
+        case .tabletProximity: return "tabletProximity"
+        case .null: return "null"
+        default:
+            return "type(\(type.rawValue))"
+        }
+    }
+
     /// 修饰键
     var isModifiers: Bool {
         KeyCode.modifierKeys.contains(keyCode)
@@ -142,12 +167,38 @@ extension CGEvent {
 
     /// 是否为鼠标事件
     var isMouseEvent: Bool {
+        return isMouseButtonEvent
+    }
+
+    /// 是否为鼠标按键 down/up 事件
+    var isMouseButtonEvent: Bool {
         switch type {
-            case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            case .leftMouseDown, .rightMouseDown, .otherMouseDown,
+                 .leftMouseUp, .rightMouseUp, .otherMouseUp:
                 return true
             default:
                 return false
         }
+    }
+
+    /// 是否为鼠标拖拽事件
+    var isMouseDragEvent: Bool {
+        switch type {
+            case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+                return true
+            default:
+                return false
+        }
+    }
+
+    /// 是否为普通鼠标移动事件
+    var isMouseMoveEvent: Bool {
+        return type == .mouseMoved
+    }
+
+    /// 是否属于鼠标交互相关事件 (按键/拖拽/移动)
+    var isMouseInteractionEvent: Bool {
+        return isMouseButtonEvent || isMouseDragEvent || isMouseMoveEvent
     }
 
     /// 事件是否有效
@@ -211,4 +262,3 @@ extension CGEvent {
     }
 
 }
-

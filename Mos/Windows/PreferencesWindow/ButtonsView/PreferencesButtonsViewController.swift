@@ -74,6 +74,7 @@ extension PreferencesButtonsViewController {
     // 保存界面到 Options, 并同步 divert 状态
     func syncViewWithOptions() {
         Options.shared.buttons.binding = buttonBindings
+        ButtonUtils.shared.invalidateCache()
         // 绑定变更后同步 HID++ divert: 只 divert 有绑定的按键
         LogitechHIDManager.shared.syncDivertWithBindings()
     }
@@ -90,7 +91,7 @@ extension PreferencesButtonsViewController {
         }
     }
     
-    private func addRecordedEvent(_ event: MosInputEvent, isDuplicate: Bool) {
+    private func addRecordedEvent(_ event: InputEvent, isDuplicate: Bool) {
         let recordedEvent = RecordedEvent(from: event)
 
         if isDuplicate {
@@ -156,6 +157,20 @@ extension PreferencesButtonsViewController {
         buttonBindings[index] = updatedBinding
         syncViewWithOptions()
     }
+
+    /// 更新按钮绑定 (自定义快捷键)
+    func updateButtonBinding(id: UUID, withCustomName name: String) {
+        guard let index = buttonBindings.firstIndex(where: { $0.id == id }) else { return }
+        let old = buttonBindings[index]
+        buttonBindings[index] = ButtonBinding(
+            id: old.id,
+            triggerEvent: old.triggerEvent,
+            systemShortcutName: name,
+            isEnabled: true,
+            createdAt: old.createdAt
+        )
+        syncViewWithOptions()
+    }
 }
 
 /**
@@ -187,6 +202,9 @@ extension PreferencesButtonsViewController: NSTableViewDelegate, NSTableViewData
                 with: binding,
                 onShortcutSelected: { [weak self] shortcut in
                     self?.updateButtonBinding(id: binding.id, with: shortcut)
+                },
+                onCustomShortcutRecorded: { [weak self] customName in
+                    self?.updateButtonBinding(id: binding.id, withCustomName: customName)
                 },
                 onDeleteRequested: { [weak self] in
                     self?.removeButtonBinding(id: binding.id)
@@ -225,12 +243,12 @@ extension PreferencesButtonsViewController: NSTableViewDelegate, NSTableViewData
 
 // MARK: - EventRecorderDelegate
 extension PreferencesButtonsViewController: KeyRecorderDelegate {
-    func validateRecordedEvent(_ recorder: KeyRecorder, event: MosInputEvent) -> Bool {
+    func validateRecordedEvent(_ recorder: KeyRecorder, event: InputEvent) -> Bool {
         let recordedEvent = RecordedEvent(from: event)
         return !buttonBindings.contains(where: { $0.triggerEvent == recordedEvent })
     }
 
-    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: MosInputEvent, isDuplicate: Bool) {
+    func onEventRecorded(_ recorder: KeyRecorder, didRecordEvent event: InputEvent, isDuplicate: Bool) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.66) { [weak self] in
             self?.addRecordedEvent(event, isDuplicate: isDuplicate)
         }

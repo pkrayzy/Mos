@@ -122,7 +122,7 @@ class LogitechHIDManager {
     // MARK: - Query
 
     /// 获取当前已连接的 Logitech 设备列表
-    var connectedDevices: [MosInputDevice] {
+    var connectedDevices: [InputDevice] {
         return sessions.values.map { $0.deviceInfo }
     }
 
